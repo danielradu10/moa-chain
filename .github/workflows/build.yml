@@ -23,4 +23,4 @@ jobs:
         run: go mod download
 
       - name: Build
-        run: go build ./...
+        run: go build -o bin/moa-chain ./cmd/node
