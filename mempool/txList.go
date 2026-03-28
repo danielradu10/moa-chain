@@ -6,7 +6,7 @@ import (
 )
 
 type txList struct {
-	mutTxList       sync.Mutex
+	mutTxList       sync.RWMutex
 	transactionList []Transaction
 }
 
@@ -68,19 +68,31 @@ func shouldComeBefore(transactionA Transaction, transactionB Transaction) bool {
 
 // numTransactions returns the number of transactions in the list
 func (txl *txList) numTransactions() int {
-	txl.mutTxList.Lock()
-	defer txl.mutTxList.Unlock()
+	txl.mutTxList.RLock()
+	defer txl.mutTxList.RUnlock()
 
 	return len(txl.transactionList)
 }
 
-func (txl *txList) getTxByIndex(index int) Transaction {
-	txl.mutTxList.Lock()
-	defer txl.mutTxList.Unlock()
+func (txl *txList) getTxByIndex(index uint64) Transaction {
+	txl.mutTxList.RLock()
+	defer txl.mutTxList.RUnlock()
 
-	if index >= len(txl.transactionList) {
+	if int(index) >= len(txl.transactionList) {
 		return nil
 	}
 
 	return txl.transactionList[index]
+}
+
+func (txl *txList) snapshot() *txList {
+	txl.mutTxList.RLock()
+	defer txl.mutTxList.RUnlock()
+
+	transactionListCopy := make([]Transaction, len(txl.transactionList))
+	copy(transactionListCopy, txl.transactionList)
+
+	return &txList{
+		transactionList: transactionListCopy,
+	}
 }

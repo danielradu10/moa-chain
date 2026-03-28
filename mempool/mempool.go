@@ -1,8 +1,11 @@
 package mempool
 
 import (
+	"container/heap"
 	"sync"
 )
+
+const maxBlockConsumption = 10000
 
 type memPool struct {
 	transactionsCount  uint64
@@ -57,6 +60,70 @@ func (mp *memPool) addTxByHashNoLock(transaction Transaction) {
 	if !ok {
 		mp.transactionsByHash[string(txHash)] = transaction
 	}
+}
+
+// snapshot does a snapshot of each important map from the MemPool.
+// The method is used in the SelectTransactions so that the selection can be made without concurrent interferences.
+func (mp *memPool) snapshot() (map[string]Transaction, *sendersMap) {
+	mp.mempoolMutex.RLock()
+	defer mp.mempoolMutex.RUnlock()
+
+	transactionsByHashSnapshot := make(map[string]Transaction, len(mp.transactionsByHash))
+	for txHash, tx := range mp.transactionsByHash {
+		transactionsByHashSnapshot[txHash] = tx
+	}
+
+	sendersMapSnapshot := mp.senders.snapshot()
+	return transactionsByHashSnapshot, sendersMapSnapshot
+}
+
+func (mp *memPool) SelectTransactions() []Transaction {
+	_, sendersMapSnapshot := mp.snapshot()
+
+	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), nil)
+	if err != nil {
+		return nil
+	}
+
+	heap.Init(txHeap)
+	for _, senderTxList := range sendersMapSnapshot.senders {
+		heap.Push(txHeap, txHeapItem{senderTxList: senderTxList})
+	}
+
+	accumulatedConsumption := uint64(0)
+	selectedTransactions := make([]Transaction, 0)
+	selSession := newSelectionSession()
+
+	for txHeap.Len() > 0 {
+		currentBestItem := heap.Pop(txHeap).(txHeapItem)
+
+		currentBestTransaction := currentBestItem.getCurrentTransaction()
+		estimatedConsumption := currentBestTransaction.GetEstimatedConsumption()
+		if accumulatedConsumption+estimatedConsumption > maxBlockConsumption {
+			break
+		}
+
+		if selSession.senderShouldBeSkipped(currentBestTransaction) {
+			continue
+		}
+
+		if !selSession.transactionShouldBeSkipped(currentBestTransaction) {
+			err := selSession.OnSelectedTransaction(currentBestTransaction)
+			if err != nil {
+				continue
+			}
+
+			selectedTransactions = append(selectedTransactions, currentBestTransaction)
+			accumulatedConsumption += estimatedConsumption
+		}
+
+		if currentBestItem.nextTransactionOfSenderExists() {
+			currentBestItem.goToNextTransactionOfSender()
+			heap.Push(txHeap, currentBestItem)
+		}
+	}
+
+	return selectedTransactions
 }
 
 // NumTransactions returns the number of transactions from the pool

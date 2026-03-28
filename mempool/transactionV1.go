@@ -13,6 +13,7 @@ type transaction struct {
 	txHash           []byte
 
 	// to be computed fields
+	domainLabel              []byte
 	numInputTokens           uint64
 	numEstimatedOutputTokens uint64
 	estimatedConsumption     uint64
@@ -74,4 +75,8 @@ func (tx *transaction) GetEstimatedConsumption() uint64 {
 
 func (tx *transaction) IsInterfaceNil() bool {
 	return tx == nil
+}
+
+func (tx *transaction) GetDomainLabel() []byte {
+	return tx.domainLabel
 }
