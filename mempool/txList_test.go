@@ -184,11 +184,3 @@ func Test_shouldComeBefore(t *testing.T) {
 		require.False(t, shouldComeBefore(tx2, tx1))
 	})
 }
-
-func createTx(nonce uint64, estimatedConsumption uint64, txHash []byte) *transaction {
-	return &transaction{
-		nonce:                nonce,
-		estimatedConsumption: estimatedConsumption,
-		txHash:               txHash,
-	}
-}

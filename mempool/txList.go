@@ -31,7 +31,8 @@ func (txl *txList) add(tx Transaction) {
 	txl.transactionList = updatedList
 }
 
-// findInsertionPlaceNoLock finds the insertion place of a transaction; the method has to be called under a mutex lock
+// findInsertionPlaceNoLock finds the insertion place of a transaction.
+// The method has to be called under a mutex protection
 func (txl *txList) findInsertionPlaceNoLock(tx Transaction) uint64 {
 	left := 0
 	right := len(txl.transactionList)
@@ -63,4 +64,23 @@ func shouldComeBefore(transactionA Transaction, transactionB Transaction) bool {
 
 	// we need a deterministic way in case of equal transactions
 	return bytes.Compare(transactionA.GetTxHash(), transactionB.GetTxHash()) < 0
+}
+
+// numTransactions returns the number of transactions in the list
+func (txl *txList) numTransactions() int {
+	txl.mutTxList.Lock()
+	defer txl.mutTxList.Unlock()
+
+	return len(txl.transactionList)
+}
+
+func (txl *txList) getTxByIndex(index int) Transaction {
+	txl.mutTxList.Lock()
+	defer txl.mutTxList.Unlock()
+
+	if index >= len(txl.transactionList) {
+		return nil
+	}
+
+	return txl.transactionList[index]
 }

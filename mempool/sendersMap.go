@@ -27,3 +27,26 @@ func (sm *sendersMap) add(sender string, tx Transaction) {
 
 	sm.senders[sender].add(tx)
 }
+
+func (sm *sendersMap) numAddresses() uint64 {
+	sm.mutSendersMap.RLock()
+	defer sm.mutSendersMap.RUnlock()
+
+	return uint64(len(sm.senders))
+}
+
+func (sm *sendersMap) getTransactionsListBySender(sender []byte) (*txList, error) {
+	sm.mutSendersMap.RLock()
+	defer sm.mutSendersMap.RUnlock()
+
+	if sender == nil {
+		return nil, ErrNilSender
+	}
+
+	txs, ok := sm.senders[string(sender)]
+	if !ok {
+		return nil, ErrSenderDoesNotExist
+	}
+
+	return txs, nil
+}
