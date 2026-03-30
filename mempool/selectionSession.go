@@ -11,9 +11,12 @@ type selectionSession struct {
 	skippedSenders map[string]struct{}
 }
 
-func newSelectionSession() *selectionSession {
+func newSelectionSession(accountsState state.AccountsState) *selectionSession {
 	return &selectionSession{
 		virtualRecords: make(map[string]*virtualRecord),
+		accountsState:  accountsState,
+
+		skippedSenders: make(map[string]struct{}),
 	}
 }
 
@@ -33,8 +36,8 @@ func (session *selectionSession) OnSelectedTransaction(transaction Transaction) 
 
 		vr = newVirtualRecord(
 			initialNonce,
-			transaction.GetNonce(),
 			initialBalance,
+			transaction.GetNonce(),
 		)
 		session.virtualRecords[sender] = vr
 	}
@@ -82,6 +85,10 @@ func (session *selectionSession) higherNonceThanInitialNonce(sender string, txNo
 }
 
 func (session *selectionSession) higherNonceThanCurrentNonce(vr *virtualRecord, txNonce uint64) bool {
+	if vr == nil {
+		return false
+	}
+
 	lastNonce := vr.currentNonce.Value
 	if txNonce > lastNonce+1 {
 		return true
@@ -92,7 +99,6 @@ func (session *selectionSession) higherNonceThanCurrentNonce(vr *virtualRecord, 
 
 func (session *selectionSession) transactionShouldBeSkipped(transaction Transaction) bool {
 	sender := string(transaction.GetSender())
-
 	_, ok := session.skippedSenders[sender]
 	if ok {
 		return true
@@ -127,8 +133,12 @@ func (session *selectionSession) lowerOrDuplicatedNonceThanInitialNonce(sender s
 }
 
 func (session *selectionSession) lowerOrDuplicatedNonceThanCurrentNonce(vr *virtualRecord, txNonce uint64) bool {
+	if vr == nil {
+		return false
+	}
+
 	lastNonce := vr.currentNonce.Value
-	if txNonce < lastNonce {
+	if txNonce < lastNonce+1 {
 		return true
 	}
 

@@ -2,17 +2,17 @@ package mempool
 
 type transactionsHeap struct {
 	items []*txHeapItem
-	less  func(i, j int) bool
+	less  txHeapComparator
 }
 
-func newTransactionsHeap(capacity uint64, comparatorMethod func(i, j int) bool) (*transactionsHeap, error) {
-	if comparatorMethod == nil {
+func newTransactionsHeap(capacity uint64, less txHeapComparator) (*transactionsHeap, error) {
+	if less == nil {
 		// err
 	}
 
 	return &transactionsHeap{
-		items: make([]*txHeapItem, capacity),
-		less:  comparatorMethod,
+		items: make([]*txHeapItem, 0, capacity),
+		less:  less,
 	}, nil
 }
 
@@ -21,7 +21,7 @@ func (h *transactionsHeap) Len() int { return len(h.items) }
 
 // Less reports whether the element with index i should sort before the element with index j.
 func (h *transactionsHeap) Less(i, j int) bool {
-	return h.less(i, j)
+	return h.less(h.items[i], h.items[j])
 }
 
 // Swap swaps the elements with indexes i and j.

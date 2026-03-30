@@ -3,6 +3,8 @@ package mempool
 import (
 	"container/heap"
 	"sync"
+
+	"moa-chain/state"
 )
 
 const maxBlockConsumption = 10000
@@ -77,25 +79,28 @@ func (mp *memPool) snapshot() (map[string]Transaction, *sendersMap) {
 	return transactionsByHashSnapshot, sendersMapSnapshot
 }
 
-func (mp *memPool) SelectTransactions() []Transaction {
+func (mp *memPool) SelectTransactions(
+	accountsState state.AccountsState,
+	comparator txHeapComparator,
+) []Transaction {
 	_, sendersMapSnapshot := mp.snapshot()
 
-	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), nil)
+	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), comparator)
 	if err != nil {
 		return nil
 	}
 
 	heap.Init(txHeap)
 	for _, senderTxList := range sendersMapSnapshot.senders {
-		heap.Push(txHeap, txHeapItem{senderTxList: senderTxList})
+		heap.Push(txHeap, newTxHeapItem(senderTxList))
 	}
 
 	accumulatedConsumption := uint64(0)
 	selectedTransactions := make([]Transaction, 0)
-	selSession := newSelectionSession()
+	selSession := newSelectionSession(accountsState)
 
 	for txHeap.Len() > 0 {
-		currentBestItem := heap.Pop(txHeap).(txHeapItem)
+		currentBestItem := heap.Pop(txHeap).(*txHeapItem)
 
 		currentBestTransaction := currentBestItem.getCurrentTransaction()
 		estimatedConsumption := currentBestTransaction.GetEstimatedConsumption()

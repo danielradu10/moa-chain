@@ -246,3 +246,212 @@ func TestMemPool_AddTransaction(t *testing.T) {
 		require.Equal(t, []byte("txHash2"), aliceTxList.getTxByIndex(1).GetTxHash())
 	})
 }
+
+func TestMemPool_SelectTransactions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should return empty list when mempool is empty", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{})
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Empty(t, selectedTransactions)
+	})
+
+	t.Run("should select transactions in comparator order across senders", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{
+			"alice": {nonce: 0, balance: 100},
+			"bob":   {nonce: 0, balance: 100},
+			"carol": {nonce: 0, balance: 100},
+		})
+
+		tx1 := createSelectionTx(0, "alice", 50, 30, 10, []byte("txHash1"))
+		tx2 := createSelectionTx(0, "bob", 80, 20, 10, []byte("txHash2"))
+		tx3 := createSelectionTx(0, "carol", 60, 10, 10, []byte("txHash3"))
+
+		require.NoError(t, mempool.AddTransaction(tx1))
+		require.NoError(t, mempool.AddTransaction(tx2))
+		require.NoError(t, mempool.AddTransaction(tx3))
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Equal(t, []Transaction{tx2, tx3, tx1}, selectedTransactions)
+	})
+
+	t.Run("should use estimated consumption as tie breaker when scores are equal", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{
+			"alice": {nonce: 0, balance: 100},
+			"bob":   {nonce: 0, balance: 100},
+		})
+
+		tx1 := createSelectionTx(0, "alice", 100, 30, 10, []byte("txHash1"))
+		tx2 := createSelectionTx(0, "bob", 100, 10, 10, []byte("txHash2"))
+
+		require.NoError(t, mempool.AddTransaction(tx1))
+		require.NoError(t, mempool.AddTransaction(tx2))
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Equal(t, []Transaction{tx2, tx1}, selectedTransactions)
+	})
+
+	t.Run("should use tx hash as tie breaker when score and consumption are equal", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{
+			"alice": {nonce: 0, balance: 100},
+			"bob":   {nonce: 0, balance: 100},
+		})
+
+		tx1 := createSelectionTx(0, "alice", 100, 10, 10, []byte("txHash1"))
+		tx2 := createSelectionTx(0, "bob", 100, 10, 10, []byte("txHash2"))
+
+		require.NoError(t, mempool.AddTransaction(tx1))
+		require.NoError(t, mempool.AddTransaction(tx2))
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Equal(t, []Transaction{tx1, tx2}, selectedTransactions)
+	})
+
+	t.Run("should stop when next best transaction exceeds max block consumption", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{
+			"alice": {nonce: 0, balance: 100},
+			"bob":   {nonce: 0, balance: 100},
+		})
+
+		tx1 := createSelectionTx(0, "alice", 100, 9000, 10, []byte("txHash1"))
+		tx2 := createSelectionTx(0, "bob", 90, 2000, 10, []byte("txHash2"))
+
+		require.NoError(t, mempool.AddTransaction(tx1))
+		require.NoError(t, mempool.AddTransaction(tx2))
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Equal(t, []Transaction{tx1}, selectedTransactions)
+	})
+
+	t.Run("should skip sender when first transaction has initial nonce gap", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{
+			"alice": {nonce: 0, balance: 100},
+			"bob":   {nonce: 0, balance: 100},
+		})
+
+		tx1 := createSelectionTx(2, "alice", 100, 10, 10, []byte("txHash1"))
+		tx2 := createSelectionTx(0, "bob", 50, 10, 10, []byte("txHash2"))
+
+		require.NoError(t, mempool.AddTransaction(tx1))
+		require.NoError(t, mempool.AddTransaction(tx2))
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Equal(t, []Transaction{tx2}, selectedTransactions)
+	})
+
+	t.Run("should skip transaction when balance is insufficient", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{
+			"alice": {nonce: 0, balance: 50},
+			"bob":   {nonce: 0, balance: 100},
+		})
+
+		tx1 := createSelectionTx(0, "alice", 100, 10, 60, []byte("txHash1"))
+		tx2 := createSelectionTx(0, "bob", 50, 10, 10, []byte("txHash2"))
+
+		require.NoError(t, mempool.AddTransaction(tx1))
+		require.NoError(t, mempool.AddTransaction(tx2))
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Equal(t, []Transaction{tx2}, selectedTransactions)
+	})
+
+	t.Run("should select multiple valid consecutive transactions from same sender", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{
+			"alice": {nonce: 0, balance: 100},
+			"bob":   {nonce: 0, balance: 100},
+		})
+
+		tx1 := createSelectionTx(0, "alice", 100, 10, 20, []byte("txHash1"))
+		tx2 := createSelectionTx(1, "alice", 90, 10, 20, []byte("txHash2"))
+		tx3 := createSelectionTx(0, "bob", 80, 10, 20, []byte("txHash3"))
+
+		require.NoError(t, mempool.AddTransaction(tx1))
+		require.NoError(t, mempool.AddTransaction(tx2))
+		require.NoError(t, mempool.AddTransaction(tx3))
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Equal(t, []Transaction{tx1, tx2, tx3}, selectedTransactions)
+	})
+
+	t.Run("should skip second transaction from sender when accumulated transferred value exceeds balance", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := NewMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{
+			"alice": {nonce: 0, balance: 50},
+			"bob":   {nonce: 0, balance: 100},
+		})
+
+		tx1 := createSelectionTx(0, "alice", 100, 10, 30, []byte("txHash1"))
+		tx2 := createSelectionTx(1, "alice", 90, 10, 30, []byte("txHash2"))
+		tx3 := createSelectionTx(0, "bob", 80, 10, 10, []byte("txHash3"))
+
+		require.NoError(t, mempool.AddTransaction(tx1))
+		require.NoError(t, mempool.AddTransaction(tx2))
+		require.NoError(t, mempool.AddTransaction(tx3))
+
+		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+
+		require.Equal(t, []Transaction{tx1, tx3}, selectedTransactions)
+	})
+}
