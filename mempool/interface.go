@@ -11,6 +11,7 @@ type Transaction interface {
 	GetTimestamp() uint64
 	GetTxHash() []byte
 
+	GetDomainLabel() []byte
 	GetNumInputTokens() uint64
 	GetNumEstimatedOutputTokens() uint64
 	GetEstimatedConsumption() uint64

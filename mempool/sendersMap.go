@@ -50,3 +50,17 @@ func (sm *sendersMap) getTransactionsListBySender(sender []byte) (*txList, error
 
 	return txs, nil
 }
+
+func (sm *sendersMap) snapshot() *sendersMap {
+	sm.mutSendersMap.RLock()
+	defer sm.mutSendersMap.RUnlock()
+
+	sendersCopy := make(map[string]*txList, len(sm.senders))
+	for sender, list := range sm.senders {
+		sendersCopy[sender] = list.snapshot()
+	}
+
+	return &sendersMap{
+		senders: sendersCopy,
+	}
+}
