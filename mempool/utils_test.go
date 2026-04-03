@@ -10,7 +10,7 @@ import (
 	"moa-chain/testscommon"
 )
 
-var expectedError = errors.New("error expected")
+var errExpected = errors.New("error expected")
 
 func newTestMemPool() *memPool {
 	mp := NewMemPool()

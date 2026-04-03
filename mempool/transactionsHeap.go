@@ -7,7 +7,7 @@ type transactionsHeap struct {
 
 func newTransactionsHeap(capacity uint64, less txHeapComparator) (*transactionsHeap, error) {
 	if less == nil {
-		// err
+		return nil, ErrNilTxComparator
 	}
 
 	return &transactionsHeap{

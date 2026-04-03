@@ -6,6 +6,9 @@ import (
 
 type txHeapComparator func(transactionA *txHeapItem, transactionB *txHeapItem) bool
 
+// isTransactionMoreValuable first sorts by the estimated score (tip / estimatedConsumption)
+// then, it sorts by estimated consumption
+// lastly, it sorts by txHash
 func isTransactionMoreValuable(transactionA *txHeapItem, transactionB *txHeapItem) bool {
 	txA := transactionA.getCurrentTransaction()
 	txB := transactionB.getCurrentTransaction()
