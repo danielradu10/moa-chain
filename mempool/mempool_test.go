@@ -12,7 +12,7 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should return ErrNilTransaction in case of nil transaction", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		err := mempool.AddTransaction(nil)
 		require.Equal(t, ErrNilTransaction, err)
 	})
@@ -20,13 +20,8 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should add transaction", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
-		err := mempool.AddTransaction(&transaction{
-			nonce:                0,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("txHash1"),
-		})
+		mempool := newTestMemPool()
+		err := mempool.AddTransaction(createPoolTx(0, "alice", 10, []byte("txHash1")))
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), mempool.NumTransactions())
 		require.Equal(t, uint64(1), mempool.NumAddresses())
@@ -35,22 +30,12 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should add two transactions from same sender and keep one address", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 
-		err := mempool.AddTransaction(&transaction{
-			nonce:                1,
-			sender:               []byte("alice"),
-			estimatedConsumption: 20,
-			txHash:               []byte("txHash2"),
-		})
+		err := mempool.AddTransaction(createPoolTx(1, "alice", 20, []byte("txHash2")))
 		require.NoError(t, err)
 
-		err = mempool.AddTransaction(&transaction{
-			nonce:                0,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("txHash1"),
-		})
+		err = mempool.AddTransaction(createPoolTx(0, "alice", 10, []byte("txHash1")))
 		require.NoError(t, err)
 
 		require.Equal(t, uint64(2), mempool.NumTransactions())
@@ -67,22 +52,12 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should add transactions from different senders", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 
-		err := mempool.AddTransaction(&transaction{
-			nonce:                0,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("txHash1"),
-		})
+		err := mempool.AddTransaction(createPoolTx(0, "alice", 10, []byte("txHash1")))
 		require.NoError(t, err)
 
-		err = mempool.AddTransaction(&transaction{
-			nonce:                0,
-			sender:               []byte("bob"),
-			estimatedConsumption: 15,
-			txHash:               []byte("txHash2"),
-		})
+		err = mempool.AddTransaction(createPoolTx(0, "bob", 15, []byte("txHash2")))
 		require.NoError(t, err)
 
 		require.Equal(t, uint64(2), mempool.NumTransactions())
@@ -92,20 +67,10 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should not overwrite transaction by hash in case of duplicate tx hash", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 
-		tx1 := &transaction{
-			nonce:                0,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("sameHash"),
-		}
-		tx2 := &transaction{
-			nonce:                1,
-			sender:               []byte("bob"),
-			estimatedConsumption: 20,
-			txHash:               []byte("sameHash"),
-		}
+		tx1 := createPoolTx(0, "alice", 10, []byte("sameHash"))
+		tx2 := createPoolTx(1, "bob", 20, []byte("sameHash"))
 
 		err := mempool.AddTransaction(tx1)
 		require.NoError(t, err)
@@ -120,20 +85,10 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should not add transactions to sender list when tx hash is duplicate", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 
-		tx1 := &transaction{
-			nonce:                1,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("sameHash"),
-		}
-		tx2 := &transaction{
-			nonce:                1,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("sameHash"),
-		}
+		tx1 := createPoolTx(1, "alice", 10, []byte("sameHash"))
+		tx2 := createPoolTx(1, "alice", 10, []byte("sameHash"))
 
 		err := mempool.AddTransaction(tx1)
 		require.NoError(t, err)
@@ -153,30 +108,15 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should keep sender transactions sorted", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 
-		err := mempool.AddTransaction(&transaction{
-			nonce:                2,
-			sender:               []byte("alice"),
-			estimatedConsumption: 30,
-			txHash:               []byte("txHash3"),
-		})
+		err := mempool.AddTransaction(createPoolTx(2, "alice", 30, []byte("txHash3")))
 		require.NoError(t, err)
 
-		err = mempool.AddTransaction(&transaction{
-			nonce:                1,
-			sender:               []byte("alice"),
-			estimatedConsumption: 20,
-			txHash:               []byte("txHash2"),
-		})
+		err = mempool.AddTransaction(createPoolTx(1, "alice", 20, []byte("txHash2")))
 		require.NoError(t, err)
 
-		err = mempool.AddTransaction(&transaction{
-			nonce:                0,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("txHash1"),
-		})
+		err = mempool.AddTransaction(createPoolTx(0, "alice", 10, []byte("txHash1")))
 		require.NoError(t, err)
 
 		aliceTxList, err := mempool.getTransactionsListBySender([]byte("alice"))
@@ -191,22 +131,12 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should sort same nonce transactions by estimated consumption", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 
-		err := mempool.AddTransaction(&transaction{
-			nonce:                1,
-			sender:               []byte("alice"),
-			estimatedConsumption: 30,
-			txHash:               []byte("txHash2"),
-		})
+		err := mempool.AddTransaction(createPoolTx(1, "alice", 30, []byte("txHash2")))
 		require.NoError(t, err)
 
-		err = mempool.AddTransaction(&transaction{
-			nonce:                1,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("txHash1"),
-		})
+		err = mempool.AddTransaction(createPoolTx(1, "alice", 10, []byte("txHash1")))
 		require.NoError(t, err)
 
 		aliceTxList, err := mempool.getTransactionsListBySender([]byte("alice"))
@@ -220,22 +150,12 @@ func TestMemPool_AddTransaction(t *testing.T) {
 	t.Run("should sort same nonce and same estimated consumption by tx hash", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 
-		err := mempool.AddTransaction(&transaction{
-			nonce:                1,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("txHash2"),
-		})
+		err := mempool.AddTransaction(createPoolTx(1, "alice", 10, []byte("txHash2")))
 		require.NoError(t, err)
 
-		err = mempool.AddTransaction(&transaction{
-			nonce:                1,
-			sender:               []byte("alice"),
-			estimatedConsumption: 10,
-			txHash:               []byte("txHash1"),
-		})
+		err = mempool.AddTransaction(createPoolTx(1, "alice", 10, []byte("txHash1")))
 		require.NoError(t, err)
 
 		aliceTxList, err := mempool.getTransactionsListBySender([]byte("alice"))
@@ -253,7 +173,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should return empty list when mempool is empty", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -267,7 +187,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should select transactions in comparator order across senders", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -293,7 +213,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should use estimated consumption as tie breaker when scores are equal", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -316,7 +236,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should use tx hash as tie breaker when score and consumption are equal", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -339,7 +259,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should stop when next best transaction exceeds max block consumption", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -362,7 +282,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should skip sender when first transaction has initial nonce gap", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -385,7 +305,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should skip transaction when balance is insufficient", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -408,7 +328,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should select multiple valid consecutive transactions from same sender", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -433,7 +353,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	t.Run("should skip second transaction from sender when accumulated transferred value exceeds balance", func(t *testing.T) {
 		t.Parallel()
 
-		mempool := NewMemPool()
+		mempool := newTestMemPool()
 		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
 			nonce   uint64
 			balance uint64
@@ -454,4 +374,89 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 
 		require.Equal(t, []Transaction{tx1, tx3}, selectedTransactions)
 	})
+}
+
+func TestMemPool_calculateNumTokensFromPrompt(t *testing.T) {
+	t.Parallel()
+
+	mp := newTestMemPool()
+	prompt := "Summarize the following pull request in three bullets and highlight any risk around transaction ordering."
+	tx := &transaction{prompt: []byte(prompt)}
+
+	expectedTokens := countPromptTokensForTest(t, prompt)
+
+	require.Equal(t, expectedTokens, mp.calculateNumTokensFromPrompt(tx))
+}
+
+func TestMemPool_calculateNumTokensFromPromptShouldIncreaseForLongerRealPrompt(t *testing.T) {
+	t.Parallel()
+
+	mp := newTestMemPool()
+	shortPrompt := "Write a short summary of this transaction."
+	longPrompt := "Write a short summary of this transaction, explain whether the sender nonce is valid, and list the likely reasons the transaction could be skipped during block selection."
+
+	shortTx := &transaction{prompt: []byte(shortPrompt)}
+	longTx := &transaction{prompt: []byte(longPrompt)}
+
+	require.Greater(t, mp.calculateNumTokensFromPrompt(longTx), mp.calculateNumTokensFromPrompt(shortTx))
+}
+
+func TestMemPool_estimateNumTokens(t *testing.T) {
+	t.Parallel()
+
+	mp := newTestMemPool()
+	prompt := "Generate a concise explanation of why this AI request should be prioritized in the block."
+	tx := &transaction{
+		prompt:              []byte(prompt),
+		userOutputDimension: "medium",
+		thinkingMode:        "standard",
+	}
+
+	expectedTokens := countPromptTokensForTest(t, prompt) + mp.tokensConfig["medium"] + mp.tokensConfig["standard"]
+
+	require.Equal(t, expectedTokens, mp.estimateNumTokens(tx))
+}
+
+func TestMemPool_precomputeTxFields(t *testing.T) {
+	t.Parallel()
+
+	mp := newTestMemPool()
+	prompt := "Read the prompt carefully, plan the response, and produce a detailed answer about mempool fairness."
+	tx := &transaction{
+		prompt:              []byte(prompt),
+		tip:                 500,
+		userOutputDimension: "long",
+		thinkingMode:        "thinking",
+	}
+
+	mp.precomputeTxFields(tx)
+
+	expectedConsumption := countPromptTokensForTest(t, prompt) + mp.tokensConfig["long"] + mp.tokensConfig["thinking"]
+	require.Equal(t, expectedConsumption, tx.GetEstimatedConsumption())
+	require.Equal(t, tx.GetTip()/expectedConsumption, tx.GetEstimatedScore())
+}
+
+func TestMemPool_AddTransactionShouldPrecomputeFields(t *testing.T) {
+	t.Parallel()
+
+	mp := newTestMemPool()
+	prompt := "Classify this request, estimate the complexity, and return a medium-length answer."
+	tx := &transaction{
+		nonce:                0,
+		prompt:               []byte(prompt),
+		sender:               []byte("alice"),
+		tip:                  700,
+		txHash:               []byte("txHash1"),
+		userOutputDimension:  "medium",
+		thinkingMode:         "fast",
+		estimatedConsumption: 999,
+		estimatedScore:       999,
+	}
+
+	err := mp.AddTransaction(tx)
+
+	require.NoError(t, err)
+	expectedConsumption := countPromptTokensForTest(t, prompt) + mp.tokensConfig["medium"] + mp.tokensConfig["fast"]
+	require.Equal(t, expectedConsumption, tx.GetEstimatedConsumption())
+	require.Equal(t, tx.GetTip()/expectedConsumption, tx.GetEstimatedScore())
 }
