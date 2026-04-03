@@ -14,6 +14,7 @@ const (
 	maxBlockConsumption = 10000
 )
 
+// memPool is a data structure containing our transactions, grouped by sender and sorted by nonce and cached by TxHash
 type memPool struct {
 	transactionsCount  uint64
 	transactionsByHash map[string]Transaction
@@ -23,6 +24,7 @@ type memPool struct {
 	mempoolMutex sync.RWMutex
 }
 
+// NewMemPool returns a new mempool
 func NewMemPool() *memPool {
 	return &memPool{
 		transactionsByHash: make(map[string]Transaction),
@@ -132,6 +134,7 @@ func (mp *memPool) snapshot() (map[string]Transaction, *sendersMap) {
 	return transactionsByHashSnapshot, sendersMapSnapshot
 }
 
+// SelectTransactions selects transactions from the pool, using the current accounts state on chain and the given transactions comparator
 func (mp *memPool) SelectTransactions(
 	accountsState state.AccountsState,
 	comparator txHeapComparator,

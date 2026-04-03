@@ -69,14 +69,14 @@ func TestSelectionSession_OnSelectedTransaction(t *testing.T) {
 
 		session := newTestSelectionSession(&testscommon.AccountStateMock{
 			GetNonceByAddressCalled: func(address string) (uint64, error) {
-				return 0, expectedError
+				return 0, errExpected
 			},
 		})
 
 		tx := createTxWithSenderAndValue(0, 10, []byte("txHash1"), "alice", 30)
 
 		err := session.OnSelectedTransaction(tx)
-		require.ErrorIs(t, err, expectedError)
+		require.ErrorIs(t, err, errExpected)
 	})
 
 	t.Run("should return error when balance cannot be fetched", func(t *testing.T) {
@@ -87,14 +87,14 @@ func TestSelectionSession_OnSelectedTransaction(t *testing.T) {
 				return 0, nil
 			},
 			GetBalanceByAddressCalled: func(address string) (uint64, error) {
-				return 0, expectedError
+				return 0, errExpected
 			},
 		})
 
 		tx := createTxWithSenderAndValue(0, 10, []byte("txHash1"), "alice", 30)
 
 		err := session.OnSelectedTransaction(tx)
-		require.ErrorIs(t, err, expectedError)
+		require.ErrorIs(t, err, errExpected)
 	})
 }
 

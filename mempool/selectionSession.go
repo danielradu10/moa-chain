@@ -20,6 +20,7 @@ func newSelectionSession(accountsState state.AccountsState) *selectionSession {
 	}
 }
 
+// OnSelectedTransaction updates the virtual state of a sender
 func (session *selectionSession) OnSelectedTransaction(transaction Transaction) error {
 	sender := string(transaction.GetSender())
 	vr, ok := session.virtualRecords[sender]
@@ -90,11 +91,7 @@ func (session *selectionSession) higherNonceThanCurrentNonce(vr *virtualRecord, 
 	}
 
 	lastNonce := vr.currentNonce.Value
-	if txNonce > lastNonce+1 {
-		return true
-	}
-
-	return false
+	return txNonce > lastNonce+1
 }
 
 func (session *selectionSession) transactionShouldBeSkipped(transaction Transaction) bool {
@@ -138,11 +135,7 @@ func (session *selectionSession) lowerOrDuplicatedNonceThanCurrentNonce(vr *virt
 	}
 
 	lastNonce := vr.currentNonce.Value
-	if txNonce < lastNonce+1 {
-		return true
-	}
-
-	return false
+	return txNonce < lastNonce+1
 }
 
 func (session *selectionSession) initialBalanceWillBeExceeded(sender string, transaction Transaction) bool {
@@ -161,9 +154,5 @@ func (session *selectionSession) initialBalanceWillBeExceeded(sender string, tra
 	}
 
 	accumulatedBalance := vr.accumulatedBalance
-	if accumulatedBalance+transaction.GetTransferredValue() > vr.initialBalance {
-		return true
-	}
-
-	return false
+	return accumulatedBalance+transaction.GetTransferredValue() > vr.initialBalance
 }
