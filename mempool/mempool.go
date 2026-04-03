@@ -2,18 +2,24 @@ package mempool
 
 import (
 	"container/heap"
+	"log"
 	"sync"
 
 	"moa-chain/state"
+
+	"github.com/tiktoken-go/tokenizer"
 )
 
-const maxBlockConsumption = 10000
+const (
+	maxBlockConsumption = 10000
+)
 
 type memPool struct {
 	transactionsCount  uint64
 	transactionsByHash map[string]Transaction
 	senders            *sendersMap
 
+	tokensConfig map[string]uint64
 	mempoolMutex sync.RWMutex
 }
 
@@ -40,6 +46,8 @@ func (mp *memPool) AddTransaction(transaction Transaction) error {
 		return nil
 	}
 
+	mp.precomputeTxFields(transaction)
+
 	mp.addTxByHashNoLock(transaction)
 
 	sender := transaction.GetSender()
@@ -62,6 +70,51 @@ func (mp *memPool) addTxByHashNoLock(transaction Transaction) {
 	if !ok {
 		mp.transactionsByHash[string(txHash)] = transaction
 	}
+}
+
+// precomputeTxFields precomputes the necessary fields of a transaction for SelectTransactions.
+// (i.e. score, estimated gas consumption and other fields)
+func (mp *memPool) precomputeTxFields(transaction Transaction) {
+	estimatedNumTokens := mp.estimateNumTokens(transaction)
+	transaction.SetEstimatedConsumption(estimatedNumTokens)
+
+	tip := transaction.GetTip()
+
+	score := tip / estimatedNumTokens
+	transaction.SetEstimatedScore(score)
+}
+
+// estimateNumTokens estimates the number of tokens taking into consideration numTokens from tokenizer,
+// numTokens from thinking mode, numTokens from output mode
+// TODO search for keywords which usually increase the number of tokens
+func (mp *memPool) estimateNumTokens(transaction Transaction) uint64 {
+	numTokensFromPrompt := mp.calculateNumTokensFromPrompt(transaction)
+
+	outputUserDimension := transaction.GetUserOutputDimension()
+	thinkingMode := transaction.GetThinkingMode()
+
+	thinkingEstimatedTokens := mp.tokensConfig[thinkingMode]
+	outputUserDimensionEstimatedTokens := mp.tokensConfig[outputUserDimension]
+
+	estimatedTokens := numTokensFromPrompt + thinkingEstimatedTokens + outputUserDimensionEstimatedTokens
+	return estimatedTokens
+}
+
+// calculateNumTokensFromPrompt tokenizes the prompt to get the number of tokens
+func (mp *memPool) calculateNumTokensFromPrompt(transaction Transaction) uint64 {
+	prompt := transaction.GetPrompt()
+
+	enc, err := tokenizer.Get(tokenizer.Cl100kBase)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	numTokens, err := enc.Count(string(prompt))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return uint64(numTokens)
 }
 
 // snapshot does a snapshot of each important map from the MemPool.
