@@ -1,10 +1,14 @@
 package mempool
 
+import (
+	"moa-chain/data"
+)
+
 type txHeapItem struct {
 	senderTxList *txList
 
 	currentIndex             uint64
-	currentTransactionInHeap Transaction
+	currentTransactionInHeap data.Transaction
 }
 
 func newTxHeapItem(senderTxList *txList) *txHeapItem {
@@ -15,7 +19,7 @@ func newTxHeapItem(senderTxList *txList) *txHeapItem {
 	}
 }
 
-func (item *txHeapItem) getCurrentTransaction() Transaction {
+func (item *txHeapItem) getCurrentTransaction() data.Transaction {
 	return item.currentTransactionInHeap
 }
 
