@@ -27,3 +27,12 @@ var ErrDiscontinuousHash = errors.New("discontinuous hash")
 
 // ErrDiscontinuousRootHash signals a discontinuous root hash between blocks
 var ErrDiscontinuousRootHash = errors.New("discontinuous root hash")
+
+// ErrUnsupportedMiniRound signals an unsupported mini round
+var ErrUnsupportedMiniRound = errors.New("unsupported mini round")
+
+// ErrNotImplemented signals an unimplemented method / case
+var ErrNotImplemented = errors.New("not implemented")
+
+// ErrBlockConsumptionReached signals that the block consumption was reached
+var ErrBlockConsumptionReached = errors.New("block consumption reached")

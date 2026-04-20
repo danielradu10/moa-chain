@@ -10,33 +10,41 @@ type txProcessor struct {
 	accountsProvider state.AccountsProvider
 }
 
-func (tp *txProcessor) ProcessTransaction(tx data.Transaction) error {
+func NewTxProcessor(accountsProvider state.AccountsProvider) (*txProcessor, error) {
+	return &txProcessor{
+		accountsProvider: accountsProvider,
+	}, nil
+}
+
+func (tp *txProcessor) ProcessTransaction(tx data.Transaction, miniRound validation.MiniRound) (uint64, error) {
 	sender := tx.GetSender()
-	receiver := tx.GetReceiver()
 
 	senderAccount, err := tp.accountsProvider.LoadAccount(string(sender))
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	receiverAccount, err := tp.accountsProvider.LoadAccount(string(receiver))
+	escrowAccount, err := tp.accountsProvider.LoadEscrowAccount()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	// validate
+	// validate the transaction
 	err = tp.validateTransaction(tx, senderAccount)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	// process (but in a simulated account state)
-	err = tp.processTransaction(tx, receiverAccount, senderAccount)
-	if err != nil {
-		return err
+	switch miniRound {
+	case validation.MiniRoundOne:
+		return tx.GetEstimatedConsumption(), tp.reserveTransaction(tx, senderAccount, escrowAccount)
+	case validation.MiniRoundTwo:
+		return 0, validation.ErrNotImplemented
+	case validation.MiniRoundThree:
+		return 0, validation.ErrNotImplemented
+	default:
+		return 0, validation.ErrUnsupportedMiniRound
 	}
-
-	return nil
 }
 
 func (tp *txProcessor) validateTransaction(
@@ -61,7 +69,7 @@ func (tp *txProcessor) validateTransaction(
 	}
 
 	// TODO analyze if this is the same transferred balance calculated in mempool
-	txBalance := tx.GetTransferredValue() + tx.GetEstimatedFee() + tx.GetTip()
+	txBalance := tp.computeReservedBudget(tx)
 	if txBalance > senderBalance {
 		return validation.ErrWrongTransactionBalance
 	}
@@ -69,10 +77,10 @@ func (tp *txProcessor) validateTransaction(
 	return nil
 }
 
-func (tp *txProcessor) processTransaction(
+func (tp *txProcessor) reserveTransaction(
 	tx data.Transaction,
 	senderAccount state.AccountHandler,
-	receiverAccount state.AccountHandler,
+	escrowAccount state.AccountHandler,
 ) error {
 	// process transaction
 	err := senderAccount.IncreaseNonce(1)
@@ -81,18 +89,20 @@ func (tp *txProcessor) processTransaction(
 	}
 
 	// TODO analyze if this is the same transferred balance calculated in mempool
-	txTransferredValue := tx.GetTransferredValue() + tx.GetEstimatedFee() + tx.GetNonce()
+	txTransferredValue := tp.computeReservedBudget(tx)
 	err = senderAccount.DecreaseBalance(txTransferredValue)
 	if err != nil {
 		return err
 	}
 
-	// TODO analyze if this is needed for the moment
-	// where should the transferred value of a prompt go?
-	err = receiverAccount.IncreaseBalance(txTransferredValue)
+	err = escrowAccount.IncreaseBalance(txTransferredValue)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (tp *txProcessor) computeReservedBudget(tx data.Transaction) uint64 {
+	return tx.GetEstimatedFee() + tx.GetTip()
 }

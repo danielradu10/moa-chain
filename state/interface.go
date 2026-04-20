@@ -13,6 +13,7 @@ type AccountsState interface {
 // AccountsProvider defines what an accounts provider should do
 type AccountsProvider interface {
 	LoadAccount(address string) (AccountHandler, error)
+	LoadEscrowAccount() (AccountHandler, error)
 }
 
 // AccountHandler defines what an AccountHandler should do
@@ -31,4 +32,16 @@ type BlockchainState interface {
 	CurrentRound() (uint64, error)
 	CurrentMiniRound() (uint64, error)
 	CurrentEpoch() (uint64, error)
+}
+
+// AccountsSnapshot defines what an AccountsSnapshot should do
+type AccountsSnapshot interface {
+	AccountsProvider
+	Commit() error
+	Discard()
+}
+
+// AccountsSnapshotFactory defines what a AccountsSnapshotFactory should do
+type AccountsSnapshotFactory interface {
+	CreateSnapshot() (AccountsSnapshot, error)
 }
