@@ -13,18 +13,18 @@ const (
 )
 
 var possibleSubDomains = map[string]struct{}{
-	"algorithms":      {},
-	"architecture":    {},
-	"software_design": {},
-	"security":        {},
-	"smart_contracts": {},
-	"apis":            {},
-	"testing":         {},
-	"performance":     {},
-	"parallelism":     {},
-	"ml":              {},
-	"cloud":           {},
-	"databases":       {},
+	"systems_programming":                {},
+	"web_front_end":                      {},
+	"back_end_with_apis":                 {},
+	"ml_ai_engineering":                  {},
+	"data_engineering":                   {},
+	"dev_ops":                            {},
+	"security":                           {},
+	"mobile_dev":                         {},
+	"test_engineering_and_qa_automation": {},
+	"blockchain_engineering":             {},
+	"cloud_engineering":                  {},
+	"databases":                          {},
 }
 
 type txProcessor struct {
