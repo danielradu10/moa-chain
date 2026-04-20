@@ -3,6 +3,7 @@ package block
 import (
 	"bytes"
 
+	"moa-chain/agent"
 	"moa-chain/data"
 	"moa-chain/state"
 	"moa-chain/validation"
@@ -16,6 +17,7 @@ const (
 type blockProcessor struct {
 	accountsSnapshotFactory state.AccountsSnapshotFactory
 	blockchainState         state.BlockchainState
+	labeler                 agent.Labeler
 }
 
 func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
@@ -39,7 +41,10 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 	}
 	defer snapshot.Discard()
 
-	txProcessor, err := transaction.NewTxProcessor(snapshot)
+	txProcessor, err := transaction.NewTxProcessor(
+		snapshot,
+		bp.labeler,
+	)
 	if err != nil {
 		return err
 	}
@@ -157,10 +162,26 @@ func (bp *blockProcessor) validateHashContinuity(
 }
 
 func (bp *blockProcessor) validateBlockBody(blockBody *data.BlockBody, transactionProcessor validation.TxProcessor) error {
-	txs := blockBody.Transactions
 	blockConsumption := uint64(0)
-	for _, tx := range txs {
-		// TODO should also check for consumption
+	uniqueTxHashes := make(map[string]struct{})
+	labelsFrequencies := map[string]uint64{}
+
+	txs := blockBody.Transactions
+	for i, tx := range txs {
+		txHash := tx.GetTxHash()
+		_, ok := uniqueTxHashes[string(txHash)]
+		if ok {
+			return validation.ErrDuplicatedTransaction
+		}
+		uniqueTxHashes[string(txHash)] = struct{}{}
+
+		if i > 0 {
+			err := bp.validateTransactionsOrdering(txs[i-1], tx)
+			if err != nil {
+				return err
+			}
+		}
+
 		// TODO txs in block should be sent only by hash? should we take the actual tx from mempool
 		//  if not present in mempool, from another sync component
 		estimatedConsumption, err := transactionProcessor.ProcessTransaction(tx, validation.MiniRoundOne)
@@ -171,6 +192,71 @@ func (bp *blockProcessor) validateBlockBody(blockBody *data.BlockBody, transacti
 		blockConsumption += estimatedConsumption
 		if blockConsumption > maxBlockConsumption {
 			return validation.ErrBlockConsumptionReached
+		}
+
+		labels := tx.GetDomainLabels()
+		for _, label := range labels {
+			_, ok = labelsFrequencies[label]
+			if !ok {
+				labelsFrequencies[label] = 0
+			}
+
+			labelsFrequencies[label] += 1
+		}
+	}
+
+	return bp.validateSubDomains(blockBody.Subdomains, labelsFrequencies)
+}
+
+func (bp *blockProcessor) validateTransactionsOrdering(
+	previousTransaction data.Transaction,
+	currentTransaction data.Transaction,
+) error {
+	prevScore := previousTransaction.GetEstimatedScore()
+	currScore := currentTransaction.GetEstimatedScore()
+
+	if prevScore < currScore {
+		return validation.ErrTxsDoNotRespectProtocolOrder
+	}
+
+	if prevScore > currScore {
+		return nil
+	}
+
+	prevConsumption := previousTransaction.GetEstimatedConsumption()
+	currConsumption := currentTransaction.GetEstimatedConsumption()
+
+	if prevConsumption > currConsumption {
+		return validation.ErrTxsDoNotRespectProtocolOrder
+	}
+
+	if prevConsumption < currConsumption {
+		return nil
+	}
+
+	if bytes.Compare(previousTransaction.GetTxHash(), currentTransaction.GetTxHash()) > 0 {
+		return validation.ErrTxsDoNotRespectProtocolOrder
+	}
+
+	return nil
+}
+
+func (bp *blockProcessor) validateSubDomains(
+	subDomainsByLeader map[string]uint64,
+	subDomainsByMe map[string]uint64,
+) error {
+	if len(subDomainsByMe) != len(subDomainsByLeader) {
+		return validation.ErrInvalidNumSubdomains
+	}
+
+	for subdomain, freqByLeader := range subDomainsByLeader {
+		freqByMe, ok := subDomainsByMe[subdomain]
+		if !ok {
+			return validation.ErrInvalidSubdomain
+		}
+
+		if freqByMe != freqByLeader {
+			return validation.ErrInvalidFrequencyOfSubdomain
 		}
 	}
 
