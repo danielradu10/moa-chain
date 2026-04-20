@@ -23,4 +23,5 @@ type BlockHeader struct {
 // BlockBody defines the body of a block
 type BlockBody struct {
 	Transactions []Transaction
+	Subdomains   map[string]uint64
 }

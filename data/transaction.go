@@ -11,7 +11,7 @@ type Transaction interface {
 	GetTimestamp() uint64
 	GetTxHash() []byte
 
-	GetDomainLabel() []byte
+	GetDomainLabels() []string
 	GetNumInputTokens() uint64
 	GetUserOutputDimension() string
 	GetThinkingMode() string
@@ -28,7 +28,7 @@ type Transaction interface {
 	SetTimestamp(timestamp uint64)
 	SetTxHash(txHash []byte)
 
-	SetDomainLabel(domainLabel []byte)
+	SetDomainLabels(domainLabels []string)
 	SetNumInputTokens(numInputTokens uint64)
 	SetUserOutputDimension(userOutputDimension string)
 	SetThinkingMode(thinkingMode string)
