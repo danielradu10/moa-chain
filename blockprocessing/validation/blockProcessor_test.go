@@ -1,4 +1,4 @@
-package block
+package validation
 
 import (
 	"errors"
@@ -6,9 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"moa-chain/blockprocessing"
 	"moa-chain/data"
 	"moa-chain/testscommon"
-	"moa-chain/validation"
+	"moa-chain/transactionprocessing"
 )
 
 func TestBlockProcessor_ValidateBlock(t *testing.T) {
@@ -21,7 +22,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 
 		err := blockProcessor.ValidateBlock(nil)
 
-		require.Equal(t, validation.ErrNilBlock, err)
+		require.Equal(t, blockprocessing.ErrNilBlock, err)
 	})
 
 	t.Run("should return current block header error", func(t *testing.T) {
@@ -43,7 +44,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 	t.Run("should return ErrBlockNonceNotContinuous when block nonce is not continuous", func(t *testing.T) {
 		t.Parallel()
 
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundOne)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
 		proposedBlock := createValidBlockForCurrentHeader(currentHeader, nil, map[string]uint64{})
 		proposedBlock.Header.Nonce = currentHeader.Nonce + 2
 
@@ -55,14 +56,14 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 
 		err := blockProcessor.ValidateBlock(proposedBlock)
 
-		require.Equal(t, validation.ErrBlockNonceNotContinuous, err)
+		require.Equal(t, blockprocessing.ErrBlockNonceNotContinuous, err)
 	})
 
 	t.Run("should return snapshot factory error", func(t *testing.T) {
 		t.Parallel()
 
 		expectedErr := errors.New("snapshot factory error")
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundOne)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
 		proposedBlock := createValidBlockForCurrentHeader(currentHeader, nil, map[string]uint64{})
 
 		blockProcessor := &blockProcessor{
@@ -82,7 +83,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 	t.Run("should return transaction validation error when block contains invalid transaction", func(t *testing.T) {
 		t.Parallel()
 
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundOne)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
 
 		tx := createTestTransaction(testTransactionArgs{
 			nonce:                0,
@@ -126,14 +127,14 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 
 		err := blockProcessor.ValidateBlock(proposedBlock)
 
-		require.Equal(t, validation.ErrWrongTransactionNonce, err)
+		require.Equal(t, transactionprocessing.ErrWrongTransactionNonce, err)
 		require.True(t, snapshot.DiscardCalled)
 	})
 
 	t.Run("should validate block successfully and discard snapshot", func(t *testing.T) {
 		t.Parallel()
 
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundOne)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
 
 		tx := createTestTransaction(testTransactionArgs{
 			nonce:                0,
@@ -196,7 +197,7 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundOne)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
 		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
 
 		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
@@ -208,7 +209,7 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundTwo)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundTwo)
 		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
 
 		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
@@ -220,7 +221,7 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundThree)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundThree)
 		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
 
 		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
@@ -232,114 +233,26 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundOne)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
 		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
-		nextHeader.MiniRound = uint64(validation.MiniRoundThree)
+		nextHeader.MiniRound = uint64(data.MiniRoundThree)
 
 		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
 
-		require.Equal(t, validation.ErrWrongMiniBlockRound, err)
+		require.Equal(t, blockprocessing.ErrWrongMiniBlockRound, err)
 	})
 
 	t.Run("should return ErrWrongMiniBlockRound for invalid round transition", func(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(validation.MiniRoundThree)
+		currentHeader := createCurrentBlockHeader(data.MiniRoundThree)
 		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
 		nextHeader.Round = currentHeader.Round
 
 		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
 
-		require.Equal(t, validation.ErrWrongMiniBlockRound, err)
-	})
-}
-
-func TestBlockProcessor_validateTransactionsOrdering(t *testing.T) {
-	t.Parallel()
-
-	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score increases", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-
-		previousTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash1",
-			estimatedScore:       100,
-			estimatedConsumption: 20,
-		})
-		currentTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash2",
-			estimatedScore:       110,
-			estimatedConsumption: 20,
-		})
-
-		err := blockProcessor.validateTransactionsOrdering(previousTx, currentTx)
-
-		require.Equal(t, validation.ErrTxsDoNotRespectProtocolOrder, err)
-	})
-
-	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score is equal and consumption decreases", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-
-		previousTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash1",
-			estimatedScore:       100,
-			estimatedConsumption: 20,
-		})
-		currentTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash2",
-			estimatedScore:       100,
-			estimatedConsumption: 10,
-		})
-
-		err := blockProcessor.validateTransactionsOrdering(previousTx, currentTx)
-
-		require.Equal(t, validation.ErrTxsDoNotRespectProtocolOrder, err)
-	})
-
-	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score and consumption are equal and hash is out of order", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-
-		previousTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash2",
-			estimatedScore:       100,
-			estimatedConsumption: 20,
-		})
-		currentTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash1",
-			estimatedScore:       100,
-			estimatedConsumption: 20,
-		})
-
-		err := blockProcessor.validateTransactionsOrdering(previousTx, currentTx)
-
-		require.Equal(t, validation.ErrTxsDoNotRespectProtocolOrder, err)
-	})
-
-	t.Run("should validate transactions ordering when transactions are correctly ordered", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-
-		previousTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash1",
-			estimatedScore:       100,
-			estimatedConsumption: 20,
-		})
-		currentTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash2",
-			estimatedScore:       100,
-			estimatedConsumption: 20,
-		})
-
-		err := blockProcessor.validateTransactionsOrdering(previousTx, currentTx)
-
-		require.NoError(t, err)
+		require.Equal(t, blockprocessing.ErrWrongMiniBlockRound, err)
 	})
 }
 
@@ -361,7 +274,7 @@ func TestBlockProcessor_validateSubDomains(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrInvalidNumSubdomains, err)
+		require.Equal(t, blockprocessing.ErrInvalidNumSubdomains, err)
 	})
 
 	t.Run("should return ErrInvalidSubdomain when leader subdomain is missing locally", func(t *testing.T) {
@@ -380,7 +293,7 @@ func TestBlockProcessor_validateSubDomains(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrInvalidSubdomain, err)
+		require.Equal(t, blockprocessing.ErrInvalidSubdomain, err)
 	})
 
 	t.Run("should return ErrInvalidFrequencyOfSubdomain when frequencies differ", func(t *testing.T) {
@@ -397,7 +310,7 @@ func TestBlockProcessor_validateSubDomains(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrInvalidFrequencyOfSubdomain, err)
+		require.Equal(t, blockprocessing.ErrInvalidFrequencyOfSubdomain, err)
 	})
 
 	t.Run("should validate subdomains when maps are identical", func(t *testing.T) {
@@ -428,7 +341,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		blockProcessor := &blockProcessor{}
 		txProcessor := &testscommon.TxProcessorStub{
-			ProcessTransactionHandler: func(tx data.Transaction, miniRound validation.MiniRound) (uint64, error) {
+			ProcessTransactionCalled: func(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 				return 100, nil
 			},
 		}
@@ -456,7 +369,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		err := blockProcessor.validateBlockBody(body, txProcessor)
 
-		require.Equal(t, validation.ErrDuplicatedTransaction, err)
+		require.Equal(t, blockprocessing.ErrDuplicatedTransaction, err)
 	})
 
 	t.Run("should return ErrTxsDoNotRespectProtocolOrder when transactions are not ordered", func(t *testing.T) {
@@ -464,8 +377,11 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		blockProcessor := &blockProcessor{}
 		txProcessor := &testscommon.TxProcessorStub{
-			ProcessTransactionHandler: func(tx data.Transaction, miniRound validation.MiniRound) (uint64, error) {
+			ProcessTransactionCalled: func(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 				return 100, nil
+			},
+			ValidateTransactionsOrderingCalled: func(previousTransaction data.Transaction, currentTransaction data.Transaction) error {
+				return transactionprocessing.ErrTxsDoNotRespectProtocolOrder
 			},
 		}
 
@@ -492,7 +408,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		err := blockProcessor.validateBlockBody(body, txProcessor)
 
-		require.Equal(t, validation.ErrTxsDoNotRespectProtocolOrder, err)
+		require.Equal(t, transactionprocessing.ErrTxsDoNotRespectProtocolOrder, err)
 	})
 
 	t.Run("should return ErrBlockConsumptionReached when block consumption exceeds limit", func(t *testing.T) {
@@ -500,7 +416,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		blockProcessor := &blockProcessor{}
 		txProcessor := &testscommon.TxProcessorStub{
-			ProcessTransactionHandler: func(tx data.Transaction, miniRound validation.MiniRound) (uint64, error) {
+			ProcessTransactionCalled: func(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 				if string(tx.GetTxHash()) == "txHash1" {
 					return 9000, nil
 				}
@@ -532,7 +448,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		err := blockProcessor.validateBlockBody(body, txProcessor)
 
-		require.Equal(t, validation.ErrBlockConsumptionReached, err)
+		require.Equal(t, blockprocessing.ErrBlockConsumptionReached, err)
 	})
 
 	t.Run("should return ErrInvalidFrequencyOfSubdomain when subdomain frequencies do not match", func(t *testing.T) {
@@ -540,7 +456,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		blockProcessor := &blockProcessor{}
 		txProcessor := &testscommon.TxProcessorStub{
-			ProcessTransactionHandler: func(tx data.Transaction, miniRound validation.MiniRound) (uint64, error) {
+			ProcessTransactionCalled: func(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 				return 100, nil
 			},
 		}
@@ -562,7 +478,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		err := blockProcessor.validateBlockBody(body, txProcessor)
 
-		require.Equal(t, validation.ErrInvalidFrequencyOfSubdomain, err)
+		require.Equal(t, blockprocessing.ErrInvalidFrequencyOfSubdomain, err)
 	})
 
 	t.Run("should validate block body successfully", func(t *testing.T) {
@@ -570,7 +486,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		blockProcessor := &blockProcessor{}
 		txProcessor := &testscommon.TxProcessorStub{
-			ProcessTransactionHandler: func(tx data.Transaction, miniRound validation.MiniRound) (uint64, error) {
+			ProcessTransactionCalled: func(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 				return tx.GetEstimatedConsumption(), nil
 			},
 		}
@@ -628,7 +544,7 @@ func createTestTransaction(args testTransactionArgs) *testscommon.TransactionStu
 	return ts
 }
 
-func createCurrentBlockHeader(currentMiniRound validation.MiniRound) *data.BlockHeader {
+func createCurrentBlockHeader(currentMiniRound data.MiniRound) *data.BlockHeader {
 	return &data.BlockHeader{
 		HeaderHash: []byte("currentHeaderHash"),
 		RootHash:   []byte("currentRootHash"),
@@ -640,18 +556,18 @@ func createCurrentBlockHeader(currentMiniRound validation.MiniRound) *data.Block
 }
 
 func createValidNextHeaderForCurrentHeader(currentHeader *data.BlockHeader) *data.BlockHeader {
-	nextMiniRound := validation.MiniRoundTwo
+	nextMiniRound := data.MiniRoundTwo
 	nextRound := currentHeader.Round
 
-	switch validation.MiniRound(currentHeader.MiniRound) {
-	case validation.MiniRoundOne:
-		nextMiniRound = validation.MiniRoundTwo
+	switch data.MiniRound(currentHeader.MiniRound) {
+	case data.MiniRoundOne:
+		nextMiniRound = data.MiniRoundTwo
 		nextRound = currentHeader.Round
-	case validation.MiniRoundTwo:
-		nextMiniRound = validation.MiniRoundThree
+	case data.MiniRoundTwo:
+		nextMiniRound = data.MiniRoundThree
 		nextRound = currentHeader.Round
-	case validation.MiniRoundThree:
-		nextMiniRound = validation.MiniRoundOne
+	case data.MiniRoundThree:
+		nextMiniRound = data.MiniRoundOne
 		nextRound = currentHeader.Round + 1
 	}
 

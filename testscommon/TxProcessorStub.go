@@ -2,20 +2,30 @@ package testscommon
 
 import (
 	"moa-chain/data"
-	"moa-chain/validation"
 )
 
 type TxProcessorStub struct {
-	ProcessTransactionHandler func(tx data.Transaction, miniRound validation.MiniRound) (uint64, error)
-	Called                    bool
+	ProcessTransactionCalled           func(tx data.Transaction, miniRound data.MiniRound) (uint64, error)
+	ValidateTransactionsOrderingCalled func(previousTransaction data.Transaction, currentTransaction data.Transaction) error
+	Called                             bool
 }
 
-func (tps *TxProcessorStub) ProcessTransaction(tx data.Transaction, miniRound validation.MiniRound) (uint64, error) {
+// ProcessTransaction -
+func (tps *TxProcessorStub) ProcessTransaction(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 	tps.Called = true
 
-	if tps.ProcessTransactionHandler != nil {
-		return tps.ProcessTransactionHandler(tx, miniRound)
+	if tps.ProcessTransactionCalled != nil {
+		return tps.ProcessTransactionCalled(tx, miniRound)
 	}
 
 	return 0, nil
+}
+
+// ValidateTransactionsOrdering -
+func (tps *TxProcessorStub) ValidateTransactionsOrdering(previousTransaction data.Transaction, currentTransaction data.Transaction) error {
+	if tps.ValidateTransactionsOrderingCalled != nil {
+		return tps.ValidateTransactionsOrderingCalled(previousTransaction, currentTransaction)
+	}
+
+	return nil
 }

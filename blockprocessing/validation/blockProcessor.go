@@ -1,17 +1,14 @@
-package block
+package validation
 
 import (
 	"bytes"
 
 	"moa-chain/agent"
+	"moa-chain/blockprocessing"
 	"moa-chain/data"
 	"moa-chain/state"
-	"moa-chain/validation"
-	"moa-chain/validation/transaction"
-)
-
-const (
-	maxBlockConsumption = 10000
+	"moa-chain/transactionprocessing"
+	"moa-chain/transactionprocessing/processor"
 )
 
 type blockProcessor struct {
@@ -22,7 +19,7 @@ type blockProcessor struct {
 
 func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 	if block == nil {
-		return validation.ErrNilBlock
+		return blockprocessing.ErrNilBlock
 	}
 
 	currentBlockHeader, err := bp.blockchainState.CurrentBlockHeader()
@@ -41,7 +38,7 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 	}
 	defer snapshot.Discard()
 
-	txProcessor, err := transaction.NewTxProcessor(
+	txProcessor, err := processor.NewTxProcessor(
 		snapshot,
 		bp.labeler,
 	)
@@ -63,7 +60,7 @@ func (bp *blockProcessor) validateBlockHeader(
 	currentBlockHeader *data.BlockHeader,
 ) error {
 	if blockToBeValidated == nil || currentBlockHeader == nil {
-		return validation.ErrNilBlock
+		return blockprocessing.ErrNilBlock
 	}
 
 	err := bp.validateNonceContinuity(blockToBeValidated, currentBlockHeader)
@@ -97,7 +94,7 @@ func (bp *blockProcessor) validateNonceContinuity(
 	blockNonce := blockToBeValidated.Nonce
 	currentChainNonce := currentBlockHeader.Nonce
 	if blockNonce != currentChainNonce+1 {
-		return validation.ErrBlockNonceNotContinuous
+		return blockprocessing.ErrBlockNonceNotContinuous
 	}
 
 	return nil
@@ -110,24 +107,24 @@ func (bp *blockProcessor) validateRoundAndMiniRoundContinuity(
 	currentRound := currentBlockHeader.Round
 	nextRound := blockToBeValidated.Round
 
-	currentMiniRound := validation.MiniRound(currentBlockHeader.MiniRound)
-	nextMiniRound := validation.MiniRound(blockToBeValidated.MiniRound)
+	currentMiniRound := data.MiniRound(currentBlockHeader.MiniRound)
+	nextMiniRound := data.MiniRound(blockToBeValidated.MiniRound)
 
 	switch currentMiniRound {
-	case validation.MiniRoundOne:
-		if nextMiniRound != validation.MiniRoundTwo || nextRound != currentRound {
-			return validation.ErrWrongMiniBlockRound
+	case data.MiniRoundOne:
+		if nextMiniRound != data.MiniRoundTwo || nextRound != currentRound {
+			return blockprocessing.ErrWrongMiniBlockRound
 		}
-	case validation.MiniRoundTwo:
-		if nextMiniRound != validation.MiniRoundThree || nextRound != currentRound {
-			return validation.ErrWrongMiniBlockRound
+	case data.MiniRoundTwo:
+		if nextMiniRound != data.MiniRoundThree || nextRound != currentRound {
+			return blockprocessing.ErrWrongMiniBlockRound
 		}
-	case validation.MiniRoundThree:
-		if nextMiniRound != validation.MiniRoundOne || nextRound != currentRound+1 {
-			return validation.ErrWrongMiniBlockRound
+	case data.MiniRoundThree:
+		if nextMiniRound != data.MiniRoundOne || nextRound != currentRound+1 {
+			return blockprocessing.ErrWrongMiniBlockRound
 		}
 	default:
-		return validation.ErrWrongMiniBlockRound
+		return blockprocessing.ErrWrongMiniBlockRound
 	}
 
 	return nil
@@ -141,7 +138,7 @@ func (bp *blockProcessor) validateRootHashContinuity(
 	blockPreviousRootHash := blockToBeValidated.PreviousRootHash
 	currentChainLatestRootHash := currentBlockHeader.RootHash
 	if bytes.Compare(blockPreviousRootHash, currentChainLatestRootHash) != 0 {
-		return validation.ErrDiscontinuousRootHash
+		return blockprocessing.ErrDiscontinuousRootHash
 	}
 
 	return nil
@@ -155,90 +152,20 @@ func (bp *blockProcessor) validateHashContinuity(
 	blockPreviousHash := blockToBeValidated.PreviousHash
 	currentChainHeaderHash := currentBlockHeader.HeaderHash
 	if bytes.Compare(currentChainHeaderHash, blockPreviousHash) != 0 {
-		return validation.ErrDiscontinuousHash
+		return blockprocessing.ErrDiscontinuousHash
 	}
 
 	return nil
 }
 
-func (bp *blockProcessor) validateBlockBody(blockBody *data.BlockBody, transactionProcessor validation.TxProcessor) error {
-	blockConsumption := uint64(0)
-	uniqueTxHashes := make(map[string]struct{})
-	labelsFrequencies := map[string]uint64{}
-
-	txs := blockBody.Transactions
-	for i, tx := range txs {
-		txHash := tx.GetTxHash()
-		_, ok := uniqueTxHashes[string(txHash)]
-		if ok {
-			return validation.ErrDuplicatedTransaction
-		}
-		uniqueTxHashes[string(txHash)] = struct{}{}
-
-		if i > 0 {
-			err := bp.validateTransactionsOrdering(txs[i-1], tx)
-			if err != nil {
-				return err
-			}
-		}
-
-		// TODO txs in block should be sent only by hash? should we take the actual tx from mempool
-		//  if not present in mempool, from another sync component
-		estimatedConsumption, err := transactionProcessor.ProcessTransaction(tx, validation.MiniRoundOne)
-		if err != nil {
-			return err
-		}
-
-		blockConsumption += estimatedConsumption
-		if blockConsumption > maxBlockConsumption {
-			return validation.ErrBlockConsumptionReached
-		}
-
-		labels := tx.GetDomainLabels()
-		for _, label := range labels {
-			_, ok = labelsFrequencies[label]
-			if !ok {
-				labelsFrequencies[label] = 0
-			}
-
-			labelsFrequencies[label] += 1
-		}
+func (bp *blockProcessor) validateBlockBody(blockBody *data.BlockBody, transactionProcessor transactionprocessing.TxProcessor) error {
+	executor := blockprocessing.NewBodyExecutor()
+	execResult, err := executor.ExecuteBlockBody(blockBody, transactionProcessor)
+	if err != nil {
+		return err
 	}
 
-	return bp.validateSubDomains(blockBody.Subdomains, labelsFrequencies)
-}
-
-func (bp *blockProcessor) validateTransactionsOrdering(
-	previousTransaction data.Transaction,
-	currentTransaction data.Transaction,
-) error {
-	prevScore := previousTransaction.GetEstimatedScore()
-	currScore := currentTransaction.GetEstimatedScore()
-
-	if prevScore < currScore {
-		return validation.ErrTxsDoNotRespectProtocolOrder
-	}
-
-	if prevScore > currScore {
-		return nil
-	}
-
-	prevConsumption := previousTransaction.GetEstimatedConsumption()
-	currConsumption := currentTransaction.GetEstimatedConsumption()
-
-	if prevConsumption > currConsumption {
-		return validation.ErrTxsDoNotRespectProtocolOrder
-	}
-
-	if prevConsumption < currConsumption {
-		return nil
-	}
-
-	if bytes.Compare(previousTransaction.GetTxHash(), currentTransaction.GetTxHash()) > 0 {
-		return validation.ErrTxsDoNotRespectProtocolOrder
-	}
-
-	return nil
+	return bp.validateSubDomains(blockBody.Subdomains, execResult.Subdomains)
 }
 
 func (bp *blockProcessor) validateSubDomains(
@@ -246,17 +173,17 @@ func (bp *blockProcessor) validateSubDomains(
 	subDomainsByMe map[string]uint64,
 ) error {
 	if len(subDomainsByMe) != len(subDomainsByLeader) {
-		return validation.ErrInvalidNumSubdomains
+		return blockprocessing.ErrInvalidNumSubdomains
 	}
 
 	for subdomain, freqByLeader := range subDomainsByLeader {
 		freqByMe, ok := subDomainsByMe[subdomain]
 		if !ok {
-			return validation.ErrInvalidSubdomain
+			return blockprocessing.ErrInvalidSubdomain
 		}
 
 		if freqByMe != freqByLeader {
-			return validation.ErrInvalidFrequencyOfSubdomain
+			return blockprocessing.ErrInvalidFrequencyOfSubdomain
 		}
 	}
 
