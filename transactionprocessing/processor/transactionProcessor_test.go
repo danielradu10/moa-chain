@@ -1,4 +1,4 @@
-package transaction
+package processor
 
 import (
 	"errors"
@@ -6,8 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"moa-chain/data"
 	"moa-chain/testscommon"
-	"moa-chain/validation"
+	"moa-chain/transactionprocessing"
 )
 
 func TestTxProcessor_validateLabels(t *testing.T) {
@@ -33,7 +34,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrLeaderGeneratedTooManyLabels, err)
+		require.Equal(t, transactionprocessing.ErrLeaderGeneratedTooManyLabels, err)
 	})
 
 	t.Run("should return ErrValidatorGeneratedTooManyLabels when validator generates too many labels", func(t *testing.T) {
@@ -58,7 +59,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrValidatorGeneratedTooManyLabels, err)
+		require.Equal(t, transactionprocessing.ErrValidatorGeneratedTooManyLabels, err)
 	})
 
 	t.Run("should return ErrUnknownLabel when leader proposes an unknown label", func(t *testing.T) {
@@ -78,7 +79,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrUnknownLabel, err)
+		require.Equal(t, transactionprocessing.ErrUnknownLabel, err)
 	})
 
 	t.Run("should return ErrUnknownLabel when validator generates an unknown label", func(t *testing.T) {
@@ -96,7 +97,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrUnknownLabel, err)
+		require.Equal(t, transactionprocessing.ErrUnknownLabel, err)
 	})
 
 	t.Run("should return ErrLeaderProposedDuplicatedLabels when leader proposes duplicated labels", func(t *testing.T) {
@@ -116,7 +117,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrLeaderProposedDuplicatedLabels, err)
+		require.Equal(t, transactionprocessing.ErrLeaderProposedDuplicatedLabels, err)
 	})
 
 	t.Run("should return ErrValidatorGeneratedDuplicatedLabels when validator generates duplicated labels", func(t *testing.T) {
@@ -134,7 +135,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrValidatorGeneratedDuplicatedLabels, err)
+		require.Equal(t, transactionprocessing.ErrValidatorGeneratedDuplicatedLabels, err)
 	})
 
 	t.Run("should return ErrLabelIsNotValid when leader labels are not contained in validator labels", func(t *testing.T) {
@@ -156,7 +157,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 			},
 		)
 
-		require.Equal(t, validation.ErrLabelIsNotValid, err)
+		require.Equal(t, transactionprocessing.ErrLabelIsNotValid, err)
 	})
 
 	t.Run("should validate labels when leader labels are contained in validator labels", func(t *testing.T) {
@@ -244,7 +245,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			sender: "alice",
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, expectedErr, err)
 	})
@@ -275,7 +276,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			sender: "alice",
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, expectedErr, err)
 	})
@@ -313,7 +314,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, expectedErr, err)
 	})
@@ -351,9 +352,9 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
-		require.Equal(t, validation.ErrWrongTransactionNonce, err)
+		require.Equal(t, transactionprocessing.ErrWrongTransactionNonce, err)
 	})
 
 	t.Run("should return ErrWrongTransactionBalance when sender does not have enough balance", func(t *testing.T) {
@@ -389,9 +390,9 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
-		require.Equal(t, validation.ErrWrongTransactionBalance, err)
+		require.Equal(t, transactionprocessing.ErrWrongTransactionBalance, err)
 	})
 
 	t.Run("should return ErrNotImplemented in mini round two", func(t *testing.T) {
@@ -427,9 +428,9 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRoundTwo)
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundTwo)
 		require.Equal(t, uint64(0), estimatedConsumption)
-		require.Equal(t, validation.ErrNotImplemented, err)
+		require.Equal(t, transactionprocessing.ErrNotImplemented, err)
 	})
 
 	t.Run("should return ErrNotImplemented in mini round three", func(t *testing.T) {
@@ -465,9 +466,9 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRoundThree)
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundThree)
 		require.Equal(t, uint64(0), estimatedConsumption)
-		require.Equal(t, validation.ErrNotImplemented, err)
+		require.Equal(t, transactionprocessing.ErrNotImplemented, err)
 	})
 
 	t.Run("should return ErrUnsupportedMiniRound for unknown mini round", func(t *testing.T) {
@@ -503,9 +504,9 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRound(99))
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRound(99))
 		require.Equal(t, uint64(0), estimatedConsumption)
-		require.Equal(t, validation.ErrUnsupportedMiniRound, err)
+		require.Equal(t, transactionprocessing.ErrUnsupportedMiniRound, err)
 	})
 
 	t.Run("should reserve transaction and return estimated consumption in mini round one", func(t *testing.T) {
@@ -547,7 +548,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security", "cloud_engineering", "databases"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, validation.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
 		require.NoError(t, err)
 		require.Equal(t, uint64(77), estimatedConsumption)
 
@@ -571,10 +572,99 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 	})
 }
 
+func TestBlockProcessor_validateTransactionsOrdering(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score increases", func(t *testing.T) {
+		t.Parallel()
+
+		txProc := &txProcessor{}
+
+		previousTx := createTestTransaction(testTransactionArgs{
+			txHash:               "txHash1",
+			estimatedScore:       100,
+			estimatedConsumption: 20,
+		})
+		currentTx := createTestTransaction(testTransactionArgs{
+			txHash:               "txHash2",
+			estimatedScore:       110,
+			estimatedConsumption: 20,
+		})
+
+		err := txProc.ValidateTransactionsOrdering(previousTx, currentTx)
+
+		require.Equal(t, transactionprocessing.ErrTxsDoNotRespectProtocolOrder, err)
+	})
+
+	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score is equal and consumption decreases", func(t *testing.T) {
+		t.Parallel()
+
+		txProc := &txProcessor{}
+
+		previousTx := createTestTransaction(testTransactionArgs{
+			txHash:               "txHash1",
+			estimatedScore:       100,
+			estimatedConsumption: 20,
+		})
+		currentTx := createTestTransaction(testTransactionArgs{
+			txHash:               "txHash2",
+			estimatedScore:       100,
+			estimatedConsumption: 10,
+		})
+
+		err := txProc.ValidateTransactionsOrdering(previousTx, currentTx)
+
+		require.Equal(t, transactionprocessing.ErrTxsDoNotRespectProtocolOrder, err)
+	})
+
+	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score and consumption are equal and hash is out of order", func(t *testing.T) {
+		t.Parallel()
+
+		txProc := &txProcessor{}
+
+		previousTx := createTestTransaction(testTransactionArgs{
+			txHash:               "txHash2",
+			estimatedScore:       100,
+			estimatedConsumption: 20,
+		})
+		currentTx := createTestTransaction(testTransactionArgs{
+			txHash:               "txHash1",
+			estimatedScore:       100,
+			estimatedConsumption: 20,
+		})
+
+		err := txProc.ValidateTransactionsOrdering(previousTx, currentTx)
+
+		require.Equal(t, transactionprocessing.ErrTxsDoNotRespectProtocolOrder, err)
+	})
+
+	t.Run("should validate transactions ordering when transactions are correctly ordered", func(t *testing.T) {
+		t.Parallel()
+
+		txProc := &txProcessor{}
+
+		previousTx := createTestTransaction(testTransactionArgs{
+			txHash:               "txHash1",
+			estimatedScore:       100,
+			estimatedConsumption: 20,
+		})
+		currentTx := createTestTransaction(testTransactionArgs{
+			txHash:               "txHash2",
+			estimatedScore:       100,
+			estimatedConsumption: 20,
+		})
+
+		err := txProc.ValidateTransactionsOrdering(previousTx, currentTx)
+
+		require.NoError(t, err)
+	})
+}
+
 type testTransactionArgs struct {
 	nonce                uint64
 	sender               string
 	txHash               string
+	estimatedScore       uint64
 	estimatedConsumption uint64
 	estimatedFee         uint64
 	tip                  uint64
@@ -590,8 +680,60 @@ func createTestTransaction(args testTransactionArgs) *testscommon.TransactionStu
 	ts.SetEstimatedFee(args.estimatedFee)
 	ts.SetTip(args.tip)
 	ts.SetDomainLabels(args.domainLabels)
+	ts.SetEstimatedScore(args.estimatedScore)
 
 	return ts
+}
+
+func createCurrentBlockHeader(currentMiniRound data.MiniRound) *data.BlockHeader {
+	return &data.BlockHeader{
+		HeaderHash: []byte("currentHeaderHash"),
+		RootHash:   []byte("currentRootHash"),
+		Nonce:      7,
+		Round:      10,
+		MiniRound:  uint64(currentMiniRound),
+		Epoch:      1,
+	}
+}
+
+func createValidNextHeaderForCurrentHeader(currentHeader *data.BlockHeader) *data.BlockHeader {
+	nextMiniRound := data.MiniRoundTwo
+	nextRound := currentHeader.Round
+
+	switch data.MiniRound(currentHeader.MiniRound) {
+	case data.MiniRoundOne:
+		nextMiniRound = data.MiniRoundTwo
+		nextRound = currentHeader.Round
+	case data.MiniRoundTwo:
+		nextMiniRound = data.MiniRoundThree
+		nextRound = currentHeader.Round
+	case data.MiniRoundThree:
+		nextMiniRound = data.MiniRoundOne
+		nextRound = currentHeader.Round + 1
+	}
+
+	return &data.BlockHeader{
+		PreviousHash:     currentHeader.HeaderHash,
+		PreviousRootHash: currentHeader.RootHash,
+		Nonce:            currentHeader.Nonce + 1,
+		Round:            nextRound,
+		MiniRound:        uint64(nextMiniRound),
+		Epoch:            currentHeader.Epoch,
+	}
+}
+
+func createValidBlockForCurrentHeader(
+	currentHeader *data.BlockHeader,
+	transactions []data.Transaction,
+	subdomains map[string]uint64,
+) *data.Block {
+	return &data.Block{
+		Header: *createValidNextHeaderForCurrentHeader(currentHeader),
+		Body: data.BlockBody{
+			Transactions: transactions,
+			Subdomains:   subdomains,
+		},
+	}
 }
 
 type testAccountsProviderArgs struct {

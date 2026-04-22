@@ -1,10 +1,12 @@
-package transaction
+package processor
 
 import (
+	"bytes"
+
 	"moa-chain/agent"
 	"moa-chain/data"
 	"moa-chain/state"
-	"moa-chain/validation"
+	"moa-chain/transactionprocessing"
 )
 
 const (
@@ -42,7 +44,7 @@ func NewTxProcessor(
 	}, nil
 }
 
-func (tp *txProcessor) ProcessTransaction(tx data.Transaction, miniRound validation.MiniRound) (uint64, error) {
+func (tp *txProcessor) ProcessTransaction(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 	sender := tx.GetSender()
 
 	senderAccount, err := tp.accountsProvider.LoadAccount(string(sender))
@@ -61,14 +63,14 @@ func (tp *txProcessor) ProcessTransaction(tx data.Transaction, miniRound validat
 	}
 
 	switch miniRound {
-	case validation.MiniRoundOne:
+	case data.MiniRoundOne:
 		return tx.GetEstimatedConsumption(), tp.reserveTransaction(tx, senderAccount, escrowAccount)
-	case validation.MiniRoundTwo:
-		return 0, validation.ErrNotImplemented
-	case validation.MiniRoundThree:
-		return 0, validation.ErrNotImplemented
+	case data.MiniRoundTwo:
+		return 0, transactionprocessing.ErrNotImplemented
+	case data.MiniRoundThree:
+		return 0, transactionprocessing.ErrNotImplemented
 	default:
-		return 0, validation.ErrUnsupportedMiniRound
+		return 0, transactionprocessing.ErrUnsupportedMiniRound
 	}
 }
 
@@ -111,7 +113,7 @@ func (tp *txProcessor) validateTransactionNonce(
 	}
 
 	if txNonce != senderNonce {
-		return validation.ErrWrongTransactionNonce
+		return transactionprocessing.ErrWrongTransactionNonce
 	}
 
 	return nil
@@ -128,7 +130,7 @@ func (tp *txProcessor) validateTransactionBalance(
 
 	reservedBudget := tp.computeReservedBudget(tx)
 	if reservedBudget > senderBalance {
-		return validation.ErrWrongTransactionBalance
+		return transactionprocessing.ErrWrongTransactionBalance
 	}
 
 	return nil
@@ -142,19 +144,19 @@ func (tp *txProcessor) validateLabels(
 	labelsGeneratedByLeader []string,
 	labelsGeneratedByMe []string,
 ) error {
-	err := tp.validateMaxLabels(labelsGeneratedByLeader, numGeneratedLabelsByLeader, validation.ErrLeaderGeneratedTooManyLabels)
+	err := tp.validateMaxLabels(labelsGeneratedByLeader, numGeneratedLabelsByLeader, transactionprocessing.ErrLeaderGeneratedTooManyLabels)
 	if err != nil {
 		return err
 	}
 
-	err = tp.validateMaxLabels(labelsGeneratedByMe, numGeneratedLabelsByMe, validation.ErrValidatorGeneratedTooManyLabels)
+	err = tp.validateMaxLabels(labelsGeneratedByMe, numGeneratedLabelsByMe, transactionprocessing.ErrValidatorGeneratedTooManyLabels)
 	if err != nil {
 		return err
 	}
 
 	leaderLabelSet, err := tp.buildValidatedLabelSet(
 		labelsGeneratedByLeader,
-		validation.ErrLeaderProposedDuplicatedLabels,
+		transactionprocessing.ErrLeaderProposedDuplicatedLabels,
 	)
 	if err != nil {
 		return err
@@ -162,7 +164,7 @@ func (tp *txProcessor) validateLabels(
 
 	myLabelSet, err := tp.buildValidatedLabelSet(
 		labelsGeneratedByMe,
-		validation.ErrValidatorGeneratedDuplicatedLabels,
+		transactionprocessing.ErrValidatorGeneratedDuplicatedLabels,
 	)
 	if err != nil {
 		return err
@@ -214,7 +216,7 @@ func (tp *txProcessor) buildValidatedLabelSet(
 func (tp *txProcessor) validateKnownLabel(label string) error {
 	_, ok := possibleSubDomains[label]
 	if !ok {
-		return validation.ErrUnknownLabel
+		return transactionprocessing.ErrUnknownLabel
 	}
 
 	return nil
@@ -240,7 +242,7 @@ func (tp *txProcessor) validateLeaderLabelsAreContainedInMyLabels(
 	for label := range leaderLabelSet {
 		_, ok := myLabelSet[label]
 		if !ok {
-			return validation.ErrLabelIsNotValid
+			return transactionprocessing.ErrLabelIsNotValid
 		}
 	}
 
@@ -271,6 +273,39 @@ func (tp *txProcessor) reserveTransaction(
 	err = escrowAccount.IncreaseBalance(reservedBudget)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (tp *txProcessor) ValidateTransactionsOrdering(
+	previousTransaction data.Transaction,
+	currentTransaction data.Transaction,
+) error {
+	prevScore := previousTransaction.GetEstimatedScore()
+	currScore := currentTransaction.GetEstimatedScore()
+
+	if prevScore < currScore {
+		return transactionprocessing.ErrTxsDoNotRespectProtocolOrder
+	}
+
+	if prevScore > currScore {
+		return nil
+	}
+
+	prevConsumption := previousTransaction.GetEstimatedConsumption()
+	currConsumption := currentTransaction.GetEstimatedConsumption()
+
+	if prevConsumption > currConsumption {
+		return transactionprocessing.ErrTxsDoNotRespectProtocolOrder
+	}
+
+	if prevConsumption < currConsumption {
+		return nil
+	}
+
+	if bytes.Compare(previousTransaction.GetTxHash(), currentTransaction.GetTxHash()) > 0 {
+		return transactionprocessing.ErrTxsDoNotRespectProtocolOrder
 	}
 
 	return nil
