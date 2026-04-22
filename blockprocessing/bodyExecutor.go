@@ -6,6 +6,7 @@ import (
 )
 
 type blockBodyExecutionResult struct {
+	Transactions     []data.Transaction
 	TotalConsumption uint64
 	Subdomains       map[string]uint64
 }
@@ -20,6 +21,7 @@ func NewBodyExecutor() *bodyExecutor {
 func (exec *bodyExecutor) ExecuteBlockBody(
 	blockBody *data.BlockBody,
 	transactionProcessor transactionprocessing.TxProcessor,
+	amILeader bool,
 ) (*blockBodyExecutionResult, error) {
 	blockConsumption := uint64(0)
 	uniqueTxHashes := make(map[string]struct{})
@@ -42,9 +44,24 @@ func (exec *bodyExecutor) ExecuteBlockBody(
 
 		// TODO txs in block should be sent only by hash? should we take the actual tx from mempool
 		//  if not present in mempool, from another sync component
-		estimatedConsumption, err := transactionProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := transactionProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		if err != nil {
 			return nil, err
+		}
+
+		// TODO discuss if this order is ok. should we first label, then process economically?
+		labelsGeneratedByMe, err := transactionProcessor.LabelTransaction(tx, amILeader)
+		if err != nil {
+			return nil, err
+		}
+
+		if amILeader {
+			tx.SetDomainLabels(labelsGeneratedByMe)
+		} else {
+			err = transactionProcessor.ValidateLabels(tx.GetDomainLabels(), labelsGeneratedByMe)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		blockConsumption += estimatedConsumption
@@ -58,6 +75,7 @@ func (exec *bodyExecutor) ExecuteBlockBody(
 	}
 
 	return &blockBodyExecutionResult{
+		Transactions:     txs,
 		TotalConsumption: blockConsumption,
 		Subdomains:       labelsFrequencies,
 	}, nil

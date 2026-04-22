@@ -19,7 +19,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"cloud_engineering",
@@ -42,7 +42,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"cloud_engineering",
@@ -67,7 +67,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"unknown_label",
@@ -87,7 +87,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 			},
@@ -105,7 +105,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"security",
@@ -125,7 +125,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 			},
@@ -143,7 +143,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"cloud_engineering",
@@ -165,7 +165,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"cloud_engineering",
@@ -245,7 +245,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			sender: "alice",
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, expectedErr, err)
 	})
@@ -276,7 +276,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			sender: "alice",
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, expectedErr, err)
 	})
@@ -314,7 +314,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, expectedErr, err)
 	})
@@ -352,7 +352,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrWrongTransactionNonce, err)
 	})
@@ -390,7 +390,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrWrongTransactionBalance, err)
 	})
@@ -428,7 +428,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundTwo)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundTwo)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrNotImplemented, err)
 	})
@@ -466,7 +466,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundThree)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundThree)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrNotImplemented, err)
 	})
@@ -504,7 +504,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRound(99))
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRound(99))
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrUnsupportedMiniRound, err)
 	})
@@ -548,7 +548,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security", "cloud_engineering", "databases"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.NoError(t, err)
 		require.Equal(t, uint64(77), estimatedConsumption)
 
