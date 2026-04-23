@@ -238,7 +238,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 		})
 		labeler := &testscommon.LabelerStub{}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -269,49 +269,11 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 		})
 		labeler := &testscommon.LabelerStub{}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
 			sender: "alice",
-		})
-
-		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
-		require.Equal(t, uint64(0), estimatedConsumption)
-		require.Equal(t, expectedErr, err)
-	})
-
-	t.Run("should return labeler error", func(t *testing.T) {
-		t.Parallel()
-
-		expectedErr := errors.New("labeler error")
-
-		accountState := createAccountStateStubWithAccounts(t, map[string]struct {
-			nonce   uint64
-			balance uint64
-		}{
-			"alice": {nonce: 0, balance: 100},
-		})
-
-		accountsProvider := createAccountsProviderWithErrors(t, testAccountsProviderArgs{
-			accountState: accountState,
-			addresses:    []string{"alice"},
-		})
-		labeler := &testscommon.LabelerStub{
-			Err: expectedErr,
-		}
-
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
-		require.NoError(t, err)
-
-		tx := createTestTransaction(testTransactionArgs{
-			nonce:                0,
-			sender:               "alice",
-			txHash:               "txHash1",
-			estimatedFee:         10,
-			tip:                  5,
-			estimatedConsumption: 70,
-			domainLabels:         []string{"security"},
 		})
 
 		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
@@ -339,7 +301,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -377,7 +339,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -415,7 +377,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -453,7 +415,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -491,7 +453,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -535,7 +497,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -784,4 +746,9 @@ func createAccountsProviderWithErrors(t *testing.T, args testAccountsProviderArg
 		LoadAccountErr: args.loadAccountErr,
 		LoadEscrowErr:  args.loadEscrowErr,
 	}
+}
+
+func createAccountsStateStub(t *testing.T) *testscommon.AccountStateStub {
+	t.Helper()
+	return &testscommon.AccountStateStub{}
 }

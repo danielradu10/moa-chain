@@ -9,7 +9,7 @@ type LabelerStub struct {
 	LabelsByTxHash map[string][]string
 }
 
-func (tl *LabelerStub) Label(tx data.Transaction) ([]string, error) {
+func (tl *LabelerStub) Label(tx data.Transaction, amILeader bool) ([]string, error) {
 	if tl.Err != nil {
 		return nil, tl.Err
 	}

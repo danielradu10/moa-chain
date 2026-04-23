@@ -181,7 +181,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 			balance uint64
 		}{})
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Empty(t, selectedTransactions)
 	})
@@ -207,7 +207,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx2, tx3, tx1}, selectedTransactions)
 	})
@@ -230,7 +230,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx2, tx1}, selectedTransactions)
 	})
@@ -253,7 +253,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx1, tx2}, selectedTransactions)
 	})
@@ -276,7 +276,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx1}, selectedTransactions)
 	})
@@ -299,7 +299,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx2}, selectedTransactions)
 	})
@@ -322,7 +322,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx2}, selectedTransactions)
 	})
@@ -347,7 +347,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx1, tx2, tx3}, selectedTransactions)
 	})
@@ -372,7 +372,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx1, tx3}, selectedTransactions)
 	})

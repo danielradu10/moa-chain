@@ -44,6 +44,7 @@ func NewTxProcessor(
 ) (*txProcessor, error) {
 	return &txProcessor{
 		accountsProvider: accountsProvider,
+		accountState:     accountState,
 		labeler:          labeler,
 	}, nil
 }
