@@ -5,6 +5,7 @@ import (
 
 	"moa-chain/blockprocessing"
 	"moa-chain/data"
+	"moa-chain/mempool"
 	"moa-chain/transactionprocessing"
 	"moa-chain/transactionprocessing/processor"
 )
@@ -38,6 +39,7 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 		snapshot,
 		bp.AccountState,
 		bp.Labeler,
+		mempool.NewMemPool(),
 	)
 	if err != nil {
 		return err

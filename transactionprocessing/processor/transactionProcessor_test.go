@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"moa-chain/data"
+	"moa-chain/mempool"
 	"moa-chain/testscommon"
 	"moa-chain/transactionprocessing"
 )
@@ -238,7 +239,12 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 		})
 		labeler := &testscommon.LabelerStub{}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
+		txProcessor, err := NewTxProcessor(
+			accountsProvider,
+			createAccountsStateStub(t),
+			labeler,
+			mempool.NewMemPool(),
+		)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -269,7 +275,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 		})
 		labeler := &testscommon.LabelerStub{}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -301,7 +307,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -339,7 +345,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -377,7 +383,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -415,7 +421,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -453,7 +459,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -497,7 +503,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
