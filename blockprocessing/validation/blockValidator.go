@@ -49,6 +49,8 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 		return err
 	}
 
+	// TODO validate the new root hash
+
 	return nil
 }
 

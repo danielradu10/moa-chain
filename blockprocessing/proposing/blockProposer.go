@@ -2,17 +2,26 @@ package proposing
 
 import (
 	"moa-chain/blockprocessing"
+	"moa-chain/blockprocessing/hashing"
 	"moa-chain/data"
+	"moa-chain/mempool"
 	"moa-chain/transactionprocessing/processor"
 )
 
 type blockCreator struct {
 	blockprocessing.Base
+	mempool mempool.Mempool
 }
 
 // NewBlockCreator creates a new block creator
-func NewBlockCreator() *blockCreator {
-	return &blockCreator{}
+func NewBlockCreator(
+	base blockprocessing.Base,
+	mempool mempool.Mempool,
+) *blockCreator {
+	return &blockCreator{
+		Base:    base,
+		mempool: mempool,
+	}
 }
 
 // ProposeBlock proposes a block
@@ -27,11 +36,13 @@ func (bc *blockCreator) ProposeBlock() (*data.Block, error) {
 		return nil, err
 	}
 
-	// extract new root hash
+	// TODO extract new root hash!! analyze how the account state should behave
 
-	// hash block
-
-	// update block header with new hash and new root hash
+	headerHash, err := bc.hashProposedBlock(proposedBody, proposedHeader)
+	if err != nil {
+		return nil, err
+	}
+	proposedHeader.HeaderHash = headerHash
 
 	// return proposed block
 	proposedBlock := &data.Block{
@@ -110,6 +121,7 @@ func (bc *blockCreator) createProposedBody() (*data.BlockBody, error) {
 		snapshot,
 		bc.AccountState,
 		bc.Labeler,
+		bc.mempool,
 	)
 	if err != nil {
 		return nil, err
@@ -131,4 +143,23 @@ func (bc *blockCreator) createProposedBody() (*data.BlockBody, error) {
 	proposedBody.Transactions = execResult.Transactions
 	proposedBody.Subdomains = execResult.Subdomains
 	return proposedBody, nil
+}
+
+func (bc *blockCreator) hashProposedBlock(
+	proposedBody *data.BlockBody,
+	proposedHeader *data.BlockHeader,
+) ([]byte, error) {
+	bodyHash, err := hashing.ComputeBodyHash(proposedBody)
+	if err != nil {
+		return nil, err
+	}
+
+	proposedHeader.BodyHash = bodyHash
+
+	headerHash, err := hashing.ComputeHeaderHash(proposedHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	return headerHash, nil
 }

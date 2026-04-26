@@ -41,11 +41,13 @@ func NewTxProcessor(
 	accountsProvider state.AccountsProvider,
 	accountState state.AccountsState,
 	labeler agent.Labeler,
+	mempool mempool.Mempool,
 ) (*txProcessor, error) {
 	return &txProcessor{
 		accountsProvider: accountsProvider,
 		accountState:     accountState,
 		labeler:          labeler,
+		mempool:          mempool,
 	}, nil
 }
 

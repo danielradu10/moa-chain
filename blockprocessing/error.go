@@ -33,3 +33,6 @@ var ErrInvalidFrequencyOfSubdomain = errors.New("invalid frequency of subdomain"
 
 // ErrDuplicatedTransaction signals a duplicated transaction in the proposed block
 var ErrDuplicatedTransaction = errors.New("duplicated transaction")
+
+// ErrNilTransaction signals a nil transaction
+var ErrNilTransaction = errors.New("nil transaction")

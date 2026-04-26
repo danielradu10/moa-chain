@@ -8,6 +8,8 @@ type Block struct {
 
 // BlockHeader defines the header of a block
 type BlockHeader struct {
+	BodyHash []byte
+
 	HeaderHash   []byte
 	PreviousHash []byte
 
