@@ -116,3 +116,19 @@ func writeBytes(h interface{ Write([]byte) (int, error) }, b []byte) {
 func writeString(h interface{ Write([]byte) (int, error) }, s string) {
 	writeBytes(h, []byte(s))
 }
+
+// ComputeBlockHash compute block hash
+func ComputeBlockHash(body *data.BlockBody, header *data.BlockHeader) ([]byte, error) {
+	bodyHash, err := ComputeBodyHash(body)
+	if err != nil {
+		return nil, err
+	}
+
+	header.BodyHash = bodyHash
+	headerHash, err := ComputeHeaderHash(header)
+	if err != nil {
+		return nil, err
+	}
+
+	return headerHash, nil
+}

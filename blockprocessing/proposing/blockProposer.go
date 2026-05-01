@@ -149,17 +149,5 @@ func (bc *blockCreator) hashProposedBlock(
 	proposedBody *data.BlockBody,
 	proposedHeader *data.BlockHeader,
 ) ([]byte, error) {
-	bodyHash, err := hashing.ComputeBodyHash(proposedBody)
-	if err != nil {
-		return nil, err
-	}
-
-	proposedHeader.BodyHash = bodyHash
-
-	headerHash, err := hashing.ComputeHeaderHash(proposedHeader)
-	if err != nil {
-		return nil, err
-	}
-
-	return headerHash, nil
+	return hashing.ComputeBlockHash(proposedBody, proposedHeader)
 }
