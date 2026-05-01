@@ -5,6 +5,7 @@ import (
 
 	"moa-chain/agent"
 	"moa-chain/data"
+	"moa-chain/mempool"
 	"moa-chain/state"
 	"moa-chain/transactionprocessing"
 )
@@ -31,20 +32,26 @@ var possibleSubDomains = map[string]struct{}{
 
 type txProcessor struct {
 	accountsProvider state.AccountsProvider
+	accountState     state.AccountsState
+	mempool          mempool.Mempool
 	labeler          agent.Labeler
 }
 
 func NewTxProcessor(
 	accountsProvider state.AccountsProvider,
+	accountState state.AccountsState,
 	labeler agent.Labeler,
+	mempool mempool.Mempool,
 ) (*txProcessor, error) {
 	return &txProcessor{
 		accountsProvider: accountsProvider,
+		accountState:     accountState,
 		labeler:          labeler,
+		mempool:          mempool,
 	}, nil
 }
 
-func (tp *txProcessor) ProcessTransaction(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
+func (tp *txProcessor) ProcessTransactionEconomically(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 	sender := tx.GetSender()
 
 	senderAccount, err := tp.accountsProvider.LoadAccount(string(sender))
@@ -88,16 +95,6 @@ func (tp *txProcessor) validateTransaction(
 		return err
 	}
 
-	labelsGeneratedByMe, err := tp.labelTransaction(tx)
-	if err != nil {
-		return err
-	}
-
-	err = tp.validateLabels(tx.GetDomainLabels(), labelsGeneratedByMe)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -136,11 +133,11 @@ func (tp *txProcessor) validateTransactionBalance(
 	return nil
 }
 
-func (tp *txProcessor) labelTransaction(tx data.Transaction) ([]string, error) {
-	return tp.labeler.Label(tx)
+func (tp *txProcessor) LabelTransaction(tx data.Transaction, amILeader bool) ([]string, error) {
+	return tp.labeler.Label(tx, amILeader)
 }
 
-func (tp *txProcessor) validateLabels(
+func (tp *txProcessor) ValidateLabels(
 	labelsGeneratedByLeader []string,
 	labelsGeneratedByMe []string,
 ) error {
@@ -309,4 +306,9 @@ func (tp *txProcessor) ValidateTransactionsOrdering(
 	}
 
 	return nil
+}
+
+func (tp *txProcessor) SelectTransactions() []data.Transaction {
+	selectedTxs := tp.mempool.SelectTransactions(tp.accountState)
+	return selectedTxs
 }

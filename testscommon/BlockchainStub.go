@@ -22,14 +22,6 @@ func (bss *BlockchainStateStub) CurrentBlockHeader() (*data.BlockHeader, error) 
 	return bss.CurrentBlockHeaderValue, nil
 }
 
-func (bss *BlockchainStateStub) CurrentBlock() (*data.Block, error) {
-	if bss.CurrentBlockErr != nil {
-		return nil, bss.CurrentBlockErr
-	}
-
-	return bss.CurrentBlockValue, nil
-}
-
 func (bss *BlockchainStateStub) CurrentRound() (uint64, error) {
 	return bss.CurrentRoundValue, nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"moa-chain/data"
+	"moa-chain/mempool"
 	"moa-chain/testscommon"
 	"moa-chain/transactionprocessing"
 )
@@ -19,7 +20,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"cloud_engineering",
@@ -42,7 +43,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"cloud_engineering",
@@ -67,7 +68,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"unknown_label",
@@ -87,7 +88,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 			},
@@ -105,7 +106,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"security",
@@ -125,7 +126,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 			},
@@ -143,7 +144,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"cloud_engineering",
@@ -165,7 +166,7 @@ func TestTxProcessor_validateLabels(t *testing.T) {
 
 		txProcessor := &txProcessor{}
 
-		err := txProcessor.validateLabels(
+		err := txProcessor.ValidateLabels(
 			[]string{
 				"security",
 				"cloud_engineering",
@@ -238,14 +239,19 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 		})
 		labeler := &testscommon.LabelerStub{}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(
+			accountsProvider,
+			createAccountsStateStub(t),
+			labeler,
+			mempool.NewMemPool(),
+		)
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
 			sender: "alice",
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, expectedErr, err)
 	})
@@ -269,52 +275,14 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 		})
 		labeler := &testscommon.LabelerStub{}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
 			sender: "alice",
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
-		require.Equal(t, uint64(0), estimatedConsumption)
-		require.Equal(t, expectedErr, err)
-	})
-
-	t.Run("should return labeler error", func(t *testing.T) {
-		t.Parallel()
-
-		expectedErr := errors.New("labeler error")
-
-		accountState := createAccountStateStubWithAccounts(t, map[string]struct {
-			nonce   uint64
-			balance uint64
-		}{
-			"alice": {nonce: 0, balance: 100},
-		})
-
-		accountsProvider := createAccountsProviderWithErrors(t, testAccountsProviderArgs{
-			accountState: accountState,
-			addresses:    []string{"alice"},
-		})
-		labeler := &testscommon.LabelerStub{
-			Err: expectedErr,
-		}
-
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
-		require.NoError(t, err)
-
-		tx := createTestTransaction(testTransactionArgs{
-			nonce:                0,
-			sender:               "alice",
-			txHash:               "txHash1",
-			estimatedFee:         10,
-			tip:                  5,
-			estimatedConsumption: 70,
-			domainLabels:         []string{"security"},
-		})
-
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, expectedErr, err)
 	})
@@ -339,7 +307,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -352,7 +320,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrWrongTransactionNonce, err)
 	})
@@ -377,7 +345,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -390,7 +358,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrWrongTransactionBalance, err)
 	})
@@ -415,7 +383,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -428,7 +396,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundTwo)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundTwo)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrNotImplemented, err)
 	})
@@ -453,7 +421,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -466,7 +434,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundThree)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundThree)
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrNotImplemented, err)
 	})
@@ -491,7 +459,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -504,7 +472,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRound(99))
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRound(99))
 		require.Equal(t, uint64(0), estimatedConsumption)
 		require.Equal(t, transactionprocessing.ErrUnsupportedMiniRound, err)
 	})
@@ -535,7 +503,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			},
 		}
 
-		txProcessor, err := NewTxProcessor(accountsProvider, labeler)
+		txProcessor, err := NewTxProcessor(accountsProvider, createAccountsStateStub(t), labeler, mempool.NewMemPool())
 		require.NoError(t, err)
 
 		tx := createTestTransaction(testTransactionArgs{
@@ -548,7 +516,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 			domainLabels:         []string{"security", "cloud_engineering", "databases"},
 		})
 
-		estimatedConsumption, err := txProcessor.ProcessTransaction(tx, data.MiniRoundOne)
+		estimatedConsumption, err := txProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		require.NoError(t, err)
 		require.Equal(t, uint64(77), estimatedConsumption)
 
@@ -784,4 +752,9 @@ func createAccountsProviderWithErrors(t *testing.T, args testAccountsProviderArg
 		LoadAccountErr: args.loadAccountErr,
 		LoadEscrowErr:  args.loadEscrowErr,
 	}
+}
+
+func createAccountsStateStub(t *testing.T) *testscommon.AccountStateStub {
+	t.Helper()
+	return &testscommon.AccountStateStub{}
 }

@@ -3,18 +3,15 @@ package validation
 import (
 	"bytes"
 
-	"moa-chain/agent"
 	"moa-chain/blockprocessing"
 	"moa-chain/data"
-	"moa-chain/state"
+	"moa-chain/mempool"
 	"moa-chain/transactionprocessing"
 	"moa-chain/transactionprocessing/processor"
 )
 
 type blockProcessor struct {
-	accountsSnapshotFactory state.AccountsSnapshotFactory
-	blockchainState         state.BlockchainState
-	labeler                 agent.Labeler
+	blockprocessing.Base
 }
 
 func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
@@ -22,7 +19,7 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 		return blockprocessing.ErrNilBlock
 	}
 
-	currentBlockHeader, err := bp.blockchainState.CurrentBlockHeader()
+	currentBlockHeader, err := bp.BlockchainState.CurrentBlockHeader()
 	if err != nil {
 		return err
 	}
@@ -32,7 +29,7 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 		return err
 	}
 
-	snapshot, err := bp.accountsSnapshotFactory.CreateSnapshot()
+	snapshot, err := bp.AccountsSnapshotFactory.CreateSnapshot()
 	if err != nil {
 		return err
 	}
@@ -40,7 +37,9 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 
 	txProcessor, err := processor.NewTxProcessor(
 		snapshot,
-		bp.labeler,
+		bp.AccountState,
+		bp.Labeler,
+		mempool.NewMemPool(),
 	)
 	if err != nil {
 		return err
@@ -51,6 +50,8 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 	if err != nil {
 		return err
 	}
+
+	// TODO validate the new root hash
 
 	return nil
 }
@@ -160,7 +161,7 @@ func (bp *blockProcessor) validateHashContinuity(
 
 func (bp *blockProcessor) validateBlockBody(blockBody *data.BlockBody, transactionProcessor transactionprocessing.TxProcessor) error {
 	executor := blockprocessing.NewBodyExecutor()
-	execResult, err := executor.ExecuteBlockBody(blockBody, transactionProcessor)
+	execResult, err := executor.ExecuteBlockBody(blockBody, transactionProcessor, false)
 	if err != nil {
 		return err
 	}

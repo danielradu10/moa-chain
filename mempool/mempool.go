@@ -138,11 +138,10 @@ func (mp *memPool) snapshot() (map[string]data.Transaction, *sendersMap) {
 // SelectTransactions selects transactions from the pool, using the current accounts state on chain and the given transactions comparator
 func (mp *memPool) SelectTransactions(
 	accountsState state.AccountsState,
-	comparator txHeapComparator,
 ) []data.Transaction {
 	_, sendersMapSnapshot := mp.snapshot()
 
-	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), comparator)
+	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), isTransactionMoreValuable)
 	if err != nil {
 		return nil
 	}

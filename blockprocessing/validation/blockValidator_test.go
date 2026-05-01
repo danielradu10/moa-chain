@@ -31,8 +31,10 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 		expectedErr := errors.New("current block header error")
 
 		blockProcessor := &blockProcessor{
-			blockchainState: &testscommon.BlockchainStateStub{
-				CurrentBlockHeaderErr: expectedErr,
+			blockprocessing.Base{
+				BlockchainState: &testscommon.BlockchainStateStub{
+					CurrentBlockHeaderErr: expectedErr,
+				},
 			},
 		}
 
@@ -49,8 +51,10 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 		proposedBlock.Header.Nonce = currentHeader.Nonce + 2
 
 		blockProcessor := &blockProcessor{
-			blockchainState: &testscommon.BlockchainStateStub{
-				CurrentBlockHeaderValue: currentHeader,
+			blockprocessing.Base{
+				BlockchainState: &testscommon.BlockchainStateStub{
+					CurrentBlockHeaderValue: currentHeader,
+				},
 			},
 		}
 
@@ -67,11 +71,13 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 		proposedBlock := createValidBlockForCurrentHeader(currentHeader, nil, map[string]uint64{})
 
 		blockProcessor := &blockProcessor{
-			blockchainState: &testscommon.BlockchainStateStub{
-				CurrentBlockHeaderValue: currentHeader,
-			},
-			accountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
-				CreateSnapshotErr: expectedErr,
+			blockprocessing.Base{
+				BlockchainState: &testscommon.BlockchainStateStub{
+					CurrentBlockHeaderValue: currentHeader,
+				},
+				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
+					CreateSnapshotErr: expectedErr,
+				},
 			},
 		}
 
@@ -112,15 +118,17 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 		}
 
 		blockProcessor := &blockProcessor{
-			blockchainState: &testscommon.BlockchainStateStub{
-				CurrentBlockHeaderValue: currentHeader,
-			},
-			accountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
-				Snapshot: snapshot,
-			},
-			labeler: &testscommon.LabelerStub{
-				LabelsByTxHash: map[string][]string{
-					"txHash1": {"security", "cloud_engineering"},
+			blockprocessing.Base{
+				BlockchainState: &testscommon.BlockchainStateStub{
+					CurrentBlockHeaderValue: currentHeader,
+				},
+				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
+					Snapshot: snapshot,
+				},
+				Labeler: &testscommon.LabelerStub{
+					LabelsByTxHash: map[string][]string{
+						"txHash1": {"security", "cloud_engineering"},
+					},
 				},
 			},
 		}
@@ -165,19 +173,21 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 		}
 
 		blockProcessor := &blockProcessor{
-			blockchainState: &testscommon.BlockchainStateStub{
-				CurrentBlockHeaderValue: currentHeader,
-			},
-			accountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
-				Snapshot: snapshot,
-			},
-			labeler: &testscommon.LabelerStub{
-				LabelsByTxHash: map[string][]string{
-					"txHash1": {
-						"security",
-						"cloud_engineering",
-						"databases",
-						"dev_ops",
+			blockprocessing.Base{
+				BlockchainState: &testscommon.BlockchainStateStub{
+					CurrentBlockHeaderValue: currentHeader,
+				},
+				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
+					Snapshot: snapshot,
+				},
+				Labeler: &testscommon.LabelerStub{
+					LabelsByTxHash: map[string][]string{
+						"txHash1": {
+							"security",
+							"cloud_engineering",
+							"databases",
+							"dev_ops",
+						},
 					},
 				},
 			},
