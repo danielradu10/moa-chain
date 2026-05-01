@@ -5,6 +5,8 @@ import (
 	"moa-chain/transactionprocessing"
 )
 
+const MaxBlockConsumption = 1000
+
 type blockBodyExecutionResult struct {
 	Transactions     []data.Transaction
 	TotalConsumption uint64
