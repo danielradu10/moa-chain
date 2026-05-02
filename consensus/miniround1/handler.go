@@ -3,18 +3,21 @@ package miniround1
 import (
 	"moa-chain/blockprocessing"
 	"moa-chain/broadcast"
-	"moa-chain/consensus"
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
+	"moa-chain/state"
+	"moa-chain/validators"
 )
 
 type handler struct {
+	myID string
+
 	blockCreator      blockprocessing.BlockCreator
 	blockValidator    blockprocessing.BlockProcessor
-	roundState        consensus.RoundState
+	roundState        state.RoundState
 	broadcaster       broadcast.Broadcaster
 	signer            signing.MessageSigner
-	validatorRegistry consensus.ValidatorRegistry
+	validatorRegistry validators.ValidatorRegistry
 }
 
 // NewHandler returns a new mini round one handler
@@ -30,7 +33,7 @@ func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
 		return err
 	}
 
-	// there is no need to process the block, we already process it inside ProposeBlock
+	// there is no need to process the block, we already processed it inside ProposeBlock
 
 	err = handler.roundState.SetProposedBlock(roundKey, block)
 	if err != nil {
@@ -44,7 +47,13 @@ func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
 		Block:     block,
 	}
 
-	err = handler.broadcaster.BroadcastProposedBlock(&proposedMessage)
+	consensusMessage := &data.ConsensusMessage{
+		ConsensusMessageType: data.ProposedBlockConsensusMessage,
+		ProposedBlockMessage: &proposedMessage,
+	}
+
+	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
+	err = handler.broadcaster.BroadcastProposedBlock(consensusMessage, handler.myID, validatorsIDs)
 	if err != nil {
 		return err
 	}
@@ -56,12 +65,12 @@ func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
 // This method will be called by all validators in a specific mini-round.
 func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *data.ProposedBlockMessage) error {
 	if message == nil {
-		return consensus.ErrNilProposedBlockMessage
+		return ErrNilProposedBlockMessage
 	}
 
 	proposedBlock := message.Block
 	if proposedBlock == nil {
-		return consensus.ErrNilBlock
+		return ErrNilBlock
 	}
 
 	// validate block and create the hash
@@ -94,14 +103,24 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 		Signature: signature,
 	}
 
-	return handler.broadcaster.SendVoteToLeader(vote)
+	leader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+
+	consensusMessage := &data.ConsensusMessage{
+		ConsensusMessageType: data.BlockVoteConsensusMessage,
+		BlockVote:            vote,
+	}
+
+	return handler.broadcaster.SendVoteToLeader(consensusMessage, string(leader))
 }
 
 // HandleBlockVote handles a block vote.
 // This method will be called by the leader of a specific mini-round each time it receives a new vote.
 func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.BlockVote) error {
 	if vote == nil {
-		return consensus.ErrNilVote
+		return ErrNilVote
 	}
 
 	err := handler.verifyVote(roundKey, vote)
@@ -141,7 +160,13 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		Signatures: signatures,
 	}
 
-	return handler.broadcaster.BroadcastAggregatedVotes(aggVotes)
+	consensusMessage := &data.ConsensusMessage{
+		ConsensusMessageType: data.AggregatedVotesConsensusMessage,
+		AggregatedVotes:      &aggVotes,
+	}
+
+	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
+	return handler.broadcaster.BroadcastAggregatedVotes(consensusMessage, handler.myID, validatorsIDs)
 }
 
 func (handler *handler) verifyVote(roundKey data.RoundKey, vote *data.BlockVote) error {
@@ -150,12 +175,12 @@ func (handler *handler) verifyVote(roundKey data.RoundKey, vote *data.BlockVote)
 
 	isValidator := handler.validatorRegistry.IsValidatorRegistered(validatorID)
 	if !isValidator {
-		return consensus.ErrSignerIsNotValidator
+		return ErrSignerIsNotValidator
 	}
 
 	isValidatorInConsensusGroup := handler.validatorRegistry.IsValidatorInConsensusGroup(validatorID)
 	if !isValidatorInConsensusGroup {
-		return consensus.ErrValidatorNotPartOfConsensusGroup
+		return ErrValidatorNotPartOfConsensusGroup
 	}
 
 	publicKey, err := handler.validatorRegistry.GetPublicKey(validatorID)

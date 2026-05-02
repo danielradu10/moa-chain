@@ -6,7 +6,14 @@ import (
 
 // Broadcaster defines what a Broadcaster should do.
 type Broadcaster interface {
-	SendVoteToLeader(vote *data.BlockVote) error
-	BroadcastProposedBlock(blockMessage *data.ProposedBlockMessage) error
-	BroadcastAggregatedVotes(aggregatedVotes data.AggregatedVotes) error
+	SendVoteToLeader(voteMessage *data.ConsensusMessage, leaderID string) error
+	BroadcastProposedBlock(blockMessage *data.ConsensusMessage, myID string, receivers []string) error
+	BroadcastAggregatedVotes(aggregatedVotesMessage *data.ConsensusMessage, myID string, receivers []string) error
+}
+
+// PeerRegistry defines what a peer registry should do.
+type PeerRegistry interface {
+	Register(validatorID string, channel chan<- data.ConsensusMessage) error
+	Unregister(validatorID string)
+	GetChannel(validatorID string) (chan<- data.ConsensusMessage, error)
 }

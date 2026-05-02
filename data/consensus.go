@@ -46,6 +46,23 @@ type AggregatedVotes struct {
 	Signatures [][]byte
 }
 
+// ConsensusMessage defines the standardized consensus message which will be shared between rounds.
+type ConsensusMessage struct {
+	ConsensusMessageType ConsensusMessageType
+
+	ProposedBlockMessage *ProposedBlockMessage
+	AggregatedVotes      *AggregatedVotes
+	BlockVote            *BlockVote
+}
+
+type ConsensusMessageType int
+
+const (
+	ProposedBlockConsensusMessage ConsensusMessageType = iota
+	AggregatedVotesConsensusMessage
+	BlockVoteConsensusMessage
+)
+
 // ValidatorVote contains the validator public key and its vote.
 type ValidatorVote struct {
 	ValidatorID string

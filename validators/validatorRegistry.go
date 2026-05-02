@@ -1,4 +1,4 @@
-package consensus
+package validators
 
 import (
 	"bytes"
@@ -78,7 +78,26 @@ func (vr *validatorRegistry) ConsensusGroup() [][]byte {
 	return group
 }
 
+// LeaderOfConsensusGroup returns the current leader of the consensus group.
+func (vr *validatorRegistry) LeaderOfConsensusGroup() ([]byte, error) {
+	if vr.currentLeader == nil {
+		return nil, ErrLeaderNotSet
+	}
+
+	return vr.currentLeader, nil
+}
+
 // ConsensusGroupSize returns the current consensus group size.
 func (vr *validatorRegistry) ConsensusGroupSize() uint64 {
 	return uint64(len(vr.consensusGroup))
+}
+
+// GetValidatorsIDs returns all the registered ids
+func (vr *validatorRegistry) GetValidatorsIDs() []string {
+	ids := make([]string, 0, len(vr.validators))
+	for k := range vr.validators {
+		ids = append(ids, k)
+	}
+
+	return ids
 }
