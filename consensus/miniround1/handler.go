@@ -138,7 +138,12 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		return err
 	}
 
-	if uint64(len(votes)) < handler.validatorRegistry.ConsensusGroupSize() {
+	consensusGroupSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		return err
+	}
+
+	if uint64(len(votes)) < (2*consensusGroupSize)/3+1 {
 		return nil
 	}
 

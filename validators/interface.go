@@ -2,6 +2,7 @@ package validators
 
 import (
 	"moa-chain/data"
+	"moa-chain/state"
 )
 
 // ValidatorRegistry defines what a validator registry shoul do.
@@ -12,11 +13,19 @@ type ValidatorRegistry interface {
 	IsValidatorInConsensusGroup(validatorID string) bool
 
 	IsNodeLeader(validatorID string) bool
-	LeaderOfConsensusGroup() ([]byte, error)
+	LeaderOfConsensusGroup() (string, error)
 
-	GenerateConsensusGroup(roundKey data.RoundKey) error
-	ConsensusGroup() [][]byte
-	ConsensusGroupSize() uint64
+	GenerateConsensusGroup(blockchainState state.BlockchainState, roundKey data.RoundKey) error
+	ConsensusGroup() ([]string, error)
+	ConsensusGroupSize() (uint64, error)
 
 	GetValidatorsIDs() []string
+}
+
+// ConsensusSelector defines what a consensus selector should do.
+type ConsensusSelector interface {
+	SelectConsensusGroup(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey) ([]string, error)
+	Leader() (string, error)
+	ConsensusGroup() ([]string, error)
+	ConsensusGroupSize() (uint64, error)
 }
