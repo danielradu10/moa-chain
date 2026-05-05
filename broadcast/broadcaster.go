@@ -30,7 +30,10 @@ func (b *broadcaster) SendVoteToLeader(voteMessage *data.ConsensusMessage, leade
 		return ErrNilConsensusMessage
 	}
 
-	leaderChannel <- *voteMessage
+	leaderChannel <- data.RoundEvent{
+		Type:    data.ConsensusMessageEvent,
+		Message: *voteMessage,
+	}
 	return nil
 }
 
@@ -61,7 +64,10 @@ func (b *broadcaster) broadcast(message *data.ConsensusMessage, myID string, rec
 			return ErrNilChannel
 		}
 
-		channel <- *message
+		channel <- data.RoundEvent{
+			Type:    data.ConsensusMessageEvent,
+			Message: *message,
+		}
 	}
 
 	return nil

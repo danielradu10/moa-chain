@@ -5,17 +5,17 @@ import (
 )
 
 type peerRegistry struct {
-	registry map[string]chan<- data.ConsensusMessage
+	registry map[string]chan<- data.RoundEvent
 }
 
 func NewPeerRegistry() *peerRegistry {
 	return &peerRegistry{
-		registry: make(map[string]chan<- data.ConsensusMessage),
+		registry: make(map[string]chan<- data.RoundEvent),
 	}
 }
 
 // GetChannel returns the communication channel of a validator.
-func (pr *peerRegistry) GetChannel(validatorID string) (chan<- data.ConsensusMessage, error) {
+func (pr *peerRegistry) GetChannel(validatorID string) (chan<- data.RoundEvent, error) {
 	_, ok := pr.registry[validatorID]
 	if !ok {
 		return nil, ErrInvalidValidator
@@ -24,7 +24,7 @@ func (pr *peerRegistry) GetChannel(validatorID string) (chan<- data.ConsensusMes
 	return pr.registry[validatorID], nil
 }
 
-func (pr *peerRegistry) Register(validatorID string, channel chan<- data.ConsensusMessage) error {
+func (pr *peerRegistry) Register(validatorID string, channel chan<- data.RoundEvent) error {
 	_, ok := pr.registry[validatorID]
 	if ok {
 		return ErrValidatorAlreadyExists
