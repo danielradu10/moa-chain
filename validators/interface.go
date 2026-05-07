@@ -7,6 +7,8 @@ import (
 
 // ValidatorRegistry defines what a validator registry shoul do.
 type ValidatorRegistry interface {
+	Register(validatorID string, validator *Validator) error
+
 	GetPublicKey(validatorID string) ([]byte, error)
 
 	IsValidatorRegistered(validatorID string) bool

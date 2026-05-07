@@ -15,7 +15,10 @@ type consensusSelector struct {
 }
 
 func NewConsensusSelector() *consensusSelector {
-	return &consensusSelector{}
+	return &consensusSelector{
+		currentConsensusGroup: make([]string, 0),
+		currentLeader:         "",
+	}
 }
 
 func (c *consensusSelector) SelectConsensusGroup(
@@ -45,7 +48,7 @@ func (c *consensusSelector) SelectConsensusGroup(
 	}
 
 	c.currentConsensusGroup = consensusGroup
-	c.currentLeader = consensusGroup[consensusGroupDimension]
+	c.currentLeader = consensusGroup[0]
 
 	return consensusGroup, nil
 }

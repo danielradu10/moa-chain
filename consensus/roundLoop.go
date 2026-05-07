@@ -5,37 +5,46 @@ import (
 )
 
 type RoundLoop struct {
-	handler roundHandler
+	handler *roundHandler
 	inbox   chan data.RoundEvent
+	errCh   chan error
 }
 
-func NewRoundLoop(handler roundHandler) *RoundLoop {
+func NewRoundLoop(handler *roundHandler, inbox chan data.RoundEvent) *RoundLoop {
 	return &RoundLoop{
 		handler: handler,
-		inbox:   make(chan data.RoundEvent, 1024),
+		inbox:   inbox,
+		errCh:   make(chan error, 32),
 	}
 }
 
-func (rl *RoundLoop) Inbox() chan<- data.RoundEvent {
-	return rl.inbox
+func (rl *RoundLoop) Errors() <-chan error {
+	return rl.errCh
 }
 
 func (rl *RoundLoop) Run() {
 	for event := range rl.inbox {
+		var err error
+
 		switch event.Type {
 		case data.StartRoundEvent:
-			_ = rl.handler.StartRound(event.RoundKey)
+			err = rl.handler.StartRound(event.RoundKey)
 
 		case data.ConsensusMessageEvent:
-			_ = rl.handler.HandleMessage(event.Message)
+			err = rl.handler.HandleMessage(event.Message)
 
 		case data.TimeoutEvent:
-			_ = rl.handler.OnTimeout(event.Timeout.RoundKey, event.Timeout.Step)
+			err = rl.handler.OnTimeout(event.Timeout.RoundKey, event.Timeout.Step)
 
 		case data.StopEvent:
 			return
+
 		default:
 			panic("unhandled default case")
+		}
+
+		if err != nil {
+			rl.errCh <- err
 		}
 	}
 }

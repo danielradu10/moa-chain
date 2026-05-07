@@ -1,6 +1,8 @@
 package state
 
 import (
+	"errors"
+
 	"moa-chain/data"
 )
 
@@ -8,6 +10,7 @@ import (
 type roundState struct {
 	proposedBlocks map[data.RoundKey]*data.Block
 	votes          map[data.RoundKey]map[string]*data.BlockVote
+	certificates   map[data.RoundKey]*data.AggregatedVotes
 }
 
 // NewRoundState creates a new round state which caches blocks and votes.
@@ -15,6 +18,7 @@ func NewRoundState() *roundState {
 	return &roundState{
 		proposedBlocks: make(map[data.RoundKey]*data.Block),
 		votes:          make(map[data.RoundKey]map[string]*data.BlockVote),
+		certificates:   make(map[data.RoundKey]*data.AggregatedVotes),
 	}
 }
 
@@ -83,8 +87,24 @@ func (state *roundState) GetVotes(roundKey data.RoundKey) ([]*data.ValidatorVote
 	return extractedVotes, nil
 }
 
+func (state *roundState) SetCertificate(roundKey data.RoundKey, certificate *data.AggregatedVotes) error {
+	_, ok := state.certificates[roundKey]
+	if ok {
+		return errors.New("duplicate certificate")
+	}
+
+	state.certificates[roundKey] = certificate
+	return nil
+}
+
+func (state *roundState) IsCertificateSet(roundKey data.RoundKey) bool {
+	_, ok := state.certificates[roundKey]
+	return ok
+}
+
 // ClearRoundState clears the state of a round.
 func (state *roundState) ClearRoundState(roundKey data.RoundKey) {
 	delete(state.proposedBlocks, roundKey)
 	delete(state.votes, roundKey)
+	delete(state.certificates, roundKey)
 }
