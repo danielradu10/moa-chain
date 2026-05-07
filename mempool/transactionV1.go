@@ -22,6 +22,10 @@ type transaction struct {
 	estimatedScore       uint64
 }
 
+func NewTransaction() *transaction {
+	return &transaction{}
+}
+
 func (tx *transaction) GetNonce() uint64 {
 	return tx.nonce
 }
