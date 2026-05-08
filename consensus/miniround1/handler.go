@@ -1,12 +1,15 @@
 package miniround1
 
 import (
+	"errors"
+
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/broadcast"
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
 	"moa-chain/state"
+	"moa-chain/transactionprocessing"
 	"moa-chain/validators"
 )
 
@@ -142,6 +145,17 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 	// validate block and create the hash
 	hash, err := handler.blockValidator.ValidateBlock(proposedBlock)
 	if err != nil {
+		if errors.Is(err, transactionprocessing.ErrLabelIsNotValid) {
+			err = handler.roundState.SetProposedBlock(roundKey, proposedBlock)
+			if err != nil {
+				return err
+			}
+
+			// Semantic disagreement: do not vote, but stay able to finalize
+			// if the leader later broadcasts a valid quorum certificate.
+			return nil
+		}
+
 		return err
 	}
 
