@@ -13,6 +13,23 @@ type roundHandler struct {
 	miniRoundOneHandler miniround1.MiniRoundOneHandler
 }
 
+type RoundHandlerArgs struct {
+	SelfID              string
+	CurrentStep         data.Step
+	CurrentRoundKey     data.RoundKey
+	MiniRoundOneHandler miniround1.MiniRoundOneHandler
+}
+
+// NewRoundHandler creates a new round handler
+func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
+	return &roundHandler{
+		selfID:              args.SelfID,
+		currentStep:         args.CurrentStep,
+		currentRoundKey:     args.CurrentRoundKey,
+		miniRoundOneHandler: args.MiniRoundOneHandler,
+	}
+}
+
 func (rh *roundHandler) StartRound(roundKey data.RoundKey) error {
 	rh.currentRoundKey = roundKey
 

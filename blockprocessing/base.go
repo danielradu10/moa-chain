@@ -2,6 +2,7 @@ package blockprocessing
 
 import (
 	"moa-chain/agent"
+	"moa-chain/mempool"
 	"moa-chain/state"
 )
 
@@ -10,4 +11,5 @@ type Base struct {
 	BlockchainState         state.BlockchainState
 	Labeler                 agent.Labeler
 	AccountState            state.AccountsState
+	Mempool                 mempool.Mempool
 }

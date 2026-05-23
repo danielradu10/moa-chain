@@ -4,23 +4,19 @@ import (
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/hashing"
 	"moa-chain/data"
-	"moa-chain/mempool"
 	"moa-chain/transactionprocessing/processor"
 )
 
 type blockCreator struct {
 	blockprocessing.Base
-	mempool mempool.Mempool
 }
 
 // NewBlockCreator creates a new block creator
 func NewBlockCreator(
 	base blockprocessing.Base,
-	mempool mempool.Mempool,
 ) *blockCreator {
 	return &blockCreator{
-		Base:    base,
-		mempool: mempool,
+		Base: base,
 	}
 }
 
@@ -121,7 +117,7 @@ func (bc *blockCreator) createProposedBody() (*data.BlockBody, error) {
 		snapshot,
 		bc.AccountState,
 		bc.Labeler,
-		bc.mempool,
+		bc.Mempool,
 	)
 	if err != nil {
 		return nil, err

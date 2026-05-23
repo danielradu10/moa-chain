@@ -1,6 +1,8 @@
 package validators
 
 import (
+	"sort"
+
 	"moa-chain/data"
 	"moa-chain/state"
 )
@@ -20,6 +22,12 @@ func NewValidatorRegistry(
 		cs:             cs,
 		consensusGroup: make(map[string]struct{}),
 	}
+}
+
+// Register registers a new validator.
+func (vr *validatorRegistry) Register(validatorID string, validator *Validator) error {
+	vr.validators[validatorID] = validator
+	return nil
 }
 
 // GetPublicKey returns the public key of a validatorID.
@@ -60,10 +68,19 @@ func (vr *validatorRegistry) IsNodeLeader(validatorID string) bool {
 }
 
 // GenerateConsensusGroup generates the consensus group.
-func (vr *validatorRegistry) GenerateConsensusGroup(blockchainState state.BlockchainState, roundKey data.RoundKey) error {
-	validators := make([]*Validator, 0, len(vr.validators))
-	for _, validator := range vr.validators {
-		validators = append(validators, validator)
+func (vr *validatorRegistry) GenerateConsensusGroup(
+	blockchainState state.BlockchainState,
+	roundKey data.RoundKey,
+) error {
+	ids := make([]string, 0, len(vr.validators))
+	for id := range vr.validators {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	validators := make([]*Validator, 0, len(ids))
+	for _, id := range ids {
+		validators = append(validators, vr.validators[id])
 	}
 
 	consensusGroup, err := vr.cs.SelectConsensusGroup(blockchainState, validators, roundKey)
@@ -101,5 +118,6 @@ func (vr *validatorRegistry) GetValidatorsIDs() []string {
 		ids = append(ids, k)
 	}
 
+	sort.Strings(ids)
 	return ids
 }

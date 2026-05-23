@@ -11,7 +11,11 @@ func NewValidator(
 	publicKey []byte,
 	globalScore uint64,
 ) *Validator {
-	return &Validator{}
+	return &Validator{
+		publicID:    publicID,
+		publicKey:   publicKey,
+		globalScore: float64(globalScore),
+	}
 }
 
 func (v *Validator) PublicID() string {
