@@ -479,12 +479,16 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 	require.Len(t, firstBlock.Block.Body.Transactions, len(transactions))
 	require.NotEmpty(t, firstBlock.SubdomainsFrequencies)
 
-	for _, tx := range firstBlock.Block.Body.Transactions {
-		for _, label := range tx.GetDomainLabels() {
-			_, ok := possibleSubDomains[label]
-			require.Truef(t, ok, "invalid finalized label %q for txHash %s", label, string(tx.GetTxHash()))
-		}
-	}
+	appendConsensusFrequenciesResult(t, firstBlock.SubdomainsFrequencies)
+
+	consensusGroup := selectedConsensusGroupForRound(t, registeredValidators, roundKey)
+	requireFinalizedFrequenciesFromValidQuorum(
+		t,
+		firstBlock.SubdomainsFrequencies,
+		consensusGroup,
+		agentLabels,
+		transactions,
+	)
 
 	for _, node := range nodes {
 		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
@@ -521,6 +525,20 @@ func createValidators(pubKeys [][]byte) []*validators.Validator {
 	}
 
 	return vs
+}
+
+func currentIntegrationTestHeader() *data.BlockHeader {
+	return &data.BlockHeader{
+		BodyHash:         []byte("body hash 1"),
+		HeaderHash:       []byte("header hash 1"),
+		PreviousHash:     []byte("previous hash 0"),
+		RootHash:         []byte("root hash 1"),
+		PreviousRootHash: []byte("previous root hash 0"),
+		Nonce:            1,
+		Round:            1,
+		MiniRound:        uint64(data.MiniRoundThree),
+		Epoch:            0,
+	}
 }
 
 func createNode(
@@ -584,17 +602,7 @@ func createRoundLoop(
 	blockFinalizer blockFinalizer.BlockFinalizer,
 	labeler agent.Labeler,
 ) *consensus.RoundLoop {
-	currentHeader := &data.BlockHeader{
-		BodyHash:         []byte("body hash 1"),
-		HeaderHash:       []byte("header hash 1"),
-		PreviousHash:     []byte("previous hash 0"),
-		RootHash:         []byte("root hash 1"),
-		PreviousRootHash: []byte("previous root hash 0"),
-		Nonce:            1,
-		Round:            1,
-		MiniRound:        uint64(data.MiniRoundThree),
-		Epoch:            0,
-	}
+	currentHeader := currentIntegrationTestHeader()
 
 	blockchainStateStub := &testscommon.BlockchainStateStub{
 		CurrentBlockHeaderValue: currentHeader,
@@ -1103,6 +1111,163 @@ func validateAgentLabelsFixtures(
 
 func consensusQuorum(numValidators int) int {
 	return (2*numValidators)/3 + 1
+}
+
+func selectedConsensusGroupForRound(
+	t *testing.T,
+	registeredValidators []*validators.Validator,
+	roundKey data.RoundKey,
+) []string {
+	t.Helper()
+
+	consensusSelector := validators.NewConsensusSelector()
+	validatorRegistry := validators.NewValidatorRegistry(consensusSelector)
+
+	for _, validator := range registeredValidators {
+		err := validatorRegistry.Register(validator.PublicID(), validator)
+		require.NoError(t, err)
+	}
+
+	blockchainStateStub := &testscommon.BlockchainStateStub{
+		CurrentBlockHeaderValue: currentIntegrationTestHeader(),
+	}
+
+	err := validatorRegistry.GenerateConsensusGroup(blockchainStateStub, roundKey)
+	require.NoError(t, err)
+
+	consensusGroup, err := validatorRegistry.ConsensusGroup()
+	require.NoError(t, err)
+
+	return consensusGroup
+}
+
+func requireFinalizedFrequenciesFromValidQuorum(
+	t *testing.T,
+	actual data.SubdomainsFrequency,
+	consensusGroup []string,
+	agents []agentLabelsByTxHash,
+	transactions []data.Transaction,
+) {
+	t.Helper()
+
+	require.NotEmpty(t, consensusGroup)
+
+	quorumSize := consensusQuorum(len(consensusGroup))
+	require.LessOrEqual(t, quorumSize, len(consensusGroup))
+
+	leaderID := consensusGroup[0]
+	remainingValidators := consensusGroup[1:]
+	requiredFollowers := quorumSize - 1
+
+	var matchingQuorum []string
+	var visit func(start int, selected []string)
+	visit = func(start int, selected []string) {
+		if matchingQuorum != nil {
+			return
+		}
+
+		if len(selected) == requiredFollowers {
+			quorum := append([]string{leaderID}, selected...)
+			expected := aggregateAgentLabelFrequencies(t, quorum, agents, transactions)
+			if subdomainsFrequenciesEqual(actual, expected) {
+				matchingQuorum = copyStringSlice(quorum)
+			}
+			return
+		}
+
+		remainingSlots := requiredFollowers - len(selected)
+		for i := start; i <= len(remainingValidators)-remainingSlots; i++ {
+			visit(i+1, append(selected, remainingValidators[i]))
+		}
+	}
+
+	visit(0, nil)
+
+	require.NotNilf(
+		t,
+		matchingQuorum,
+		"finalized subdomain frequencies are not explainable by any quorum of the selected consensus group; consensusGroup=%v actual=%v",
+		consensusGroup,
+		actual,
+	)
+}
+
+func aggregateAgentLabelFrequencies(
+	t *testing.T,
+	validatorIDs []string,
+	agents []agentLabelsByTxHash,
+	transactions []data.Transaction,
+) data.SubdomainsFrequency {
+	t.Helper()
+
+	frequencies := make(data.SubdomainsFrequency)
+	for _, validatorID := range validatorIDs {
+		agentIndex := agentIndexForValidatorID(t, validatorID)
+		require.Less(t, agentIndex, len(agents))
+
+		agentLabels := agents[agentIndex]
+		for _, tx := range transactions {
+			txHash := string(tx.GetTxHash())
+			labels, ok := agentLabels.labelsByTxHash[txHash]
+			require.Truef(t, ok, "agent %s has no labels for txHash %s", agentLabels.agent, txHash)
+
+			for _, label := range labels {
+				frequencies[label]++
+			}
+		}
+	}
+
+	return frequencies
+}
+
+func agentIndexForValidatorID(t *testing.T, validatorID string) int {
+	t.Helper()
+
+	var validatorNumber int
+	_, err := fmt.Sscanf(validatorID, "validator-%d", &validatorNumber)
+	require.NoError(t, err)
+	require.Greater(t, validatorNumber, 0)
+
+	return validatorNumber - 1
+}
+
+func subdomainsFrequenciesEqual(left data.SubdomainsFrequency, right data.SubdomainsFrequency) bool {
+	if len(left) != len(right) {
+		return false
+	}
+
+	for subdomain, leftFrequency := range left {
+		if right[subdomain] != leftFrequency {
+			return false
+		}
+	}
+
+	return true
+}
+
+func appendConsensusFrequenciesResult(t *testing.T, frequencies data.SubdomainsFrequency) {
+	t.Helper()
+
+	result := struct {
+		TestName    string                   `json:"testName"`
+		Timestamp   string                   `json:"timestamp"`
+		Frequencies data.SubdomainsFrequency `json:"frequencies"`
+	}{
+		TestName:    t.Name(),
+		Timestamp:   time.Now().UTC().Format(time.RFC3339Nano),
+		Frequencies: frequencies,
+	}
+
+	encodedResult, err := json.Marshal(result)
+	require.NoError(t, err)
+
+	outputPath := filepath.Join("testData", "consensus_frequencies_results.jsonl")
+	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	require.NoError(t, err)
+	defer outputFile.Close()
+
+	_, err = outputFile.Write(append(encodedResult, '\n'))
+	require.NoError(t, err)
 }
 
 func isSubset(subset []string, superset []string) bool {
