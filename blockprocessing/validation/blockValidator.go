@@ -4,8 +4,8 @@ import (
 	"bytes"
 
 	"moa-chain/blockprocessing"
+	"moa-chain/blockprocessing/hashing"
 	"moa-chain/data"
-	"moa-chain/mempool"
 	"moa-chain/transactionprocessing"
 	"moa-chain/transactionprocessing/processor"
 )
@@ -14,24 +14,31 @@ type blockProcessor struct {
 	blockprocessing.Base
 }
 
-func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
+func NewBlockProcessor(base blockprocessing.Base) *blockProcessor {
+	return &blockProcessor{
+		base,
+	}
+}
+
+// ValidateBlock validates a proposed block
+func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, error) {
 	if block == nil {
-		return blockprocessing.ErrNilBlock
+		return nil, blockprocessing.ErrNilBlock
 	}
 
 	currentBlockHeader, err := bp.BlockchainState.CurrentBlockHeader()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = bp.validateBlockHeader(&block.Header, currentBlockHeader)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	snapshot, err := bp.AccountsSnapshotFactory.CreateSnapshot()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer snapshot.Discard()
 
@@ -39,21 +46,26 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) error {
 		snapshot,
 		bp.AccountState,
 		bp.Labeler,
-		mempool.NewMemPool(),
+		bp.Mempool,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// validate transactions
 	err = bp.validateBlockBody(&block.Body, txProcessor)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// TODO validate the new root hash
 
-	return nil
+	hash, err := bp.hashProposedBlock(&block.Body, &block.Header)
+	if err != nil {
+		return nil, err
+	}
+
+	return hash, nil
 }
 
 func (bp *blockProcessor) validateBlockHeader(
@@ -189,4 +201,11 @@ func (bp *blockProcessor) validateSubDomains(
 	}
 
 	return nil
+}
+
+func (bp *blockProcessor) hashProposedBlock(
+	proposedBody *data.BlockBody,
+	proposedHeader *data.BlockHeader,
+) ([]byte, error) {
+	return hashing.ComputeBlockHash(proposedBody, proposedHeader)
 }

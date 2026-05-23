@@ -44,3 +44,17 @@ type AccountsSnapshot interface {
 type AccountsSnapshotFactory interface {
 	CreateSnapshot() (AccountsSnapshot, error)
 }
+
+// RoundState defines what a round state should do.
+type RoundState interface {
+	SetProposedBlock(roundKey data.RoundKey, block *data.Block) error
+	GetProposedBlock(roundKey data.RoundKey) (*data.Block, error)
+
+	SetCertificate(roundKey data.RoundKey, certificate *data.AggregatedVotes) error
+	IsCertificateSet(roundKey data.RoundKey) bool
+
+	AddVote(roundKey data.RoundKey, vote *data.BlockVote) error
+	GetVotes(roundKey data.RoundKey) ([]*data.ValidatorVote, error)
+
+	ClearRoundState(roundKey data.RoundKey)
+}

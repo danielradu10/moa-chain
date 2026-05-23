@@ -147,6 +147,8 @@ func (session *selectionSession) initialBalanceWillBeExceeded(sender string, tra
 			return true
 		}
 
+		// TODO here, we should add also the tip and the estimated fee.
+		// TODO Assure this corresponds with the one from transaction processor
 		if transaction.GetTransferredValue() > initialBalance {
 			return true
 		}

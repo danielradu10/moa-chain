@@ -14,3 +14,10 @@ type OptionalUint64 struct {
 	Value    uint64
 	HasValue bool
 }
+
+// RoundKey defines the key of a specific round, composed by epoch, round, and mini-round.
+type RoundKey struct {
+	Epoch     uint64
+	Round     uint64
+	MiniRound uint64
+}

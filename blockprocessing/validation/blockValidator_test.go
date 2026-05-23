@@ -20,7 +20,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 
 		blockProcessor := &blockProcessor{}
 
-		err := blockProcessor.ValidateBlock(nil)
+		_, err := blockProcessor.ValidateBlock(nil)
 
 		require.Equal(t, blockprocessing.ErrNilBlock, err)
 	})
@@ -38,7 +38,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.ValidateBlock(&data.Block{})
+		_, err := blockProcessor.ValidateBlock(&data.Block{})
 
 		require.Equal(t, expectedErr, err)
 	})
@@ -58,7 +58,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.ValidateBlock(proposedBlock)
+		_, err := blockProcessor.ValidateBlock(proposedBlock)
 
 		require.Equal(t, blockprocessing.ErrBlockNonceNotContinuous, err)
 	})
@@ -81,7 +81,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.ValidateBlock(proposedBlock)
+		_, err := blockProcessor.ValidateBlock(proposedBlock)
 
 		require.Equal(t, expectedErr, err)
 	})
@@ -133,7 +133,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.ValidateBlock(proposedBlock)
+		_, err := blockProcessor.ValidateBlock(proposedBlock)
 
 		require.Equal(t, transactionprocessing.ErrWrongTransactionNonce, err)
 		require.True(t, snapshot.DiscardCalled)
@@ -193,7 +193,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.ValidateBlock(proposedBlock)
+		_, err := blockProcessor.ValidateBlock(proposedBlock)
 
 		require.NoError(t, err)
 		require.True(t, snapshot.DiscardCalled)

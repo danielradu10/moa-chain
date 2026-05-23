@@ -6,10 +6,10 @@ import (
 
 // BlockCreator defines the interface of a block creator
 type BlockCreator interface {
-	ProposeBlock() *data.Block
+	ProposeBlock() (*data.Block, error)
 }
 
 // BlockProcessor defines what a BlockProcessor should do
 type BlockProcessor interface {
-	ValidateBlock(block *data.Block) error
+	ValidateBlock(block *data.Block) ([]byte, error)
 }
