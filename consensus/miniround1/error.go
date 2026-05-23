@@ -18,3 +18,7 @@ var ErrNilBlock = errors.New("nil block")
 
 // ErrNilVote signals a nil block.
 var ErrNilVote = errors.New("nil vote")
+
+var ErrMessageNotFromLeader = errors.New("message not from leader")
+
+var ErrOnlyLeaderCanCollectVotes = errors.New("only leader can collect votes")

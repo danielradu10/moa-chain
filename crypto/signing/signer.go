@@ -13,8 +13,9 @@ type signer struct {
 }
 
 // NewSigner creates a new
-func NewSigner(privateKey []byte) *signer {
+func NewSigner(id string, privateKey []byte) *signer {
 	return &signer{
+		id:         id,
 		privateKey: privateKey,
 	}
 }

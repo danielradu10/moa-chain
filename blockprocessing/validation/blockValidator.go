@@ -6,13 +6,18 @@ import (
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/hashing"
 	"moa-chain/data"
-	"moa-chain/mempool"
 	"moa-chain/transactionprocessing"
 	"moa-chain/transactionprocessing/processor"
 )
 
 type blockProcessor struct {
 	blockprocessing.Base
+}
+
+func NewBlockProcessor(base blockprocessing.Base) *blockProcessor {
+	return &blockProcessor{
+		base,
+	}
 }
 
 // ValidateBlock validates a proposed block
@@ -41,7 +46,7 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, error) {
 		snapshot,
 		bp.AccountState,
 		bp.Labeler,
-		mempool.NewMemPool(),
+		bp.Mempool,
 	)
 	if err != nil {
 		return nil, err

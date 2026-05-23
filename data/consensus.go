@@ -13,6 +13,9 @@ type ProposedBlockMessage struct {
 	Round     uint64
 	MiniRound uint64
 
+	// Sender related information
+	SenderID string
+
 	// Block related information.
 	Block *Block
 }
@@ -39,6 +42,9 @@ type AggregatedVotes struct {
 	Epoch     uint64
 	Round     uint64
 	MiniRound uint64
+
+	// Leader related information.
+	SenderID string
 
 	// Vote related information.
 	BlockHash  []byte

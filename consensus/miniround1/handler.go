@@ -1,11 +1,15 @@
 package miniround1
 
 import (
+	"errors"
+
 	"moa-chain/blockprocessing"
+	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/broadcast"
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
 	"moa-chain/state"
+	"moa-chain/transactionprocessing"
 	"moa-chain/validators"
 )
 
@@ -18,11 +22,46 @@ type handler struct {
 	broadcaster       broadcast.Broadcaster
 	signer            signing.MessageSigner
 	validatorRegistry validators.ValidatorRegistry
+	blockchainState   state.BlockchainState
+	blockFinalizer    blockFinalizer.BlockFinalizer
 }
 
-// NewHandler returns a new mini round one handler
-func NewHandler() *handler {
-	return &handler{}
+type MiniRoundOneHandlerArgs struct {
+	MyID string
+
+	BlockCreator      blockprocessing.BlockCreator
+	BlockValidator    blockprocessing.BlockProcessor
+	RoundState        state.RoundState
+	Broadcaster       broadcast.Broadcaster
+	Signer            signing.MessageSigner
+	ValidatorRegistry validators.ValidatorRegistry
+	BlockchainState   state.BlockchainState
+	BlockFinalizer    blockFinalizer.BlockFinalizer
+}
+
+// NewMiniRoundOneHandler returns a new mini round one handler
+func NewMiniRoundOneHandler(args MiniRoundOneHandlerArgs) *handler {
+	return &handler{
+		myID:              args.MyID,
+		blockCreator:      args.BlockCreator,
+		blockValidator:    args.BlockValidator,
+		roundState:        args.RoundState,
+		broadcaster:       args.Broadcaster,
+		signer:            args.Signer,
+		validatorRegistry: args.ValidatorRegistry,
+		blockchainState:   args.BlockchainState,
+		blockFinalizer:    args.BlockFinalizer,
+	}
+}
+
+// HandleConsensusSelection should be called by each validator in the beginning of the round.
+func (handler *handler) HandleConsensusSelection(key data.RoundKey) (string, error) {
+	err := handler.validatorRegistry.GenerateConsensusGroup(handler.blockchainState, key)
+	if err != nil {
+		return "", err
+	}
+
+	return handler.validatorRegistry.LeaderOfConsensusGroup()
 }
 
 // HandleProposingBlock handles proposing a block.
@@ -40,10 +79,35 @@ func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
 		return err
 	}
 
+	if handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
+		signature, err := handler.signer.Sign(block.Header.HeaderHash)
+		if err != nil {
+			return err
+		}
+
+		selfVote := &data.BlockVote{
+			Epoch:     roundKey.Epoch,
+			Round:     roundKey.Round,
+			MiniRound: roundKey.MiniRound,
+
+			SignerID: handler.signer.ID(),
+			VoteType: data.VoteTypeCommit,
+
+			BlockHash: block.Header.HeaderHash,
+			Signature: signature,
+		}
+
+		err = handler.roundState.AddVote(roundKey, selfVote)
+		if err != nil {
+			return err
+		}
+	}
+
 	proposedMessage := data.ProposedBlockMessage{
 		Epoch:     roundKey.Epoch,
 		Round:     roundKey.Round,
 		MiniRound: roundKey.MiniRound,
+		SenderID:  handler.myID,
 		Block:     block,
 	}
 
@@ -73,9 +137,25 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 		return ErrNilBlock
 	}
 
+	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if message.SenderID != expectedLeader {
+		return ErrMessageNotFromLeader
+	}
+
 	// validate block and create the hash
 	hash, err := handler.blockValidator.ValidateBlock(proposedBlock)
 	if err != nil {
+		if errors.Is(err, transactionprocessing.ErrLabelIsNotValid) {
+			err = handler.roundState.SetProposedBlock(roundKey, proposedBlock)
+			if err != nil {
+				return err
+			}
+
+			// Semantic disagreement: do not vote, but stay able to finalize
+			// if the leader later broadcasts a valid quorum certificate.
+			return nil
+		}
+
 		return err
 	}
 
@@ -83,6 +163,10 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 	err = handler.roundState.SetProposedBlock(roundKey, proposedBlock)
 	if err != nil {
 		return err
+	}
+
+	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
+		return nil
 	}
 
 	// create the signature
@@ -123,7 +207,16 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		return ErrNilVote
 	}
 
-	err := handler.verifyVote(roundKey, vote)
+	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+
+	if leaderID != handler.myID {
+		return ErrOnlyLeaderCanCollectVotes
+	}
+
+	err = handler.verifyVote(roundKey, vote)
 	if err != nil {
 		return err
 	}
@@ -143,7 +236,7 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		return err
 	}
 
-	if uint64(len(votes)) < (2*consensusGroupSize)/3+1 {
+	if uint64(len(votes)) < (2*consensusGroupSize)/3+1 || handler.roundState.IsCertificateSet(roundKey) {
 		return nil
 	}
 
@@ -160,6 +253,8 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		Round:     roundKey.Round,
 		MiniRound: roundKey.MiniRound,
 
+		SenderID: handler.myID,
+
 		BlockHash:  hash,
 		Signers:    signers,
 		Signatures: signatures,
@@ -168,6 +263,16 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 	consensusMessage := &data.ConsensusMessage{
 		ConsensusMessageType: data.AggregatedVotesConsensusMessage,
 		AggregatedVotes:      &aggVotes,
+	}
+
+	err = handler.roundState.SetCertificate(roundKey, &aggVotes)
+	if err != nil {
+		return err
+	}
+
+	err = handler.blockFinalizer.FinalizeBlock(currentProposedBlock)
+	if err != nil {
+		return err
 	}
 
 	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
@@ -228,7 +333,17 @@ func (handler *handler) extractSignersAndVotes(votes []*data.ValidatorVote) ([][
 
 // HandleAggregatedVotes handles the aggregated votes created by the leader.
 // This method will be called by each validator of the consensus group of a specific mini-round.
+// TODO This method should be more aggressive!
 func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *data.AggregatedVotes) error {
+	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+
+	if votes.SenderID != expectedLeader {
+		return ErrMessageNotFromLeader
+	}
+
 	block, err := handler.roundState.GetProposedBlock(roundKey)
 	if err != nil {
 		return err
@@ -243,6 +358,11 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 		if err != nil {
 			return err
 		}
+	}
+
+	err = handler.blockFinalizer.FinalizeBlock(block)
+	if err != nil {
+		return err
 	}
 
 	return nil

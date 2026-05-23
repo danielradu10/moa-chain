@@ -13,7 +13,7 @@ type Broadcaster interface {
 
 // PeerRegistry defines what a peer registry should do.
 type PeerRegistry interface {
-	Register(validatorID string, channel chan<- data.ConsensusMessage) error
+	Register(validatorID string, channel chan<- data.RoundEvent) error
 	Unregister(validatorID string)
-	GetChannel(validatorID string) (chan<- data.ConsensusMessage, error)
+	GetChannel(validatorID string) (chan<- data.RoundEvent, error)
 }
