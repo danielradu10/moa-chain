@@ -21,24 +21,24 @@ func NewBlockProcessor(base blockprocessing.Base) *blockProcessor {
 }
 
 // ValidateBlock validates a proposed block
-func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, error) {
+func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, data.Subdomains, []byte, error) {
 	if block == nil {
-		return nil, blockprocessing.ErrNilBlock
+		return nil, nil, nil, blockprocessing.ErrNilBlock
 	}
 
 	currentBlockHeader, err := bp.BlockchainState.CurrentBlockHeader()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	err = bp.validateBlockHeader(&block.Header, currentBlockHeader)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	snapshot, err := bp.AccountsSnapshotFactory.CreateSnapshot()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	defer snapshot.Discard()
 
@@ -49,23 +49,28 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, error) {
 		bp.Mempool,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	// validate transactions
-	err = bp.validateBlockBody(&block.Body, txProcessor)
+	// validate transactions and generate labels for each transaction.
+	subdomains, err := bp.validateAndExecuteBlockBody(&block.Body, txProcessor)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	// TODO validate the new root hash
+	// TODO validate the new root blockHash
 
-	hash, err := bp.hashProposedBlock(&block.Body, &block.Header)
+	blockHash, err := bp.hashProposedBlock(&block.Body, &block.Header)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	return hash, nil
+	subdomainsHash, err := bp.hashSubdomains(subdomains)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return blockHash, subdomains, subdomainsHash, nil
 }
 
 func (bp *blockProcessor) validateBlockHeader(
@@ -171,41 +176,20 @@ func (bp *blockProcessor) validateHashContinuity(
 	return nil
 }
 
-func (bp *blockProcessor) validateBlockBody(blockBody *data.BlockBody, transactionProcessor transactionprocessing.TxProcessor) error {
+func (bp *blockProcessor) validateAndExecuteBlockBody(blockBody *data.BlockBody, transactionProcessor transactionprocessing.TxProcessor) (data.Subdomains, error) {
 	executor := blockprocessing.NewBodyExecutor()
-	execResult, err := executor.ExecuteBlockBody(blockBody, transactionProcessor, false)
+	execResult, err := executor.ExecuteBlockBody(blockBody, transactionProcessor)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return bp.validateSubDomains(blockBody.Subdomains, execResult.Subdomains)
+	return execResult.Subdomains, nil
 }
 
-func (bp *blockProcessor) validateSubDomains(
-	subDomainsByLeader map[string]uint64,
-	subDomainsByMe map[string]uint64,
-) error {
-	if len(subDomainsByMe) != len(subDomainsByLeader) {
-		return blockprocessing.ErrInvalidNumSubdomains
-	}
-
-	for subdomain, freqByLeader := range subDomainsByLeader {
-		freqByMe, ok := subDomainsByMe[subdomain]
-		if !ok {
-			return blockprocessing.ErrInvalidSubdomain
-		}
-
-		if freqByMe != freqByLeader {
-			return blockprocessing.ErrInvalidFrequencyOfSubdomain
-		}
-	}
-
-	return nil
-}
-
-func (bp *blockProcessor) hashProposedBlock(
-	proposedBody *data.BlockBody,
-	proposedHeader *data.BlockHeader,
-) ([]byte, error) {
+func (bp *blockProcessor) hashProposedBlock(proposedBody *data.BlockBody, proposedHeader *data.BlockHeader) ([]byte, error) {
 	return hashing.ComputeBlockHash(proposedBody, proposedHeader)
+}
+
+func (bp *blockProcessor) hashSubdomains(subdomains data.Subdomains) ([]byte, error) {
+	return hashing.ComputeSubdomainsHash(subdomains)
 }

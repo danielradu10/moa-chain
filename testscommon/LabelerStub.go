@@ -7,12 +7,12 @@ import (
 type LabelerStub struct {
 	Err            error
 	LabelsByTxHash map[string][]string
-	LabelCalled    func(tx data.Transaction, amILeader bool) ([]string, error)
+	LabelCalled    func(tx data.Transaction) ([]string, error)
 }
 
-func (tl *LabelerStub) Label(tx data.Transaction, amILeader bool) ([]string, error) {
+func (tl *LabelerStub) Label(tx data.Transaction) ([]string, error) {
 	if tl.LabelCalled != nil {
-		return tl.LabelCalled(tx, amILeader)
+		return tl.LabelCalled(tx)
 	}
 
 	if tl.Err != nil {

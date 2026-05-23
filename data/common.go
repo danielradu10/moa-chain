@@ -21,3 +21,19 @@ type RoundKey struct {
 	Round     uint64
 	MiniRound uint64
 }
+
+// PossibleSubDomains defines the subdomains accepted by the protocol.
+var PossibleSubDomains = map[string]struct{}{
+	"systems_programming":                {},
+	"web_front_end":                      {},
+	"back_end_with_apis":                 {},
+	"ml_ai_engineering":                  {},
+	"data_engineering":                   {},
+	"dev_ops":                            {},
+	"security":                           {},
+	"mobile_dev":                         {},
+	"test_engineering_and_qa_automation": {},
+	"blockchain_engineering":             {},
+	"cloud_engineering":                  {},
+	"databases":                          {},
+}

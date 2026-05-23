@@ -6,5 +6,5 @@ import (
 
 // Labeler defines what a labeler should do
 type Labeler interface {
-	Label(tx data.Transaction, amILeader bool) ([]string, error)
+	Label(tx data.Transaction) ([]string, error)
 }

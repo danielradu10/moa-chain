@@ -377,7 +377,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.validateBlockBody(body, txProcessor)
+		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.Equal(t, blockprocessing.ErrDuplicatedTransaction, err)
 	})
@@ -416,7 +416,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.validateBlockBody(body, txProcessor)
+		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.Equal(t, transactionprocessing.ErrTxsDoNotRespectProtocolOrder, err)
 	})
@@ -456,7 +456,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.validateBlockBody(body, txProcessor)
+		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.Equal(t, blockprocessing.ErrBlockConsumptionReached, err)
 	})
@@ -486,7 +486,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.validateBlockBody(body, txProcessor)
+		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.Equal(t, blockprocessing.ErrInvalidFrequencyOfSubdomain, err)
 	})
@@ -523,7 +523,7 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 			},
 		}
 
-		err := blockProcessor.validateBlockBody(body, txProcessor)
+		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.NoError(t, err)
 	})

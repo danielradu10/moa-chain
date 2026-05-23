@@ -1030,7 +1030,7 @@ func loadAgentLabelsFixture(t *testing.T, path string) agentLabelsByTxHash {
 
 func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Labeler {
 	return &testscommon.LabelerStub{
-		LabelCalled: func(tx data.Transaction, amILeader bool) ([]string, error) {
+		LabelCalled: func(tx data.Transaction) ([]string, error) {
 			txHash := string(tx.GetTxHash())
 
 			labels, ok := agentLabels.labelsByTxHash[txHash]
@@ -1048,10 +1048,6 @@ func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Labeler {
 			}
 
 			copiedLabels := copyStringSlice(labels)
-
-			if amILeader {
-				return copyStringSlice(copiedLabels[:3]), nil
-			}
 
 			return copiedLabels, nil
 		},

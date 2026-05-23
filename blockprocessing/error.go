@@ -28,6 +28,9 @@ var ErrInvalidNumSubdomains = errors.New("invalid number of subdomains")
 // ErrInvalidSubdomain signals invalid subdomain
 var ErrInvalidSubdomain = errors.New("invalid subdomain")
 
+// ErrDuplicatedLabel signals a duplicated label on a transaction.
+var ErrDuplicatedLabel = errors.New("duplicated label")
+
 // ErrInvalidFrequencyOfSubdomain signals an invalid frequency of the subdomain
 var ErrInvalidFrequencyOfSubdomain = errors.New("invalid frequency of subdomain")
 

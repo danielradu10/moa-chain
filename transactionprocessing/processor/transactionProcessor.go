@@ -10,26 +10,6 @@ import (
 	"moa-chain/transactionprocessing"
 )
 
-const (
-	numGeneratedLabelsByLeader = 3
-	numGeneratedLabelsByMe     = 6
-)
-
-var possibleSubDomains = map[string]struct{}{
-	"systems_programming":                {},
-	"web_front_end":                      {},
-	"back_end_with_apis":                 {},
-	"ml_ai_engineering":                  {},
-	"data_engineering":                   {},
-	"dev_ops":                            {},
-	"security":                           {},
-	"mobile_dev":                         {},
-	"test_engineering_and_qa_automation": {},
-	"blockchain_engineering":             {},
-	"cloud_engineering":                  {},
-	"databases":                          {},
-}
-
 type txProcessor struct {
 	accountsProvider state.AccountsProvider
 	accountState     state.AccountsState
@@ -133,46 +113,8 @@ func (tp *txProcessor) validateTransactionBalance(
 	return nil
 }
 
-func (tp *txProcessor) LabelTransaction(tx data.Transaction, amILeader bool) ([]string, error) {
-	return tp.labeler.Label(tx, amILeader)
-}
-
-func (tp *txProcessor) ValidateLabels(
-	labelsGeneratedByLeader []string,
-	labelsGeneratedByMe []string,
-) error {
-	err := tp.validateMaxLabels(labelsGeneratedByLeader, numGeneratedLabelsByLeader, transactionprocessing.ErrLeaderGeneratedTooManyLabels)
-	if err != nil {
-		return err
-	}
-
-	err = tp.validateMaxLabels(labelsGeneratedByMe, numGeneratedLabelsByMe, transactionprocessing.ErrValidatorGeneratedTooManyLabels)
-	if err != nil {
-		return err
-	}
-
-	leaderLabelSet, err := tp.buildValidatedLabelSet(
-		labelsGeneratedByLeader,
-		transactionprocessing.ErrLeaderProposedDuplicatedLabels,
-	)
-	if err != nil {
-		return err
-	}
-
-	myLabelSet, err := tp.buildValidatedLabelSet(
-		labelsGeneratedByMe,
-		transactionprocessing.ErrValidatorGeneratedDuplicatedLabels,
-	)
-	if err != nil {
-		return err
-	}
-
-	err = tp.validateLeaderLabelsAreContainedInMyLabels(leaderLabelSet, myLabelSet)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (tp *txProcessor) LabelTransaction(tx data.Transaction) ([]string, error) {
+	return tp.labeler.Label(tx)
 }
 
 func (tp *txProcessor) validateMaxLabels(
@@ -211,7 +153,7 @@ func (tp *txProcessor) buildValidatedLabelSet(
 }
 
 func (tp *txProcessor) validateKnownLabel(label string) error {
-	_, ok := possibleSubDomains[label]
+	_, ok := data.PossibleSubDomains[label]
 	if !ok {
 		return transactionprocessing.ErrUnknownLabel
 	}

@@ -5,5 +5,5 @@ import (
 )
 
 type BlockFinalizer interface {
-	FinalizeBlock(block *data.Block) error
+	FinalizeBlock(block *data.BlockOnChain) error
 }

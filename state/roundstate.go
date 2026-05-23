@@ -77,8 +77,10 @@ func (state *roundState) GetVotes(roundKey data.RoundKey) ([]*data.ValidatorVote
 	extractedVotes := make([]*data.ValidatorVote, 0, len(votes))
 	for validatorID, vote := range votes {
 		v := &data.ValidatorVote{
-			ValidatorID: validatorID,
-			Signature:   vote.Signature,
+			ValidatorID:         validatorID,
+			BlockSignature:      vote.BlockSignature,
+			Subdomains:          vote.Subdomains,
+			SubdomainsSignature: vote.SubdomainsSignature,
 		}
 
 		extractedVotes = append(extractedVotes, v)
