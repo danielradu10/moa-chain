@@ -1,6 +1,8 @@
 package validation
 
 import (
+	"log/slog"
+
 	"moa-chain/blockprocessing"
 	"moa-chain/data"
 )
@@ -12,9 +14,14 @@ const (
 type labelsValidator struct {
 }
 
+func NewLabelsValidator() *labelsValidator {
+	return &labelsValidator{}
+}
+
 func (lv *labelsValidator) ValidateLabels(txsSubdomains data.Subdomains) error {
 	for _, subdomains := range txsSubdomains {
 		if len(subdomains) != numAcceptedLabels {
+			slog.Error("Invalid number of subdomains", "numSubdomains", len(subdomains))
 			return blockprocessing.ErrInvalidNumSubdomains
 		}
 

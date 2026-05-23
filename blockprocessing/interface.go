@@ -6,7 +6,7 @@ import (
 
 // BlockCreator defines the interface of a block creator
 type BlockCreator interface {
-	ProposeBlockAndDomains() (*data.Block, error)
+	ProposeBlockAndDomains() (*data.Block, data.Subdomains, []byte, error)
 }
 
 // BlockProcessor defines what a BlockProcessor should do

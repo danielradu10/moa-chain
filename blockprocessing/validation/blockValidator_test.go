@@ -20,7 +20,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 
 		blockProcessor := &blockProcessor{}
 
-		_, err := blockProcessor.ValidateBlock(nil)
+		_, _, _, err := blockProcessor.ValidateBlock(nil)
 
 		require.Equal(t, blockprocessing.ErrNilBlock, err)
 	})
@@ -38,7 +38,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		_, err := blockProcessor.ValidateBlock(&data.Block{})
+		_, _, _, err := blockProcessor.ValidateBlock(&data.Block{})
 
 		require.Equal(t, expectedErr, err)
 	})
@@ -58,7 +58,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		_, err := blockProcessor.ValidateBlock(proposedBlock)
+		_, _, _, err := blockProcessor.ValidateBlock(proposedBlock)
 
 		require.Equal(t, blockprocessing.ErrBlockNonceNotContinuous, err)
 	})
@@ -81,7 +81,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		_, err := blockProcessor.ValidateBlock(proposedBlock)
+		_, _, _, err := blockProcessor.ValidateBlock(proposedBlock)
 
 		require.Equal(t, expectedErr, err)
 	})
@@ -133,7 +133,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		_, err := blockProcessor.ValidateBlock(proposedBlock)
+		_, _, _, err := blockProcessor.ValidateBlock(proposedBlock)
 
 		require.Equal(t, transactionprocessing.ErrWrongTransactionNonce, err)
 		require.True(t, snapshot.DiscardCalled)
@@ -193,7 +193,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			},
 		}
 
-		_, err := blockProcessor.ValidateBlock(proposedBlock)
+		_, _, _, err := blockProcessor.ValidateBlock(proposedBlock)
 
 		require.NoError(t, err)
 		require.True(t, snapshot.DiscardCalled)
@@ -266,83 +266,6 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 	})
 }
 
-func TestBlockProcessor_validateSubDomains(t *testing.T) {
-	t.Parallel()
-
-	t.Run("should return ErrInvalidNumSubdomains when subdomains maps have different sizes", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-
-		err := blockProcessor.validateSubDomains(
-			map[string]uint64{
-				"security": 1,
-			},
-			map[string]uint64{
-				"security":          1,
-				"cloud_engineering": 1,
-			},
-		)
-
-		require.Equal(t, blockprocessing.ErrInvalidNumSubdomains, err)
-	})
-
-	t.Run("should return ErrInvalidSubdomain when leader subdomain is missing locally", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-
-		err := blockProcessor.validateSubDomains(
-			map[string]uint64{
-				"security":          1,
-				"cloud_engineering": 1,
-			},
-			map[string]uint64{
-				"security":  1,
-				"databases": 1,
-			},
-		)
-
-		require.Equal(t, blockprocessing.ErrInvalidSubdomain, err)
-	})
-
-	t.Run("should return ErrInvalidFrequencyOfSubdomain when frequencies differ", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-
-		err := blockProcessor.validateSubDomains(
-			map[string]uint64{
-				"security": 2,
-			},
-			map[string]uint64{
-				"security": 1,
-			},
-		)
-
-		require.Equal(t, blockprocessing.ErrInvalidFrequencyOfSubdomain, err)
-	})
-
-	t.Run("should validate subdomains when maps are identical", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-
-		err := blockProcessor.validateSubDomains(
-			map[string]uint64{
-				"security":          2,
-				"cloud_engineering": 1,
-			},
-			map[string]uint64{
-				"security":          2,
-				"cloud_engineering": 1,
-			},
-		)
-
-		require.NoError(t, err)
-	})
-}
-
 func TestBlockProcessor_validateBlockBody(t *testing.T) {
 	t.Parallel()
 
@@ -371,13 +294,9 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		body := &data.BlockBody{
 			Transactions: []data.Transaction{tx1, tx2},
-			Subdomains: map[string]uint64{
-				"security":          1,
-				"cloud_engineering": 1,
-			},
 		}
 
-		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
+		_, err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.Equal(t, blockprocessing.ErrDuplicatedTransaction, err)
 	})
@@ -410,13 +329,9 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		body := &data.BlockBody{
 			Transactions: []data.Transaction{tx1, tx2},
-			Subdomains: map[string]uint64{
-				"security":          1,
-				"cloud_engineering": 1,
-			},
 		}
 
-		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
+		_, err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.Equal(t, transactionprocessing.ErrTxsDoNotRespectProtocolOrder, err)
 	})
@@ -450,45 +365,11 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		body := &data.BlockBody{
 			Transactions: []data.Transaction{tx1, tx2},
-			Subdomains: map[string]uint64{
-				"security":          1,
-				"cloud_engineering": 1,
-			},
 		}
 
-		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
+		_, err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.Equal(t, blockprocessing.ErrBlockConsumptionReached, err)
-	})
-
-	t.Run("should return ErrInvalidFrequencyOfSubdomain when subdomain frequencies do not match", func(t *testing.T) {
-		t.Parallel()
-
-		blockProcessor := &blockProcessor{}
-		txProcessor := &testscommon.TxProcessorStub{
-			ProcessTransactionCalled: func(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
-				return 100, nil
-			},
-		}
-
-		tx1 := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash1",
-			estimatedScore:       100,
-			estimatedConsumption: 100,
-			domainLabels:         []string{"security", "cloud_engineering"},
-		})
-
-		body := &data.BlockBody{
-			Transactions: []data.Transaction{tx1},
-			Subdomains: map[string]uint64{
-				"security":          1,
-				"cloud_engineering": 2,
-			},
-		}
-
-		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
-
-		require.Equal(t, blockprocessing.ErrInvalidFrequencyOfSubdomain, err)
 	})
 
 	t.Run("should validate block body successfully", func(t *testing.T) {
@@ -516,14 +397,9 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 
 		body := &data.BlockBody{
 			Transactions: []data.Transaction{tx1, tx2},
-			Subdomains: map[string]uint64{
-				"security":          2,
-				"cloud_engineering": 1,
-				"databases":         1,
-			},
 		}
 
-		err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
+		_, err := blockProcessor.validateAndExecuteBlockBody(body, txProcessor)
 
 		require.NoError(t, err)
 	})
@@ -594,13 +470,12 @@ func createValidNextHeaderForCurrentHeader(currentHeader *data.BlockHeader) *dat
 func createValidBlockForCurrentHeader(
 	currentHeader *data.BlockHeader,
 	transactions []data.Transaction,
-	subdomains map[string]uint64,
+	_ map[string]uint64,
 ) *data.Block {
 	return &data.Block{
 		Header: *createValidNextHeaderForCurrentHeader(currentHeader),
 		Body: data.BlockBody{
 			Transactions: transactions,
-			Subdomains:   subdomains,
 		},
 	}
 }

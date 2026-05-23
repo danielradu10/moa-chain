@@ -21,22 +21,22 @@ func NewBlockCreator(
 }
 
 // ProposeBlockAndDomains proposes a block and the subdomains extracted from the transactions.
-func (bc *blockCreator) ProposeBlockAndDomains() (*data.Block, data.Subdomains, error) {
+func (bc *blockCreator) ProposeBlockAndDomains() (*data.Block, data.Subdomains, []byte, error) {
 	proposedHeader, err := bc.createProposedHeader()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	proposedBody, subdomains, err := bc.createProposedBodyAndDomains()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// TODO extract new root hash!! analyze how the account state should behave
 
 	headerHash, err := bc.hashProposedBlock(proposedBody, proposedHeader)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	proposedHeader.HeaderHash = headerHash
 
@@ -46,7 +46,12 @@ func (bc *blockCreator) ProposeBlockAndDomains() (*data.Block, data.Subdomains, 
 		Body:   *proposedBody,
 	}
 
-	return proposedBlock, subdomains, nil
+	subdomainsHash, err := bc.hashSubdomains(subdomains)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return proposedBlock, subdomains, subdomainsHash, nil
 }
 
 func (bc *blockCreator) createProposedHeader() (*data.BlockHeader, error) {
@@ -145,4 +150,8 @@ func (bc *blockCreator) hashProposedBlock(
 	proposedHeader *data.BlockHeader,
 ) ([]byte, error) {
 	return hashing.ComputeBlockHash(proposedBody, proposedHeader)
+}
+
+func (bc *blockCreator) hashSubdomains(subdomains data.Subdomains) ([]byte, error) {
+	return hashing.ComputeSubdomainsHash(subdomains)
 }

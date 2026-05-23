@@ -1,6 +1,8 @@
 package miniround1
 
 import (
+	"fmt"
+
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/blockprocessing/hashing"
@@ -30,6 +32,7 @@ type MiniRoundOneHandlerArgs struct {
 
 	BlockCreator      blockprocessing.BlockCreator
 	BlockValidator    blockprocessing.BlockProcessor
+	LabelsValidator   blockprocessing.LabelsValidator
 	RoundState        state.RoundState
 	Broadcaster       broadcast.Broadcaster
 	Signer            signing.MessageSigner
@@ -44,6 +47,7 @@ func NewMiniRoundOneHandler(args MiniRoundOneHandlerArgs) *handler {
 		myID:              args.MyID,
 		blockCreator:      args.BlockCreator,
 		blockValidator:    args.BlockValidator,
+		labelsValidator:   args.LabelsValidator,
 		roundState:        args.RoundState,
 		broadcaster:       args.Broadcaster,
 		signer:            args.Signer,
@@ -66,7 +70,14 @@ func (handler *handler) HandleConsensusSelection(key data.RoundKey) (string, err
 // HandleProposingBlock handles proposing a block.
 // This method will be called when a validator becomes leader in a specific mini-round.
 func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
-	block, err := handler.blockCreator.ProposeBlockAndDomains()
+	// TODO should propose the domains also?
+	block, subdomains, subdomainsHash, err := handler.blockCreator.ProposeBlockAndDomains()
+	if err != nil {
+		return err
+	}
+
+	// create the blockSignature of the subdomains
+	subdomainsSignature, err := handler.signer.Sign(subdomainsHash)
 	if err != nil {
 		return err
 	}
@@ -94,6 +105,9 @@ func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
 
 			BlockHash:      block.Header.HeaderHash,
 			BlockSignature: signature,
+
+			Subdomains:          subdomains,
+			SubdomainsSignature: subdomainsSignature,
 		}
 
 		err = handler.roundState.AddVote(roundKey, selfVote)
@@ -370,7 +384,7 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 	for i, blockSignature := range blockSignatures {
 		err = handler.verifySignature(hash, blockSignature, signers[i])
 		if err != nil {
-			return err
+			return fmt.Errorf("block signature error %s", err.Error())
 		}
 	}
 
@@ -387,7 +401,7 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 
 		err = handler.verifySignature(subdomainsHash, subdomainsSignature, signers[i])
 		if err != nil {
-			return err
+			return fmt.Errorf("subdomains signature error %s", err.Error())
 		}
 	}
 
