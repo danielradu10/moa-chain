@@ -9,11 +9,11 @@ import (
 type BlockFinalizerStub struct {
 	mutex sync.Mutex
 
-	FinalizedBlock *data.Block
+	FinalizedBlock *data.BlockOnChain
 	FinalizeCalled bool
 }
 
-func (stub *BlockFinalizerStub) FinalizeBlock(block *data.Block) error {
+func (stub *BlockFinalizerStub) FinalizeBlock(block *data.BlockOnChain) error {
 	stub.mutex.Lock()
 	defer stub.mutex.Unlock()
 
@@ -23,7 +23,7 @@ func (stub *BlockFinalizerStub) FinalizeBlock(block *data.Block) error {
 	return nil
 }
 
-func (stub *BlockFinalizerStub) GetFinalizedBlock() *data.Block {
+func (stub *BlockFinalizerStub) GetFinalizedBlock() *data.BlockOnChain {
 	stub.mutex.Lock()
 	defer stub.mutex.Unlock()
 

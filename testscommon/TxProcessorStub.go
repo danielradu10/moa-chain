@@ -8,8 +8,7 @@ import (
 type TxProcessorStub struct {
 	ProcessTransactionCalled           func(tx data.Transaction, miniRound data.MiniRound) (uint64, error)
 	ValidateTransactionsOrderingCalled func(previousTransaction data.Transaction, currentTransaction data.Transaction) error
-	LabelTransactionCalled             func(tx data.Transaction, amILeader bool) ([]string, error)
-	ValidateLabelsCalled               func(labelsGeneratedByLeader []string, labelsGeneratedByMe []string) error
+	LabelTransactionCalled             func(tx data.Transaction) ([]string, error)
 	SelectTransactionsCalled           func() []data.Transaction
 	Called                             bool
 }
@@ -35,21 +34,12 @@ func (tps *TxProcessorStub) ValidateTransactionsOrdering(previousTransaction dat
 }
 
 // LabelTransaction -
-func (tps *TxProcessorStub) LabelTransaction(tx data.Transaction, amILeader bool) ([]string, error) {
+func (tps *TxProcessorStub) LabelTransaction(tx data.Transaction) ([]string, error) {
 	if tps.LabelTransactionCalled != nil {
-		return tps.LabelTransactionCalled(tx, amILeader)
+		return tps.LabelTransactionCalled(tx)
 	}
 
 	return nil, nil
-}
-
-// ValidateLabels -
-func (tps *TxProcessorStub) ValidateLabels(labelsGeneratedByLeader []string, labelsGeneratedByMe []string) error {
-	if tps.ValidateLabelsCalled != nil {
-		return tps.ValidateLabelsCalled(labelsGeneratedByLeader, labelsGeneratedByMe)
-	}
-
-	return nil
 }
 
 // SelectTransactions -

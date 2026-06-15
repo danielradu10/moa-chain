@@ -20,23 +20,23 @@ func NewBlockCreator(
 	}
 }
 
-// ProposeBlock proposes a block
-func (bc *blockCreator) ProposeBlock() (*data.Block, error) {
+// ProposeBlockAndDomains proposes a block and the subdomains extracted from the transactions.
+func (bc *blockCreator) ProposeBlockAndDomains() (*data.Block, data.Subdomains, []byte, error) {
 	proposedHeader, err := bc.createProposedHeader()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	proposedBody, err := bc.createProposedBody()
+	proposedBody, subdomains, err := bc.createProposedBodyAndDomains()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	// TODO extract new root hash!! analyze how the account state should behave
 
 	headerHash, err := bc.hashProposedBlock(proposedBody, proposedHeader)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	proposedHeader.HeaderHash = headerHash
 
@@ -46,7 +46,12 @@ func (bc *blockCreator) ProposeBlock() (*data.Block, error) {
 		Body:   *proposedBody,
 	}
 
-	return proposedBlock, nil
+	subdomainsHash, err := bc.hashSubdomains(subdomains)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return proposedBlock, subdomains, subdomainsHash, nil
 }
 
 func (bc *blockCreator) createProposedHeader() (*data.BlockHeader, error) {
@@ -106,10 +111,10 @@ func (bc *blockCreator) nextRound(currentMiniRound data.MiniRound, currentRound 
 	}
 }
 
-func (bc *blockCreator) createProposedBody() (*data.BlockBody, error) {
+func (bc *blockCreator) createProposedBodyAndDomains() (*data.BlockBody, data.Subdomains, error) {
 	snapshot, err := bc.AccountsSnapshotFactory.CreateSnapshot()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer snapshot.Discard()
 
@@ -120,7 +125,7 @@ func (bc *blockCreator) createProposedBody() (*data.BlockBody, error) {
 		bc.Mempool,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	selectedTxs := txProcessor.SelectTransactions()
@@ -131,14 +136,13 @@ func (bc *blockCreator) createProposedBody() (*data.BlockBody, error) {
 
 	// execute block body, generate labels, validate
 	bodyExecutor := blockprocessing.NewBodyExecutor()
-	execResult, err := bodyExecutor.ExecuteBlockBody(proposedBody, txProcessor, true)
+	execResult, err := bodyExecutor.ExecuteBlockBody(proposedBody, txProcessor)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	proposedBody.Transactions = execResult.Transactions
-	proposedBody.Subdomains = execResult.Subdomains
-	return proposedBody, nil
+	return proposedBody, execResult.Subdomains, nil
 }
 
 func (bc *blockCreator) hashProposedBlock(
@@ -146,4 +150,8 @@ func (bc *blockCreator) hashProposedBlock(
 	proposedHeader *data.BlockHeader,
 ) ([]byte, error) {
 	return hashing.ComputeBlockHash(proposedBody, proposedHeader)
+}
+
+func (bc *blockCreator) hashSubdomains(subdomains data.Subdomains) ([]byte, error) {
+	return hashing.ComputeSubdomainsHash(subdomains)
 }

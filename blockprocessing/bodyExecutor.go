@@ -7,12 +7,6 @@ import (
 
 const MaxBlockConsumption = 1000
 
-type blockBodyExecutionResult struct {
-	Transactions     []data.Transaction
-	TotalConsumption uint64
-	Subdomains       map[string]uint64
-}
-
 type bodyExecutor struct {
 }
 
@@ -23,11 +17,10 @@ func NewBodyExecutor() *bodyExecutor {
 func (exec *bodyExecutor) ExecuteBlockBody(
 	blockBody *data.BlockBody,
 	transactionProcessor transactionprocessing.TxProcessor,
-	amILeader bool,
-) (*blockBodyExecutionResult, error) {
+) (*data.BlockBodyExecutionResult, error) {
 	blockConsumption := uint64(0)
 	uniqueTxHashes := make(map[string]struct{})
-	labelsFrequencies := map[string]uint64{}
+	labels := map[string][]string{}
 
 	txs := blockBody.Transactions
 	for i, tx := range txs {
@@ -52,18 +45,9 @@ func (exec *bodyExecutor) ExecuteBlockBody(
 		}
 
 		// TODO discuss if this order is ok. should we first label, then process economically?
-		labelsGeneratedByMe, err := transactionProcessor.LabelTransaction(tx, amILeader)
+		labelsGeneratedByMe, err := transactionProcessor.LabelTransaction(tx)
 		if err != nil {
 			return nil, err
-		}
-
-		if amILeader {
-			tx.SetDomainLabels(labelsGeneratedByMe)
-		} else {
-			err = transactionProcessor.ValidateLabels(tx.GetDomainLabels(), labelsGeneratedByMe)
-			if err != nil {
-				return nil, err
-			}
 		}
 
 		blockConsumption += estimatedConsumption
@@ -71,14 +55,12 @@ func (exec *bodyExecutor) ExecuteBlockBody(
 			return nil, ErrBlockConsumptionReached
 		}
 
-		for _, label := range tx.GetDomainLabels() {
-			labelsFrequencies[label]++
-		}
+		labels[string(txHash)] = labelsGeneratedByMe
 	}
 
-	return &blockBodyExecutionResult{
+	return &data.BlockBodyExecutionResult{
 		Transactions:     txs,
 		TotalConsumption: blockConsumption,
-		Subdomains:       labelsFrequencies,
+		Subdomains:       labels,
 	}, nil
 }

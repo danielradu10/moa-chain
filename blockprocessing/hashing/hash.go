@@ -48,19 +48,6 @@ func ComputeBodyHash(body *data.BlockBody) ([]byte, error) {
 		}
 	}
 
-	subdomains := body.Subdomains
-	keys := make([]string, 0, len(subdomains))
-	for key := range subdomains {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	writeUint64(h, uint64(len(keys)))
-	for _, key := range keys {
-		writeString(h, key)
-		writeUint64(h, subdomains[key])
-	}
-
 	return h.Sum(nil), nil
 }
 
@@ -131,4 +118,26 @@ func ComputeBlockHash(body *data.BlockBody, header *data.BlockHeader) ([]byte, e
 	}
 
 	return headerHash, nil
+}
+
+// ComputeSubdomainsHash computes the hash of the subdomains.
+func ComputeSubdomainsHash(subdomains data.Subdomains) ([]byte, error) {
+	h := sha256.New()
+	writeBytes(h, []byte("subdomains-v1"))
+
+	keys := make([]string, 0, len(subdomains))
+	for key := range subdomains {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	writeUint64(h, uint64(len(keys)))
+	for _, key := range keys {
+		writeString(h, key)
+		for _, domain := range subdomains[key] {
+			writeString(h, domain)
+		}
+	}
+
+	return h.Sum(nil), nil
 }

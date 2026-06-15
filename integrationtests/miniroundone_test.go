@@ -217,18 +217,18 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 
 	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
 	require.NotNil(t, firstBlock)
-	require.NotEmpty(t, firstBlock.Header.HeaderHash)
+	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
 	for _, node := range nodes {
 		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
 		require.NotNil(t, finalizedBlock)
 
-		require.Equal(t, firstBlock.Header.HeaderHash, finalizedBlock.Header.HeaderHash)
-		require.Equal(t, firstBlock.Header.BodyHash, finalizedBlock.Header.BodyHash)
-		require.Equal(t, firstBlock.Header.Nonce, finalizedBlock.Header.Nonce)
-		require.Equal(t, firstBlock.Header.Round, finalizedBlock.Header.Round)
-		require.Equal(t, firstBlock.Header.MiniRound, finalizedBlock.Header.MiniRound)
-		require.Equal(t, firstBlock.Body.Subdomains, finalizedBlock.Body.Subdomains)
+		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
+		require.Equal(t, firstBlock.Block.Header.BodyHash, finalizedBlock.Block.Header.BodyHash)
+		require.Equal(t, firstBlock.Block.Header.Nonce, finalizedBlock.Block.Header.Nonce)
+		require.Equal(t, firstBlock.Block.Header.Round, finalizedBlock.Block.Header.Round)
+		require.Equal(t, firstBlock.Block.Header.MiniRound, finalizedBlock.Block.Header.MiniRound)
+		require.Equal(t, firstBlock.SubdomainsFrequencies, finalizedBlock.SubdomainsFrequencies)
 	}
 
 	for _, inbox := range inboxes {
@@ -262,7 +262,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 	transactions := createTransactions()
 
 	labelerStub := &testscommon.LabelerStub{
-		LabelCalled: func(tx data.Transaction, amILeader bool) ([]string, error) {
+		LabelCalled: func(tx data.Transaction) ([]string, error) {
 			labels := tx.GetDomainLabels()
 			if len(labels) == 0 {
 				return nil, errors.New("transaction has no precomputed labels")
@@ -348,22 +348,22 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 
 	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
 	require.NotNil(t, firstBlock)
-	require.NotEmpty(t, firstBlock.Header.HeaderHash)
+	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
-	require.Len(t, firstBlock.Body.Transactions, len(transactions))
-	require.Equal(t, expectedSubdomains(), firstBlock.Body.Subdomains)
+	require.Len(t, firstBlock.Block.Body.Transactions, len(transactions))
+	require.Equal(t, expectedSubdomains(), firstBlock.SubdomainsFrequencies)
 
 	for _, node := range nodes {
 		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
 		require.NotNil(t, finalizedBlock)
 
-		require.Equal(t, firstBlock.Header.HeaderHash, finalizedBlock.Header.HeaderHash)
-		require.Equal(t, firstBlock.Header.BodyHash, finalizedBlock.Header.BodyHash)
-		require.Equal(t, firstBlock.Header.Nonce, finalizedBlock.Header.Nonce)
-		require.Equal(t, firstBlock.Header.Round, finalizedBlock.Header.Round)
-		require.Equal(t, firstBlock.Header.MiniRound, finalizedBlock.Header.MiniRound)
-		require.Equal(t, firstBlock.Body.Subdomains, finalizedBlock.Body.Subdomains)
-		require.Len(t, finalizedBlock.Body.Transactions, len(transactions))
+		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
+		require.Equal(t, firstBlock.Block.Header.BodyHash, finalizedBlock.Block.Header.BodyHash)
+		require.Equal(t, firstBlock.Block.Header.Nonce, finalizedBlock.Block.Header.Nonce)
+		require.Equal(t, firstBlock.Block.Header.Round, finalizedBlock.Block.Header.Round)
+		require.Equal(t, firstBlock.Block.Header.MiniRound, finalizedBlock.Block.Header.MiniRound)
+		require.Equal(t, firstBlock.SubdomainsFrequencies, finalizedBlock.SubdomainsFrequencies)
+		require.Len(t, finalizedBlock.Block.Body.Transactions, len(transactions))
 	}
 
 	for _, inbox := range inboxes {
@@ -474,38 +474,33 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 
 	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
 	require.NotNil(t, firstBlock)
-	require.NotEmpty(t, firstBlock.Header.HeaderHash)
+	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
-	require.Len(t, firstBlock.Body.Transactions, len(transactions))
-	require.NotEmpty(t, firstBlock.Body.Subdomains)
+	require.Len(t, firstBlock.Block.Body.Transactions, len(transactions))
+	require.NotEmpty(t, firstBlock.SubdomainsFrequencies)
 
-	for _, tx := range firstBlock.Body.Transactions {
-		require.Len(t, tx.GetDomainLabels(), 3)
+	appendConsensusFrequenciesResult(t, firstBlock.SubdomainsFrequencies)
 
-		for _, label := range tx.GetDomainLabels() {
-			_, ok := possibleSubDomains[label]
-			require.Truef(t, ok, "invalid finalized label %q for txHash %s", label, string(tx.GetTxHash()))
-		}
-	}
-
-	requireFinalizedLabelsAcceptedByQuorum(
+	consensusGroup := selectedConsensusGroupForRound(t, registeredValidators, roundKey)
+	requireFinalizedFrequenciesFromValidQuorum(
 		t,
-		firstBlock,
+		firstBlock.SubdomainsFrequencies,
+		consensusGroup,
 		agentLabels,
-		consensusQuorum(numValidators),
+		transactions,
 	)
 
 	for _, node := range nodes {
 		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
 		require.NotNil(t, finalizedBlock)
 
-		require.Equal(t, firstBlock.Header.HeaderHash, finalizedBlock.Header.HeaderHash)
-		require.Equal(t, firstBlock.Header.BodyHash, finalizedBlock.Header.BodyHash)
-		require.Equal(t, firstBlock.Header.Nonce, finalizedBlock.Header.Nonce)
-		require.Equal(t, firstBlock.Header.Round, finalizedBlock.Header.Round)
-		require.Equal(t, firstBlock.Header.MiniRound, finalizedBlock.Header.MiniRound)
-		require.Equal(t, firstBlock.Body.Subdomains, finalizedBlock.Body.Subdomains)
-		require.Len(t, finalizedBlock.Body.Transactions, len(transactions))
+		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
+		require.Equal(t, firstBlock.Block.Header.BodyHash, finalizedBlock.Block.Header.BodyHash)
+		require.Equal(t, firstBlock.Block.Header.Nonce, finalizedBlock.Block.Header.Nonce)
+		require.Equal(t, firstBlock.Block.Header.Round, finalizedBlock.Block.Header.Round)
+		require.Equal(t, firstBlock.Block.Header.MiniRound, finalizedBlock.Block.Header.MiniRound)
+		require.Equal(t, firstBlock.SubdomainsFrequencies, finalizedBlock.SubdomainsFrequencies)
+		require.Len(t, finalizedBlock.Block.Body.Transactions, len(transactions))
 	}
 
 	for _, inbox := range inboxes {
@@ -530,6 +525,20 @@ func createValidators(pubKeys [][]byte) []*validators.Validator {
 	}
 
 	return vs
+}
+
+func currentIntegrationTestHeader() *data.BlockHeader {
+	return &data.BlockHeader{
+		BodyHash:         []byte("body hash 1"),
+		HeaderHash:       []byte("header hash 1"),
+		PreviousHash:     []byte("previous hash 0"),
+		RootHash:         []byte("root hash 1"),
+		PreviousRootHash: []byte("previous root hash 0"),
+		Nonce:            1,
+		Round:            1,
+		MiniRound:        uint64(data.MiniRoundThree),
+		Epoch:            0,
+	}
 }
 
 func createNode(
@@ -593,17 +602,7 @@ func createRoundLoop(
 	blockFinalizer blockFinalizer.BlockFinalizer,
 	labeler agent.Labeler,
 ) *consensus.RoundLoop {
-	currentHeader := &data.BlockHeader{
-		BodyHash:         []byte("body hash 1"),
-		HeaderHash:       []byte("header hash 1"),
-		PreviousHash:     []byte("previous hash 0"),
-		RootHash:         []byte("root hash 1"),
-		PreviousRootHash: []byte("previous root hash 0"),
-		Nonce:            1,
-		Round:            1,
-		MiniRound:        uint64(data.MiniRoundThree),
-		Epoch:            0,
-	}
+	currentHeader := currentIntegrationTestHeader()
 
 	blockchainStateStub := &testscommon.BlockchainStateStub{
 		CurrentBlockHeaderValue: currentHeader,
@@ -619,6 +618,7 @@ func createRoundLoop(
 		MyID:              nodeID,
 		BlockCreator:      proposing.NewBlockCreator(base),
 		BlockValidator:    validation.NewBlockProcessor(base),
+		LabelsValidator:   validation.NewLabelsValidator(),
 		RoundState:        roundState,
 		Broadcaster:       broadcast.NewBroadcaster(peerRegistry),
 		Signer:            signing.NewSigner(nodeID, privateKey),
@@ -703,6 +703,9 @@ func createTransactions() []data.Transaction {
 				"back_end_with_apis",
 				"databases",
 				"security",
+				"cloud_engineering",
+				"dev_ops",
+				"test_engineering_and_qa_automation",
 			},
 		),
 		createTransaction(
@@ -714,6 +717,10 @@ func createTransactions() []data.Transaction {
 			[]string{
 				"web_front_end",
 				"test_engineering_and_qa_automation",
+				"mobile_dev",
+				"security",
+				"back_end_with_apis",
+				"databases",
 			},
 		),
 		createTransaction(
@@ -726,6 +733,9 @@ func createTransactions() []data.Transaction {
 				"data_engineering",
 				"databases",
 				"cloud_engineering",
+				"ml_ai_engineering",
+				"dev_ops",
+				"back_end_with_apis",
 			},
 		),
 		createTransaction(
@@ -738,6 +748,9 @@ func createTransactions() []data.Transaction {
 				"blockchain_engineering",
 				"security",
 				"systems_programming",
+				"databases",
+				"cloud_engineering",
+				"dev_ops",
 			},
 		),
 		createTransaction(
@@ -750,6 +763,9 @@ func createTransactions() []data.Transaction {
 				"mobile_dev",
 				"back_end_with_apis",
 				"cloud_engineering",
+				"web_front_end",
+				"security",
+				"databases",
 			},
 		),
 		createTransaction(
@@ -762,6 +778,9 @@ func createTransactions() []data.Transaction {
 				"dev_ops",
 				"cloud_engineering",
 				"test_engineering_and_qa_automation",
+				"systems_programming",
+				"security",
+				"data_engineering",
 			},
 		),
 	}
@@ -837,19 +856,20 @@ func cloneTransactions(transactions []data.Transaction) []data.Transaction {
 	return clonedTransactions
 }
 
-func expectedSubdomains() map[string]uint64 {
-	return map[string]uint64{
-		"back_end_with_apis":                 2,
-		"databases":                          2,
-		"security":                           2,
-		"web_front_end":                      1,
-		"test_engineering_and_qa_automation": 2,
-		"data_engineering":                   1,
-		"cloud_engineering":                  3,
-		"blockchain_engineering":             1,
-		"systems_programming":                1,
-		"mobile_dev":                         1,
-		"dev_ops":                            1,
+func expectedSubdomains() data.SubdomainsFrequency {
+	return data.SubdomainsFrequency{
+		"back_end_with_apis":                 16,
+		"databases":                          20,
+		"security":                           20,
+		"web_front_end":                      8,
+		"test_engineering_and_qa_automation": 12,
+		"data_engineering":                   8,
+		"cloud_engineering":                  20,
+		"blockchain_engineering":             4,
+		"systems_programming":                8,
+		"mobile_dev":                         8,
+		"dev_ops":                            16,
+		"ml_ai_engineering":                  4,
 	}
 }
 
@@ -1030,7 +1050,7 @@ func loadAgentLabelsFixture(t *testing.T, path string) agentLabelsByTxHash {
 
 func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Labeler {
 	return &testscommon.LabelerStub{
-		LabelCalled: func(tx data.Transaction, amILeader bool) ([]string, error) {
+		LabelCalled: func(tx data.Transaction) ([]string, error) {
 			txHash := string(tx.GetTxHash())
 
 			labels, ok := agentLabels.labelsByTxHash[txHash]
@@ -1048,10 +1068,6 @@ func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Labeler {
 			}
 
 			copiedLabels := copyStringSlice(labels)
-
-			if amILeader {
-				return copyStringSlice(copiedLabels[:3]), nil
-			}
 
 			return copiedLabels, nil
 		},
@@ -1097,43 +1113,161 @@ func consensusQuorum(numValidators int) int {
 	return (2*numValidators)/3 + 1
 }
 
-func requireFinalizedLabelsAcceptedByQuorum(
+func selectedConsensusGroupForRound(
 	t *testing.T,
-	finalizedBlock *data.Block,
+	registeredValidators []*validators.Validator,
+	roundKey data.RoundKey,
+) []string {
+	t.Helper()
+
+	consensusSelector := validators.NewConsensusSelector()
+	validatorRegistry := validators.NewValidatorRegistry(consensusSelector)
+
+	for _, validator := range registeredValidators {
+		err := validatorRegistry.Register(validator.PublicID(), validator)
+		require.NoError(t, err)
+	}
+
+	blockchainStateStub := &testscommon.BlockchainStateStub{
+		CurrentBlockHeaderValue: currentIntegrationTestHeader(),
+	}
+
+	err := validatorRegistry.GenerateConsensusGroup(blockchainStateStub, roundKey)
+	require.NoError(t, err)
+
+	consensusGroup, err := validatorRegistry.ConsensusGroup()
+	require.NoError(t, err)
+
+	return consensusGroup
+}
+
+func requireFinalizedFrequenciesFromValidQuorum(
+	t *testing.T,
+	actual data.SubdomainsFrequency,
+	consensusGroup []string,
 	agents []agentLabelsByTxHash,
-	quorum int,
+	transactions []data.Transaction,
 ) {
 	t.Helper()
 
-	require.NotNil(t, finalizedBlock)
+	require.NotEmpty(t, consensusGroup)
 
-	for _, tx := range finalizedBlock.Body.Transactions {
-		txHash := string(tx.GetTxHash())
-		finalizedLabels := tx.GetDomainLabels()
+	quorumSize := consensusQuorum(len(consensusGroup))
+	require.LessOrEqual(t, quorumSize, len(consensusGroup))
 
-		require.Lenf(t, finalizedLabels, 3, "finalized tx %s should have exactly 3 labels", txHash)
+	leaderID := consensusGroup[0]
+	remainingValidators := consensusGroup[1:]
+	requiredFollowers := quorumSize - 1
 
-		acceptedCount := 0
-		for _, agentLabels := range agents {
-			validatorLabels, ok := agentLabels.labelsByTxHash[txHash]
-			require.Truef(t, ok, "agent %s has no labels for finalized txHash %s", agentLabels.agent, txHash)
-
-			if isSubset(finalizedLabels, validatorLabels) {
-				acceptedCount++
-			}
+	var matchingQuorum []string
+	var visit func(start int, selected []string)
+	visit = func(start int, selected []string) {
+		if matchingQuorum != nil {
+			return
 		}
 
-		require.GreaterOrEqualf(
-			t,
-			acceptedCount,
-			quorum,
-			"finalized txHash %s was accepted by only %d agents, expected at least %d; finalized labels: %v",
-			txHash,
-			acceptedCount,
-			quorum,
-			finalizedLabels,
-		)
+		if len(selected) == requiredFollowers {
+			quorum := append([]string{leaderID}, selected...)
+			expected := aggregateAgentLabelFrequencies(t, quorum, agents, transactions)
+			if subdomainsFrequenciesEqual(actual, expected) {
+				matchingQuorum = copyStringSlice(quorum)
+			}
+			return
+		}
+
+		remainingSlots := requiredFollowers - len(selected)
+		for i := start; i <= len(remainingValidators)-remainingSlots; i++ {
+			visit(i+1, append(selected, remainingValidators[i]))
+		}
 	}
+
+	visit(0, nil)
+
+	require.NotNilf(
+		t,
+		matchingQuorum,
+		"finalized subdomain frequencies are not explainable by any quorum of the selected consensus group; consensusGroup=%v actual=%v",
+		consensusGroup,
+		actual,
+	)
+}
+
+func aggregateAgentLabelFrequencies(
+	t *testing.T,
+	validatorIDs []string,
+	agents []agentLabelsByTxHash,
+	transactions []data.Transaction,
+) data.SubdomainsFrequency {
+	t.Helper()
+
+	frequencies := make(data.SubdomainsFrequency)
+	for _, validatorID := range validatorIDs {
+		agentIndex := agentIndexForValidatorID(t, validatorID)
+		require.Less(t, agentIndex, len(agents))
+
+		agentLabels := agents[agentIndex]
+		for _, tx := range transactions {
+			txHash := string(tx.GetTxHash())
+			labels, ok := agentLabels.labelsByTxHash[txHash]
+			require.Truef(t, ok, "agent %s has no labels for txHash %s", agentLabels.agent, txHash)
+
+			for _, label := range labels {
+				frequencies[label]++
+			}
+		}
+	}
+
+	return frequencies
+}
+
+func agentIndexForValidatorID(t *testing.T, validatorID string) int {
+	t.Helper()
+
+	var validatorNumber int
+	_, err := fmt.Sscanf(validatorID, "validator-%d", &validatorNumber)
+	require.NoError(t, err)
+	require.Greater(t, validatorNumber, 0)
+
+	return validatorNumber - 1
+}
+
+func subdomainsFrequenciesEqual(left data.SubdomainsFrequency, right data.SubdomainsFrequency) bool {
+	if len(left) != len(right) {
+		return false
+	}
+
+	for subdomain, leftFrequency := range left {
+		if right[subdomain] != leftFrequency {
+			return false
+		}
+	}
+
+	return true
+}
+
+func appendConsensusFrequenciesResult(t *testing.T, frequencies data.SubdomainsFrequency) {
+	t.Helper()
+
+	result := struct {
+		TestName    string                   `json:"testName"`
+		Timestamp   string                   `json:"timestamp"`
+		Frequencies data.SubdomainsFrequency `json:"frequencies"`
+	}{
+		TestName:    t.Name(),
+		Timestamp:   time.Now().UTC().Format(time.RFC3339Nano),
+		Frequencies: frequencies,
+	}
+
+	encodedResult, err := json.Marshal(result)
+	require.NoError(t, err)
+
+	outputPath := filepath.Join("testData", "consensus_frequencies_results.jsonl")
+	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	require.NoError(t, err)
+	defer outputFile.Close()
+
+	_, err = outputFile.Write(append(encodedResult, '\n'))
+	require.NoError(t, err)
 }
 
 func isSubset(subset []string, superset []string) bool {

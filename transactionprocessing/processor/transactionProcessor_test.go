@@ -12,180 +12,6 @@ import (
 	"moa-chain/transactionprocessing"
 )
 
-func TestTxProcessor_validateLabels(t *testing.T) {
-	t.Parallel()
-
-	t.Run("should return ErrLeaderGeneratedTooManyLabels when leader proposes too many labels", func(t *testing.T) {
-		t.Parallel()
-
-		txProcessor := &txProcessor{}
-
-		err := txProcessor.ValidateLabels(
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-				"mobile_dev",
-			},
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-				"mobile_dev",
-			},
-		)
-
-		require.Equal(t, transactionprocessing.ErrLeaderGeneratedTooManyLabels, err)
-	})
-
-	t.Run("should return ErrValidatorGeneratedTooManyLabels when validator generates too many labels", func(t *testing.T) {
-		t.Parallel()
-
-		txProcessor := &txProcessor{}
-
-		err := txProcessor.ValidateLabels(
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-			},
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-				"mobile_dev",
-				"dev_ops",
-				"systems_programming",
-				"blockchain_engineering",
-			},
-		)
-
-		require.Equal(t, transactionprocessing.ErrValidatorGeneratedTooManyLabels, err)
-	})
-
-	t.Run("should return ErrUnknownLabel when leader proposes an unknown label", func(t *testing.T) {
-		t.Parallel()
-
-		txProcessor := &txProcessor{}
-
-		err := txProcessor.ValidateLabels(
-			[]string{
-				"security",
-				"unknown_label",
-			},
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-			},
-		)
-
-		require.Equal(t, transactionprocessing.ErrUnknownLabel, err)
-	})
-
-	t.Run("should return ErrUnknownLabel when validator generates an unknown label", func(t *testing.T) {
-		t.Parallel()
-
-		txProcessor := &txProcessor{}
-
-		err := txProcessor.ValidateLabels(
-			[]string{
-				"security",
-			},
-			[]string{
-				"security",
-				"unknown_label",
-			},
-		)
-
-		require.Equal(t, transactionprocessing.ErrUnknownLabel, err)
-	})
-
-	t.Run("should return ErrLeaderProposedDuplicatedLabels when leader proposes duplicated labels", func(t *testing.T) {
-		t.Parallel()
-
-		txProcessor := &txProcessor{}
-
-		err := txProcessor.ValidateLabels(
-			[]string{
-				"security",
-				"security",
-			},
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-			},
-		)
-
-		require.Equal(t, transactionprocessing.ErrLeaderProposedDuplicatedLabels, err)
-	})
-
-	t.Run("should return ErrValidatorGeneratedDuplicatedLabels when validator generates duplicated labels", func(t *testing.T) {
-		t.Parallel()
-
-		txProcessor := &txProcessor{}
-
-		err := txProcessor.ValidateLabels(
-			[]string{
-				"security",
-			},
-			[]string{
-				"security",
-				"security",
-			},
-		)
-
-		require.Equal(t, transactionprocessing.ErrValidatorGeneratedDuplicatedLabels, err)
-	})
-
-	t.Run("should return ErrLabelIsNotValid when leader labels are not contained in validator labels", func(t *testing.T) {
-		t.Parallel()
-
-		txProcessor := &txProcessor{}
-
-		err := txProcessor.ValidateLabels(
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-			},
-			[]string{
-				"security",
-				"mobile_dev",
-				"databases",
-				"back_end_with_apis",
-			},
-		)
-
-		require.Equal(t, transactionprocessing.ErrLabelIsNotValid, err)
-	})
-
-	t.Run("should validate labels when leader labels are contained in validator labels", func(t *testing.T) {
-		t.Parallel()
-
-		txProcessor := &txProcessor{}
-
-		err := txProcessor.ValidateLabels(
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-			},
-			[]string{
-				"security",
-				"cloud_engineering",
-				"databases",
-				"mobile_dev",
-				"dev_ops",
-				"back_end_with_apis",
-			},
-		)
-
-		require.NoError(t, err)
-	})
-}
-
 func TestTxProcessor_computeReservedBudget(t *testing.T) {
 	t.Parallel()
 
@@ -693,13 +519,12 @@ func createValidNextHeaderForCurrentHeader(currentHeader *data.BlockHeader) *dat
 func createValidBlockForCurrentHeader(
 	currentHeader *data.BlockHeader,
 	transactions []data.Transaction,
-	subdomains map[string]uint64,
+	_ map[string]uint64,
 ) *data.Block {
 	return &data.Block{
 		Header: *createValidNextHeaderForCurrentHeader(currentHeader),
 		Body: data.BlockBody{
 			Transactions: transactions,
-			Subdomains:   subdomains,
 		},
 	}
 }

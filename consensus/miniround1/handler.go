@@ -1,15 +1,15 @@
 package miniround1
 
 import (
-	"errors"
+	"fmt"
 
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/blockFinalizer"
+	"moa-chain/blockprocessing/hashing"
 	"moa-chain/broadcast"
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
 	"moa-chain/state"
-	"moa-chain/transactionprocessing"
 	"moa-chain/validators"
 )
 
@@ -18,6 +18,7 @@ type handler struct {
 
 	blockCreator      blockprocessing.BlockCreator
 	blockValidator    blockprocessing.BlockProcessor
+	labelsValidator   blockprocessing.LabelsValidator
 	roundState        state.RoundState
 	broadcaster       broadcast.Broadcaster
 	signer            signing.MessageSigner
@@ -31,6 +32,7 @@ type MiniRoundOneHandlerArgs struct {
 
 	BlockCreator      blockprocessing.BlockCreator
 	BlockValidator    blockprocessing.BlockProcessor
+	LabelsValidator   blockprocessing.LabelsValidator
 	RoundState        state.RoundState
 	Broadcaster       broadcast.Broadcaster
 	Signer            signing.MessageSigner
@@ -45,6 +47,7 @@ func NewMiniRoundOneHandler(args MiniRoundOneHandlerArgs) *handler {
 		myID:              args.MyID,
 		blockCreator:      args.BlockCreator,
 		blockValidator:    args.BlockValidator,
+		labelsValidator:   args.LabelsValidator,
 		roundState:        args.RoundState,
 		broadcaster:       args.Broadcaster,
 		signer:            args.Signer,
@@ -67,12 +70,19 @@ func (handler *handler) HandleConsensusSelection(key data.RoundKey) (string, err
 // HandleProposingBlock handles proposing a block.
 // This method will be called when a validator becomes leader in a specific mini-round.
 func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
-	block, err := handler.blockCreator.ProposeBlock()
+	// TODO should propose the domains also?
+	block, subdomains, subdomainsHash, err := handler.blockCreator.ProposeBlockAndDomains()
 	if err != nil {
 		return err
 	}
 
-	// there is no need to process the block, we already processed it inside ProposeBlock
+	// create the blockSignature of the subdomains
+	subdomainsSignature, err := handler.signer.Sign(subdomainsHash)
+	if err != nil {
+		return err
+	}
+
+	// there is no need to process the block, we already processed it inside ProposeBlockAndDomains
 
 	err = handler.roundState.SetProposedBlock(roundKey, block)
 	if err != nil {
@@ -93,8 +103,11 @@ func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
 			SignerID: handler.signer.ID(),
 			VoteType: data.VoteTypeCommit,
 
-			BlockHash: block.Header.HeaderHash,
-			Signature: signature,
+			BlockHash:      block.Header.HeaderHash,
+			BlockSignature: signature,
+
+			Subdomains:          subdomains,
+			SubdomainsSignature: subdomainsSignature,
 		}
 
 		err = handler.roundState.AddVote(roundKey, selfVote)
@@ -143,20 +156,10 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 	}
 
 	// validate block and create the hash
-	hash, err := handler.blockValidator.ValidateBlock(proposedBlock)
+	hash, subdomains, subdomainsHash, err := handler.blockValidator.ValidateBlock(proposedBlock)
 	if err != nil {
-		if errors.Is(err, transactionprocessing.ErrLabelIsNotValid) {
-			err = handler.roundState.SetProposedBlock(roundKey, proposedBlock)
-			if err != nil {
-				return err
-			}
-
-			// Semantic disagreement: do not vote, but stay able to finalize
-			// if the leader later broadcasts a valid quorum certificate.
-			return nil
-		}
-
-		return err
+		// should log at least
+		return nil
 	}
 
 	// save the block in the round state (will be needed later)
@@ -169,8 +172,14 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 		return nil
 	}
 
-	// create the signature
-	signature, err := handler.signer.Sign(hash)
+	// create the blockSignature of the block
+	blockSignature, err := handler.signer.Sign(hash)
+	if err != nil {
+		return err
+	}
+
+	// create the blockSignature of the subdomains
+	subdomainsSignature, err := handler.signer.Sign(subdomainsHash)
 	if err != nil {
 		return err
 	}
@@ -183,8 +192,11 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 		SignerID: handler.signer.ID(),
 		VoteType: data.VoteTypeCommit,
 
-		BlockHash: hash,
-		Signature: signature,
+		BlockHash:      hash,
+		BlockSignature: blockSignature,
+
+		Subdomains:          subdomains,
+		SubdomainsSignature: subdomainsSignature,
 	}
 
 	leader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
@@ -197,7 +209,7 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 		BlockVote:            vote,
 	}
 
-	return handler.broadcaster.SendVoteToLeader(consensusMessage, string(leader))
+	return handler.broadcaster.SendVoteToLeader(consensusMessage, leader)
 }
 
 // HandleBlockVote handles a block vote.
@@ -216,7 +228,9 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		return ErrOnlyLeaderCanCollectVotes
 	}
 
-	err = handler.verifyVote(roundKey, vote)
+	// TODO should also verify the domains. if the domains proposed by the validator are not ok, skip the vote entirely.
+	// TODO if vote is not ok, should be skipped. check if returning error here is ok or should do something else.
+	err = handler.verifyBlockVote(roundKey, vote)
 	if err != nil {
 		return err
 	}
@@ -246,7 +260,7 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 	}
 	hash := currentProposedBlock.Header.HeaderHash
 
-	signers, signatures, err := handler.extractSignersAndVotes(votes)
+	signers, signatures, subdomains, subdomainsSignatures, err := handler.extractSignersAndVotes(votes)
 
 	aggVotes := data.AggregatedVotes{
 		Epoch:     roundKey.Epoch,
@@ -258,6 +272,9 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		BlockHash:  hash,
 		Signers:    signers,
 		Signatures: signatures,
+
+		Subdomains:           subdomains,
+		SubdomainsSignatures: subdomainsSignatures,
 	}
 
 	consensusMessage := &data.ConsensusMessage{
@@ -270,7 +287,12 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		return err
 	}
 
-	err = handler.blockFinalizer.FinalizeBlock(currentProposedBlock)
+	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains)
+	if err != nil {
+		return err
+	}
+
+	err = handler.blockFinalizer.FinalizeBlock(&data.BlockOnChain{Block: *currentProposedBlock, SubdomainsFrequencies: subdomainsFrequencies})
 	if err != nil {
 		return err
 	}
@@ -279,8 +301,8 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 	return handler.broadcaster.BroadcastAggregatedVotes(consensusMessage, handler.myID, validatorsIDs)
 }
 
-func (handler *handler) verifyVote(roundKey data.RoundKey, vote *data.BlockVote) error {
-	signature := vote.Signature
+func (handler *handler) verifyBlockVote(roundKey data.RoundKey, vote *data.BlockVote) error {
+	signature := vote.BlockSignature
 	validatorID := vote.SignerID
 
 	isValidator := handler.validatorRegistry.IsValidatorRegistered(validatorID)
@@ -312,23 +334,27 @@ func (handler *handler) verifyVote(roundKey data.RoundKey, vote *data.BlockVote)
 	return nil
 }
 
-func (handler *handler) extractSignersAndVotes(votes []*data.ValidatorVote) ([][]byte, [][]byte, error) {
+func (handler *handler) extractSignersAndVotes(votes []*data.ValidatorVote) ([][]byte, [][]byte, []data.Subdomains, [][]byte, error) {
 	publicKeys := make([][]byte, 0, len(votes))
-	signatures := make([][]byte, 0, len(votes))
+	blockSignatures := make([][]byte, 0, len(votes))
+	subdomains := make([]data.Subdomains, 0, len(votes))
+	subdomainsSignatures := make([][]byte, 0, len(votes))
 
 	for _, vote := range votes {
 		validatorID := vote.ValidatorID
 
 		publicKey, err := handler.validatorRegistry.GetPublicKey(validatorID)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 
 		publicKeys = append(publicKeys, publicKey)
-		signatures = append(signatures, vote.Signature)
+		blockSignatures = append(blockSignatures, vote.BlockSignature)
+		subdomains = append(subdomains, vote.Subdomains)
+		subdomainsSignatures = append(subdomainsSignatures, vote.SubdomainsSignature)
 	}
 
-	return publicKeys, signatures, nil
+	return publicKeys, blockSignatures, subdomains, subdomainsSignatures, nil
 }
 
 // HandleAggregatedVotes handles the aggregated votes created by the leader.
@@ -351,16 +377,40 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 	hash := block.Header.HeaderHash
 
 	signers := votes.Signers
-	signatures := votes.Signatures
+	blockSignatures := votes.Signatures
+	aggregatedSubdomains := votes.Subdomains
+	aggregatedSubdomainsSignatures := votes.SubdomainsSignatures
 
-	for i, signature := range signatures {
-		err = handler.verifySignature(hash, signature, signers[i])
+	for i, blockSignature := range blockSignatures {
+		err = handler.verifySignature(hash, blockSignature, signers[i])
 		if err != nil {
-			return err
+			return fmt.Errorf("block signature error %s", err.Error())
 		}
 	}
 
-	err = handler.blockFinalizer.FinalizeBlock(block)
+	for i, subdomainsSignature := range aggregatedSubdomainsSignatures {
+		err = handler.labelsValidator.ValidateLabels(aggregatedSubdomains[i])
+		if err != nil {
+			return err
+		}
+
+		subdomainsHash, err := hashing.ComputeSubdomainsHash(aggregatedSubdomains[i])
+		if err != nil {
+			return err
+		}
+
+		err = handler.verifySignature(subdomainsHash, subdomainsSignature, signers[i])
+		if err != nil {
+			return fmt.Errorf("subdomains signature error %s", err.Error())
+		}
+	}
+
+	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains)
+	if err != nil {
+		return err
+	}
+
+	err = handler.blockFinalizer.FinalizeBlock(&data.BlockOnChain{Block: *block, SubdomainsFrequencies: subdomainsFrequencies})
 	if err != nil {
 		return err
 	}

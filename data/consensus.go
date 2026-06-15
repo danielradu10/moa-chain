@@ -31,9 +31,13 @@ type BlockVote struct {
 	SignerID string // we need either the singerID, either directly its public key.
 	VoteType VoteType
 
-	// Signature related information.
-	BlockHash []byte
-	Signature []byte
+	// BlockSignature related information.
+	BlockHash      []byte
+	BlockSignature []byte
+
+	// SubdomainsSignature related information
+	Subdomains          Subdomains
+	SubdomainsSignature []byte
 }
 
 // AggregatedVotes defines the data structure containing the votes aggregated by the leader, which will later be verified by all validators.
@@ -46,10 +50,14 @@ type AggregatedVotes struct {
 	// Leader related information.
 	SenderID string
 
-	// Vote related information.
+	// BlockVote related information.
 	BlockHash  []byte
 	Signers    [][]byte
 	Signatures [][]byte
+
+	// Subdomains related information.
+	Subdomains           []Subdomains
+	SubdomainsSignatures [][]byte
 }
 
 // ConsensusMessage defines the standardized consensus message which will be shared between rounds.
@@ -71,6 +79,8 @@ const (
 
 // ValidatorVote contains the validator public key and its vote.
 type ValidatorVote struct {
-	ValidatorID string
-	Signature   []byte
+	ValidatorID         string
+	BlockSignature      []byte
+	Subdomains          Subdomains
+	SubdomainsSignature []byte
 }
