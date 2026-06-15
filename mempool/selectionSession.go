@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"moa-chain/data"
 	"moa-chain/state"
 )
 
@@ -21,7 +22,7 @@ func newSelectionSession(accountsState state.AccountsState) *selectionSession {
 }
 
 // OnSelectedTransaction updates the virtual state of a sender
-func (session *selectionSession) OnSelectedTransaction(transaction Transaction) error {
+func (session *selectionSession) OnSelectedTransaction(transaction data.Transaction) error {
 	sender := string(transaction.GetSender())
 	vr, ok := session.virtualRecords[sender]
 	if !ok {
@@ -49,7 +50,7 @@ func (session *selectionSession) OnSelectedTransaction(transaction Transaction) 
 	return nil
 }
 
-func (session *selectionSession) senderShouldBeSkipped(transaction Transaction) bool {
+func (session *selectionSession) senderShouldBeSkipped(transaction data.Transaction) bool {
 	sender := string(transaction.GetSender())
 	_, ok := session.skippedSenders[sender]
 	if ok {
@@ -94,7 +95,7 @@ func (session *selectionSession) higherNonceThanCurrentNonce(vr *virtualRecord, 
 	return txNonce > lastNonce+1
 }
 
-func (session *selectionSession) transactionShouldBeSkipped(transaction Transaction) bool {
+func (session *selectionSession) transactionShouldBeSkipped(transaction data.Transaction) bool {
 	sender := string(transaction.GetSender())
 	_, ok := session.skippedSenders[sender]
 	if ok {
@@ -138,7 +139,7 @@ func (session *selectionSession) lowerOrDuplicatedNonceThanCurrentNonce(vr *virt
 	return txNonce < lastNonce+1
 }
 
-func (session *selectionSession) initialBalanceWillBeExceeded(sender string, transaction Transaction) bool {
+func (session *selectionSession) initialBalanceWillBeExceeded(sender string, transaction data.Transaction) bool {
 	vr, ok := session.virtualRecords[sender]
 	if !ok {
 		initialBalance, err := session.accountsState.GetBalanceByAddress(sender)
@@ -146,6 +147,8 @@ func (session *selectionSession) initialBalanceWillBeExceeded(sender string, tra
 			return true
 		}
 
+		// TODO here, we should add also the tip and the estimated fee.
+		// TODO Assure this corresponds with the one from transaction processor
 		if transaction.GetTransferredValue() > initialBalance {
 			return true
 		}

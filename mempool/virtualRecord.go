@@ -1,14 +1,14 @@
 package mempool
 
 import (
-	"moa-chain/common"
+	"moa-chain/data"
 )
 
 type virtualRecord struct {
-	initialNonce   common.OptionalUint64
+	initialNonce   data.OptionalUint64
 	initialBalance uint64
 
-	currentNonce       common.OptionalUint64
+	currentNonce       data.OptionalUint64
 	accumulatedBalance uint64
 }
 
@@ -18,11 +18,11 @@ func newVirtualRecord(
 	currentNonce uint64,
 ) *virtualRecord {
 	return &virtualRecord{
-		initialNonce: common.OptionalUint64{
+		initialNonce: data.OptionalUint64{
 			Value:    initialNonce,
 			HasValue: true,
 		},
-		currentNonce: common.OptionalUint64{
+		currentNonce: data.OptionalUint64{
 			Value:    currentNonce,
 			HasValue: true,
 		},

@@ -1,0 +1,428 @@
+package miniround1
+
+import (
+	"fmt"
+
+	"moa-chain/blockprocessing"
+	"moa-chain/blockprocessing/blockFinalizer"
+	"moa-chain/blockprocessing/hashing"
+	"moa-chain/broadcast"
+	"moa-chain/crypto/signing"
+	"moa-chain/data"
+	"moa-chain/state"
+	"moa-chain/validators"
+)
+
+type handler struct {
+	myID string
+
+	blockCreator      blockprocessing.BlockCreator
+	blockValidator    blockprocessing.BlockProcessor
+	labelsValidator   blockprocessing.LabelsValidator
+	roundState        state.RoundState
+	broadcaster       broadcast.Broadcaster
+	signer            signing.MessageSigner
+	validatorRegistry validators.ValidatorRegistry
+	blockchainState   state.BlockchainState
+	blockFinalizer    blockFinalizer.BlockFinalizer
+}
+
+type MiniRoundOneHandlerArgs struct {
+	MyID string
+
+	BlockCreator      blockprocessing.BlockCreator
+	BlockValidator    blockprocessing.BlockProcessor
+	LabelsValidator   blockprocessing.LabelsValidator
+	RoundState        state.RoundState
+	Broadcaster       broadcast.Broadcaster
+	Signer            signing.MessageSigner
+	ValidatorRegistry validators.ValidatorRegistry
+	BlockchainState   state.BlockchainState
+	BlockFinalizer    blockFinalizer.BlockFinalizer
+}
+
+// NewMiniRoundOneHandler returns a new mini round one handler
+func NewMiniRoundOneHandler(args MiniRoundOneHandlerArgs) *handler {
+	return &handler{
+		myID:              args.MyID,
+		blockCreator:      args.BlockCreator,
+		blockValidator:    args.BlockValidator,
+		labelsValidator:   args.LabelsValidator,
+		roundState:        args.RoundState,
+		broadcaster:       args.Broadcaster,
+		signer:            args.Signer,
+		validatorRegistry: args.ValidatorRegistry,
+		blockchainState:   args.BlockchainState,
+		blockFinalizer:    args.BlockFinalizer,
+	}
+}
+
+// HandleConsensusSelection should be called by each validator in the beginning of the round.
+func (handler *handler) HandleConsensusSelection(key data.RoundKey) (string, error) {
+	err := handler.validatorRegistry.GenerateConsensusGroup(handler.blockchainState, key)
+	if err != nil {
+		return "", err
+	}
+
+	return handler.validatorRegistry.LeaderOfConsensusGroup()
+}
+
+// HandleProposingBlock handles proposing a block.
+// This method will be called when a validator becomes leader in a specific mini-round.
+func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
+	// TODO should propose the domains also?
+	block, subdomains, subdomainsHash, err := handler.blockCreator.ProposeBlockAndDomains()
+	if err != nil {
+		return err
+	}
+
+	// create the blockSignature of the subdomains
+	subdomainsSignature, err := handler.signer.Sign(subdomainsHash)
+	if err != nil {
+		return err
+	}
+
+	// there is no need to process the block, we already processed it inside ProposeBlockAndDomains
+
+	err = handler.roundState.SetProposedBlock(roundKey, block)
+	if err != nil {
+		return err
+	}
+
+	if handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
+		signature, err := handler.signer.Sign(block.Header.HeaderHash)
+		if err != nil {
+			return err
+		}
+
+		selfVote := &data.BlockVote{
+			Epoch:     roundKey.Epoch,
+			Round:     roundKey.Round,
+			MiniRound: roundKey.MiniRound,
+
+			SignerID: handler.signer.ID(),
+			VoteType: data.VoteTypeCommit,
+
+			BlockHash:      block.Header.HeaderHash,
+			BlockSignature: signature,
+
+			Subdomains:          subdomains,
+			SubdomainsSignature: subdomainsSignature,
+		}
+
+		err = handler.roundState.AddVote(roundKey, selfVote)
+		if err != nil {
+			return err
+		}
+	}
+
+	proposedMessage := data.ProposedBlockMessage{
+		Epoch:     roundKey.Epoch,
+		Round:     roundKey.Round,
+		MiniRound: roundKey.MiniRound,
+		SenderID:  handler.myID,
+		Block:     block,
+	}
+
+	consensusMessage := &data.ConsensusMessage{
+		ConsensusMessageType: data.ProposedBlockConsensusMessage,
+		ProposedBlockMessage: &proposedMessage,
+	}
+
+	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
+	err = handler.broadcaster.BroadcastProposedBlock(consensusMessage, handler.myID, validatorsIDs)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// HandleProposedBlock handles a proposed block message.
+// This method will be called by all validators in a specific mini-round.
+func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *data.ProposedBlockMessage) error {
+	if message == nil {
+		return ErrNilProposedBlockMessage
+	}
+
+	proposedBlock := message.Block
+	if proposedBlock == nil {
+		return ErrNilBlock
+	}
+
+	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if message.SenderID != expectedLeader {
+		return ErrMessageNotFromLeader
+	}
+
+	// validate block and create the hash
+	hash, subdomains, subdomainsHash, err := handler.blockValidator.ValidateBlock(proposedBlock)
+	if err != nil {
+		// should log at least
+		return nil
+	}
+
+	// save the block in the round state (will be needed later)
+	err = handler.roundState.SetProposedBlock(roundKey, proposedBlock)
+	if err != nil {
+		return err
+	}
+
+	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
+		return nil
+	}
+
+	// create the blockSignature of the block
+	blockSignature, err := handler.signer.Sign(hash)
+	if err != nil {
+		return err
+	}
+
+	// create the blockSignature of the subdomains
+	subdomainsSignature, err := handler.signer.Sign(subdomainsHash)
+	if err != nil {
+		return err
+	}
+
+	vote := &data.BlockVote{
+		Epoch:     message.Epoch,
+		Round:     message.Round,
+		MiniRound: message.MiniRound,
+
+		SignerID: handler.signer.ID(),
+		VoteType: data.VoteTypeCommit,
+
+		BlockHash:      hash,
+		BlockSignature: blockSignature,
+
+		Subdomains:          subdomains,
+		SubdomainsSignature: subdomainsSignature,
+	}
+
+	leader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+
+	consensusMessage := &data.ConsensusMessage{
+		ConsensusMessageType: data.BlockVoteConsensusMessage,
+		BlockVote:            vote,
+	}
+
+	return handler.broadcaster.SendVoteToLeader(consensusMessage, leader)
+}
+
+// HandleBlockVote handles a block vote.
+// This method will be called by the leader of a specific mini-round each time it receives a new vote.
+func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.BlockVote) error {
+	if vote == nil {
+		return ErrNilVote
+	}
+
+	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+
+	if leaderID != handler.myID {
+		return ErrOnlyLeaderCanCollectVotes
+	}
+
+	// TODO should also verify the domains. if the domains proposed by the validator are not ok, skip the vote entirely.
+	// TODO if vote is not ok, should be skipped. check if returning error here is ok or should do something else.
+	err = handler.verifyBlockVote(roundKey, vote)
+	if err != nil {
+		return err
+	}
+
+	err = handler.roundState.AddVote(roundKey, vote)
+	if err != nil {
+		return err
+	}
+
+	votes, err := handler.roundState.GetVotes(roundKey)
+	if err != nil {
+		return err
+	}
+
+	consensusGroupSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		return err
+	}
+
+	if uint64(len(votes)) < (2*consensusGroupSize)/3+1 || handler.roundState.IsCertificateSet(roundKey) {
+		return nil
+	}
+
+	currentProposedBlock, err := handler.roundState.GetProposedBlock(roundKey)
+	if err != nil {
+		return err
+	}
+	hash := currentProposedBlock.Header.HeaderHash
+
+	signers, signatures, subdomains, subdomainsSignatures, err := handler.extractSignersAndVotes(votes)
+
+	aggVotes := data.AggregatedVotes{
+		Epoch:     roundKey.Epoch,
+		Round:     roundKey.Round,
+		MiniRound: roundKey.MiniRound,
+
+		SenderID: handler.myID,
+
+		BlockHash:  hash,
+		Signers:    signers,
+		Signatures: signatures,
+
+		Subdomains:           subdomains,
+		SubdomainsSignatures: subdomainsSignatures,
+	}
+
+	consensusMessage := &data.ConsensusMessage{
+		ConsensusMessageType: data.AggregatedVotesConsensusMessage,
+		AggregatedVotes:      &aggVotes,
+	}
+
+	err = handler.roundState.SetCertificate(roundKey, &aggVotes)
+	if err != nil {
+		return err
+	}
+
+	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains)
+	if err != nil {
+		return err
+	}
+
+	err = handler.blockFinalizer.FinalizeBlock(&data.BlockOnChain{Block: *currentProposedBlock, SubdomainsFrequencies: subdomainsFrequencies})
+	if err != nil {
+		return err
+	}
+
+	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
+	return handler.broadcaster.BroadcastAggregatedVotes(consensusMessage, handler.myID, validatorsIDs)
+}
+
+func (handler *handler) verifyBlockVote(roundKey data.RoundKey, vote *data.BlockVote) error {
+	signature := vote.BlockSignature
+	validatorID := vote.SignerID
+
+	isValidator := handler.validatorRegistry.IsValidatorRegistered(validatorID)
+	if !isValidator {
+		return ErrSignerIsNotValidator
+	}
+
+	isValidatorInConsensusGroup := handler.validatorRegistry.IsValidatorInConsensusGroup(validatorID)
+	if !isValidatorInConsensusGroup {
+		return ErrValidatorNotPartOfConsensusGroup
+	}
+
+	publicKey, err := handler.validatorRegistry.GetPublicKey(validatorID)
+	if err != nil {
+		return err
+	}
+
+	currentProposedBlock, err := handler.roundState.GetProposedBlock(roundKey)
+	if err != nil {
+		return err
+	}
+
+	hash := currentProposedBlock.Header.HeaderHash
+	err = handler.signer.Verify(publicKey, hash, signature)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (handler *handler) extractSignersAndVotes(votes []*data.ValidatorVote) ([][]byte, [][]byte, []data.Subdomains, [][]byte, error) {
+	publicKeys := make([][]byte, 0, len(votes))
+	blockSignatures := make([][]byte, 0, len(votes))
+	subdomains := make([]data.Subdomains, 0, len(votes))
+	subdomainsSignatures := make([][]byte, 0, len(votes))
+
+	for _, vote := range votes {
+		validatorID := vote.ValidatorID
+
+		publicKey, err := handler.validatorRegistry.GetPublicKey(validatorID)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+
+		publicKeys = append(publicKeys, publicKey)
+		blockSignatures = append(blockSignatures, vote.BlockSignature)
+		subdomains = append(subdomains, vote.Subdomains)
+		subdomainsSignatures = append(subdomainsSignatures, vote.SubdomainsSignature)
+	}
+
+	return publicKeys, blockSignatures, subdomains, subdomainsSignatures, nil
+}
+
+// HandleAggregatedVotes handles the aggregated votes created by the leader.
+// This method will be called by each validator of the consensus group of a specific mini-round.
+// TODO This method should be more aggressive!
+func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *data.AggregatedVotes) error {
+	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+
+	if votes.SenderID != expectedLeader {
+		return ErrMessageNotFromLeader
+	}
+
+	block, err := handler.roundState.GetProposedBlock(roundKey)
+	if err != nil {
+		return err
+	}
+	hash := block.Header.HeaderHash
+
+	signers := votes.Signers
+	blockSignatures := votes.Signatures
+	aggregatedSubdomains := votes.Subdomains
+	aggregatedSubdomainsSignatures := votes.SubdomainsSignatures
+
+	for i, blockSignature := range blockSignatures {
+		err = handler.verifySignature(hash, blockSignature, signers[i])
+		if err != nil {
+			return fmt.Errorf("block signature error %s", err.Error())
+		}
+	}
+
+	for i, subdomainsSignature := range aggregatedSubdomainsSignatures {
+		err = handler.labelsValidator.ValidateLabels(aggregatedSubdomains[i])
+		if err != nil {
+			return err
+		}
+
+		subdomainsHash, err := hashing.ComputeSubdomainsHash(aggregatedSubdomains[i])
+		if err != nil {
+			return err
+		}
+
+		err = handler.verifySignature(subdomainsHash, subdomainsSignature, signers[i])
+		if err != nil {
+			return fmt.Errorf("subdomains signature error %s", err.Error())
+		}
+	}
+
+	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains)
+	if err != nil {
+		return err
+	}
+
+	err = handler.blockFinalizer.FinalizeBlock(&data.BlockOnChain{Block: *block, SubdomainsFrequencies: subdomainsFrequencies})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (handler *handler) verifySignature(hash []byte, signature []byte, signer []byte) error {
+	err := handler.signer.Verify(signer, hash, signature)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

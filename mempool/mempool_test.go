@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"moa-chain/data"
 )
 
 func TestMemPool_AddTransaction(t *testing.T) {
@@ -179,7 +181,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 			balance uint64
 		}{})
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Empty(t, selectedTransactions)
 	})
@@ -205,9 +207,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx2, tx3, tx1}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx2, tx3, tx1}, selectedTransactions)
 	})
 
 	t.Run("should use estimated consumption as tie breaker when scores are equal", func(t *testing.T) {
@@ -228,9 +230,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx2, tx1}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx2, tx1}, selectedTransactions)
 	})
 
 	t.Run("should use tx hash as tie breaker when score and consumption are equal", func(t *testing.T) {
@@ -251,9 +253,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx1, tx2}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx1, tx2}, selectedTransactions)
 	})
 
 	t.Run("should stop when next best transaction exceeds max block consumption", func(t *testing.T) {
@@ -274,9 +276,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx1}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx1}, selectedTransactions)
 	})
 
 	t.Run("should skip sender when first transaction has initial nonce gap", func(t *testing.T) {
@@ -297,9 +299,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx2}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx2}, selectedTransactions)
 	})
 
 	t.Run("should skip transaction when balance is insufficient", func(t *testing.T) {
@@ -320,9 +322,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx2}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx2}, selectedTransactions)
 	})
 
 	t.Run("should select multiple valid consecutive transactions from same sender", func(t *testing.T) {
@@ -345,9 +347,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx1, tx2, tx3}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx1, tx2, tx3}, selectedTransactions)
 	})
 
 	t.Run("should skip second transaction from sender when accumulated transferred value exceeds balance", func(t *testing.T) {
@@ -370,9 +372,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx1, tx3}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx1, tx3}, selectedTransactions)
 	})
 }
 

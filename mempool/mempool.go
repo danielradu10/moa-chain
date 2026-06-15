@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 
+	"moa-chain/data"
 	"moa-chain/state"
 
 	"github.com/tiktoken-go/tokenizer"
@@ -17,7 +18,7 @@ const (
 // memPool is a data structure containing our transactions, grouped by sender and sorted by nonce and cached by TxHash
 type memPool struct {
 	transactionsCount  uint64
-	transactionsByHash map[string]Transaction
+	transactionsByHash map[string]data.Transaction
 	senders            *sendersMap
 
 	tokensConfig map[string]uint64
@@ -27,7 +28,7 @@ type memPool struct {
 // NewMemPool returns a new mempool
 func NewMemPool() *memPool {
 	return &memPool{
-		transactionsByHash: make(map[string]Transaction),
+		transactionsByHash: make(map[string]data.Transaction),
 		senders:            newSendersMap(),
 	}
 }
@@ -35,7 +36,7 @@ func NewMemPool() *memPool {
 // AddTransaction adds a transaction into the mempool.
 // Saves the transactions by its txHash and adds it to a map of senders.
 // Each sender has a sorted transactions list.
-func (mp *memPool) AddTransaction(transaction Transaction) error {
+func (mp *memPool) AddTransaction(transaction data.Transaction) error {
 	mp.mempoolMutex.Lock()
 	defer mp.mempoolMutex.Unlock()
 
@@ -59,14 +60,14 @@ func (mp *memPool) AddTransaction(transaction Transaction) error {
 	return nil
 }
 
-func (mp *memPool) hasTransactionNoLock(transaction Transaction) bool {
+func (mp *memPool) hasTransactionNoLock(transaction data.Transaction) bool {
 	txHash := transaction.GetTxHash()
 	_, ok := mp.transactionsByHash[string(txHash)]
 	return ok
 }
 
 // addTxByHashNoLock saves a transaction by its hash; it has to be called under a mutex protection
-func (mp *memPool) addTxByHashNoLock(transaction Transaction) {
+func (mp *memPool) addTxByHashNoLock(transaction data.Transaction) {
 	txHash := transaction.GetTxHash()
 	_, ok := mp.transactionsByHash[string(txHash)]
 	if !ok {
@@ -76,7 +77,7 @@ func (mp *memPool) addTxByHashNoLock(transaction Transaction) {
 
 // precomputeTxFields precomputes the necessary fields of a transaction for SelectTransactions.
 // (i.e. score, estimated gas consumption and other fields)
-func (mp *memPool) precomputeTxFields(transaction Transaction) {
+func (mp *memPool) precomputeTxFields(transaction data.Transaction) {
 	estimatedNumTokens := mp.estimateNumTokens(transaction)
 	transaction.SetEstimatedConsumption(estimatedNumTokens)
 
@@ -89,7 +90,7 @@ func (mp *memPool) precomputeTxFields(transaction Transaction) {
 // estimateNumTokens estimates the number of tokens taking into consideration numTokens from tokenizer,
 // numTokens from thinking mode, numTokens from output mode
 // TODO search for keywords which usually increase the number of tokens
-func (mp *memPool) estimateNumTokens(transaction Transaction) uint64 {
+func (mp *memPool) estimateNumTokens(transaction data.Transaction) uint64 {
 	numTokensFromPrompt := mp.calculateNumTokensFromPrompt(transaction)
 
 	outputUserDimension := transaction.GetUserOutputDimension()
@@ -103,7 +104,7 @@ func (mp *memPool) estimateNumTokens(transaction Transaction) uint64 {
 }
 
 // calculateNumTokensFromPrompt tokenizes the prompt to get the number of tokens
-func (mp *memPool) calculateNumTokensFromPrompt(transaction Transaction) uint64 {
+func (mp *memPool) calculateNumTokensFromPrompt(transaction data.Transaction) uint64 {
 	prompt := transaction.GetPrompt()
 
 	enc, err := tokenizer.Get(tokenizer.Cl100kBase)
@@ -121,11 +122,11 @@ func (mp *memPool) calculateNumTokensFromPrompt(transaction Transaction) uint64 
 
 // snapshot does a snapshot of each important map from the MemPool.
 // The method is used in the SelectTransactions so that the selection can be made without concurrent interferences.
-func (mp *memPool) snapshot() (map[string]Transaction, *sendersMap) {
+func (mp *memPool) snapshot() (map[string]data.Transaction, *sendersMap) {
 	mp.mempoolMutex.RLock()
 	defer mp.mempoolMutex.RUnlock()
 
-	transactionsByHashSnapshot := make(map[string]Transaction, len(mp.transactionsByHash))
+	transactionsByHashSnapshot := make(map[string]data.Transaction, len(mp.transactionsByHash))
 	for txHash, tx := range mp.transactionsByHash {
 		transactionsByHashSnapshot[txHash] = tx
 	}
@@ -137,11 +138,10 @@ func (mp *memPool) snapshot() (map[string]Transaction, *sendersMap) {
 // SelectTransactions selects transactions from the pool, using the current accounts state on chain and the given transactions comparator
 func (mp *memPool) SelectTransactions(
 	accountsState state.AccountsState,
-	comparator txHeapComparator,
-) []Transaction {
+) []data.Transaction {
 	_, sendersMapSnapshot := mp.snapshot()
 
-	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), comparator)
+	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), isTransactionMoreValuable)
 	if err != nil {
 		return nil
 	}
@@ -152,7 +152,7 @@ func (mp *memPool) SelectTransactions(
 	}
 
 	accumulatedConsumption := uint64(0)
-	selectedTransactions := make([]Transaction, 0)
+	selectedTransactions := make([]data.Transaction, 0)
 	selSession := newSelectionSession(accountsState)
 
 	for txHeap.Len() > 0 {

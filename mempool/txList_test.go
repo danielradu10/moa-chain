@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"moa-chain/data"
 )
 
 func Test_add(t *testing.T) {
@@ -14,7 +16,7 @@ func Test_add(t *testing.T) {
 	tx1 := createTx(0, 10, []byte("txHash1"))
 	tx2 := createTx(1, 10, []byte("txHash2"))
 	tx3 := createTx(2, 10, []byte("txHash3"))
-	transactions := []Transaction{
+	transactions := []data.Transaction{
 		tx3, tx1, tx2,
 	}
 
@@ -22,7 +24,7 @@ func Test_add(t *testing.T) {
 		tl.add(tx)
 	}
 
-	expectedTxList := []Transaction{
+	expectedTxList := []data.Transaction{
 		tx1, tx2, tx3,
 	}
 	require.Equal(t, expectedTxList, tl.transactionList)
@@ -37,7 +39,7 @@ func Test_addShouldOrderByEstimatedConsumptionWhenNonceIsEqual(t *testing.T) {
 	tx2 := createTx(7, 10, []byte("txHash2"))
 	tx3 := createTx(7, 20, []byte("txHash3"))
 
-	transactions := []Transaction{
+	transactions := []data.Transaction{
 		tx1, tx2, tx3,
 	}
 
@@ -45,7 +47,7 @@ func Test_addShouldOrderByEstimatedConsumptionWhenNonceIsEqual(t *testing.T) {
 		tl.add(tx)
 	}
 
-	expectedTxList := []Transaction{
+	expectedTxList := []data.Transaction{
 		tx2, tx3, tx1,
 	}
 	require.Equal(t, expectedTxList, tl.transactionList)
@@ -60,7 +62,7 @@ func Test_addShouldOrderByTxHashWhenNonceAndEstimatedConsumptionAreEqual(t *test
 	tx2 := createTx(5, 100, []byte("txHash1"))
 	tx3 := createTx(5, 100, []byte("txHash2"))
 
-	transactions := []Transaction{
+	transactions := []data.Transaction{
 		tx1, tx2, tx3,
 	}
 
@@ -68,7 +70,7 @@ func Test_addShouldOrderByTxHashWhenNonceAndEstimatedConsumptionAreEqual(t *test
 		tl.add(tx)
 	}
 
-	expectedTxList := []Transaction{
+	expectedTxList := []data.Transaction{
 		tx2, tx3, tx1,
 	}
 	require.Equal(t, expectedTxList, tl.transactionList)
@@ -85,7 +87,7 @@ func Test_addShouldUseAllCriteria(t *testing.T) {
 	tx4 := createTx(1, 10, []byte("txHash1"))
 	tx5 := createTx(2, 1, []byte("txHash2"))
 
-	transactions := []Transaction{
+	transactions := []data.Transaction{
 		tx1, tx2, tx3, tx4, tx5,
 	}
 
@@ -93,7 +95,7 @@ func Test_addShouldUseAllCriteria(t *testing.T) {
 		tl.add(tx)
 	}
 
-	expectedTxList := []Transaction{
+	expectedTxList := []data.Transaction{
 		tx2, // nonce 0
 		tx4, // nonce 1, consumption 10, hash txHash1
 		tx3, // nonce 1, consumption 10, hash txHash4
@@ -110,7 +112,7 @@ func Test_findInsertionPlaceNoLockShouldReturnBeginning(t *testing.T) {
 	tx2 := createTx(1, 10, []byte("txHash2"))
 	tx3 := createTx(2, 10, []byte("txHash3"))
 
-	tl.transactionList = []Transaction{tx2, tx3}
+	tl.transactionList = []data.Transaction{tx2, tx3}
 
 	txToInsert := createTx(0, 10, []byte("txHash1"))
 
@@ -126,7 +128,7 @@ func Test_findInsertionPlaceNoLockShouldReturnMiddle(t *testing.T) {
 	tx1 := createTx(0, 10, []byte("txHash1"))
 	tx3 := createTx(2, 10, []byte("txHash3"))
 
-	tl.transactionList = []Transaction{tx1, tx3}
+	tl.transactionList = []data.Transaction{tx1, tx3}
 
 	txToInsert := createTx(1, 10, []byte("txHash2"))
 
@@ -142,7 +144,7 @@ func Test_findInsertionPlaceNoLockShouldReturnEnd(t *testing.T) {
 	tx1 := createTx(0, 10, []byte("txHash1"))
 	tx2 := createTx(1, 10, []byte("txHash2"))
 
-	tl.transactionList = []Transaction{tx1, tx2}
+	tl.transactionList = []data.Transaction{tx1, tx2}
 
 	txToInsert := createTx(2, 10, []byte("txHash3"))
 

@@ -2,6 +2,8 @@ package mempool
 
 import (
 	"sync"
+
+	"moa-chain/data"
 )
 
 type sendersMap struct {
@@ -16,7 +18,7 @@ func newSendersMap() *sendersMap {
 }
 
 // add adds a new sender into the senders map and appends its transaction in its sorted list
-func (sm *sendersMap) add(sender string, tx Transaction) {
+func (sm *sendersMap) add(sender string, tx data.Transaction) {
 	sm.mutSendersMap.Lock()
 	defer sm.mutSendersMap.Unlock()
 

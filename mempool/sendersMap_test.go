@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"moa-chain/data"
 )
 
 func TestSendersMap_add(t *testing.T) {
@@ -50,7 +52,7 @@ func TestSendersMap_addShouldCreateNewListForNewSender(t *testing.T) {
 	require.Len(t, sm.senders, 1)
 	require.Contains(t, sm.senders, "alice")
 	require.NotNil(t, sm.senders["alice"])
-	require.Equal(t, []Transaction{tx}, sm.senders["alice"].transactionList)
+	require.Equal(t, []data.Transaction{tx}, sm.senders["alice"].transactionList)
 }
 
 func TestSendersMap_addShouldKeepTransactionsSortedForSameSender(t *testing.T) {
@@ -112,5 +114,5 @@ func TestSendersMap_addShouldReuseExistingListForSender(t *testing.T) {
 	sm.add("alice", tx2)
 
 	require.Same(t, initialListPointer, sm.senders["alice"])
-	require.Equal(t, []Transaction{tx1, tx2}, sm.senders["alice"].transactionList)
+	require.Equal(t, []data.Transaction{tx1, tx2}, sm.senders["alice"].transactionList)
 }
