@@ -3,21 +3,25 @@ package validators
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"log/slog"
 	"math"
 
 	"moa-chain/data"
+	"moa-chain/logging"
 	"moa-chain/state"
 )
 
 type consensusSelector struct {
 	currentConsensusGroup []string
 	currentLeader         string
+	logger                *slog.Logger
 }
 
-func NewConsensusSelector() *consensusSelector {
+func NewConsensusSelector(loggers ...*slog.Logger) *consensusSelector {
 	return &consensusSelector{
 		currentConsensusGroup: make([]string, 0),
 		currentLeader:         "",
+		logger:                logging.FromOptional(loggers...),
 	}
 }
 
@@ -27,15 +31,20 @@ func (c *consensusSelector) SelectConsensusGroupMiniRoundOne(
 	validators []*Validator,
 	roundKey data.RoundKey,
 ) ([]string, error) {
+	c.logger.Info("validators.SelectConsensusGroup started", "roundKey", roundKey, "numValidators", len(validators))
+
 	provider, err := NewRandomnessProvider(blockchainState)
 	if err != nil {
+		c.logger.Error("validators.SelectConsensusGroup failed to create randomness provider", "roundKey", roundKey, "error", err)
 		return nil, err
 	}
 
 	selectionSeed, err := provider.SelectionSeed(roundKey)
 	if err != nil {
+		c.logger.Error("validators.SelectConsensusGroup failed to get selection seed", "roundKey", roundKey, "error", err)
 		return nil, err
 	}
+	c.logger.Debug("validators.SelectConsensusGroup got selection seed", "roundKey", roundKey, "seedLen", len(selectionSeed))
 
 	return c.selectConsensusGroupMiniRoundOne(validators, selectionSeed)
 }
@@ -43,17 +52,31 @@ func (c *consensusSelector) SelectConsensusGroupMiniRoundOne(
 func (c *consensusSelector) selectConsensusGroupMiniRoundOne(validators []*Validator, selectionSeed []byte) ([]string, error) {
 	expandedList, err := c.createExpandedListMiniRoundOne(validators)
 	if err != nil {
+		c.logger.Error("validators.SelectConsensusGroup failed to create expanded list", "roundKey", roundKey, "error", err)
 		return nil, err
 	}
+	c.logger.Debug(
+		"validators.SelectConsensusGroup created expanded validator list",
+		"roundKey", roundKey,
+		"expandedListSize", len(expandedList),
+		"numValidatorGroups", countValidatorGroups(expandedList),
+	)
 
 	consensusGroupDimension := len(validators) / 2
 	consensusGroup, err := c.selectUniqueFromExpandedList(selectionSeed, expandedList, uint64(consensusGroupDimension))
 	if err != nil {
+		c.logger.Error("validators.SelectConsensusGroup failed to select consensus group", "roundKey", roundKey, "groupSize", consensusGroupDimension, "error", err)
 		return nil, err
 	}
 
 	c.currentConsensusGroup = consensusGroup
 	c.currentLeader = consensusGroup[0]
+	c.logger.Info(
+		"validators.SelectConsensusGroup finished",
+		"roundKey", roundKey,
+		"consensusGroup", consensusGroup,
+		"leaderID", c.currentLeader,
+	)
 
 	return consensusGroup, nil
 }
@@ -62,6 +85,12 @@ func (c *consensusSelector) createExpandedListMiniRoundOne(validators []*Validat
 	expandedList := make([]string, 0, len(validators))
 	for _, validator := range validators {
 		globalScore := int(math.Round(validator.GlobalScore()))
+		c.logger.Debug(
+			"validators.createExpandedList adding validator",
+			"validatorID", validator.PublicID(),
+			"globalScore", validator.GlobalScore(),
+			"expandedWeight", globalScore,
+		)
 
 		for i := 0; i < globalScore; i++ {
 			expandedList = append(expandedList, validator.PublicID())
@@ -136,18 +165,26 @@ func (c *consensusSelector) selectUniqueFromExpandedList(
 	groupSize uint64,
 ) ([]string, error) {
 	if len(seed) == 0 {
+		c.logger.Error("validators.selectUniqueFromExpandedList got nil selection seed")
 		return nil, ErrNilSelectionSeed
 	}
 
 	if len(expandedList) == 0 {
+		c.logger.Error("validators.selectUniqueFromExpandedList got empty expanded list")
 		return nil, ErrEmptyExpandedList
 	}
 
 	if groupSize == 0 {
+		c.logger.Error("validators.selectUniqueFromExpandedList got invalid consensus group size", "groupSize", groupSize)
 		return nil, ErrInvalidConsensusGroupSize
 	}
 
 	if uint64(countValidatorGroups(expandedList)) < groupSize {
+		c.logger.Error(
+			"validators.selectUniqueFromExpandedList does not have enough validators",
+			"numValidatorGroups", countValidatorGroups(expandedList),
+			"groupSize", groupSize,
+		)
 		return nil, ErrNotEnoughValidators
 	}
 
@@ -156,6 +193,7 @@ func (c *consensusSelector) selectUniqueFromExpandedList(
 
 	for selectionIndex := uint64(0); selectionIndex < groupSize; selectionIndex++ {
 		if len(available) == 0 {
+			c.logger.Error("validators.selectUniqueFromExpandedList ran out of validators", "selectionIndex", selectionIndex)
 			return nil, ErrNotEnoughValidatorsSelected
 		}
 
@@ -165,6 +203,13 @@ func (c *consensusSelector) selectUniqueFromExpandedList(
 		start, end := c.findValidatorInterval(available, index)
 
 		selected = append(selected, validatorID)
+		c.logger.Debug(
+			"validators.selectUniqueFromExpandedList selected validator",
+			"selectionIndex", selectionIndex,
+			"validatorID", validatorID,
+			"deterministicIndex", index,
+			"availableBeforeRemoval", len(available),
+		)
 
 		available = c.removeInterval(available, start, end)
 	}

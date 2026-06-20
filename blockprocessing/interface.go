@@ -16,5 +16,5 @@ type BlockProcessor interface {
 
 type LabelsValidator interface {
 	ValidateLabels(labelsSubdomains data.Subdomains) error
-	AggregateLabels(aggregatedSubdomains []data.Subdomains) (data.SubdomainsFrequency, error)
+	AggregateLabels(aggregatedSubdomains []data.Subdomains, consensusGroupSize uint64) (data.SubdomainsFrequency, error)
 }

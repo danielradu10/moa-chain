@@ -5,6 +5,7 @@ import (
 
 	"moa-chain/blockprocessing"
 	"moa-chain/data"
+	"moa-chain/logging"
 )
 
 const (
@@ -12,16 +13,21 @@ const (
 )
 
 type labelsValidator struct {
+	logger *slog.Logger
 }
 
-func NewLabelsValidator() *labelsValidator {
-	return &labelsValidator{}
+func NewLabelsValidator(loggers ...*slog.Logger) *labelsValidator {
+	return &labelsValidator{
+		logger: logging.FromOptional(loggers...),
+	}
 }
 
 func (lv *labelsValidator) ValidateLabels(txsSubdomains data.Subdomains) error {
+	lv.logger.Debug("validation.ValidateLabels started", "numTransactions", len(txsSubdomains))
+
 	for _, subdomains := range txsSubdomains {
 		if len(subdomains) != numAcceptedLabels {
-			slog.Error("Invalid number of subdomains", "numSubdomains", len(subdomains))
+			lv.logger.Error("validation.ValidateLabels invalid number of subdomains", "numSubdomains", len(subdomains), "expected", numAcceptedLabels)
 			return blockprocessing.ErrInvalidNumSubdomains
 		}
 
@@ -29,11 +35,13 @@ func (lv *labelsValidator) ValidateLabels(txsSubdomains data.Subdomains) error {
 		for _, subdomain := range subdomains {
 			_, ok := data.PossibleSubDomains[subdomain]
 			if !ok {
+				lv.logger.Error("validation.ValidateLabels invalid subdomain", "subdomain", subdomain)
 				return blockprocessing.ErrInvalidSubdomain
 			}
 
 			_, ok = uniqueLabels[subdomain]
 			if ok {
+				lv.logger.Error("validation.ValidateLabels duplicated label", "subdomain", subdomain)
 				return blockprocessing.ErrDuplicatedLabel
 			}
 
@@ -41,11 +49,20 @@ func (lv *labelsValidator) ValidateLabels(txsSubdomains data.Subdomains) error {
 		}
 	}
 
+	lv.logger.Debug("validation.ValidateLabels finished", "numTransactions", len(txsSubdomains))
 	return nil
 }
 
 // AggregateLabels aggregates the labels of the transactions.
-func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomains) (data.SubdomainsFrequency, error) {
+func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomains, consensusGroupSize uint64) (data.SubdomainsFrequency, error) {
+	quorumThreshold := (2*consensusGroupSize)/3 + 1
+	lv.logger.Info(
+		"validation.AggregateLabels started",
+		"numValidatorSubdomainMaps", len(aggregatedSubdomains),
+		"consensusGroupSize", consensusGroupSize,
+		"quorumThreshold", quorumThreshold,
+	)
+
 	aggregatedLabelsPerTxHash := make(map[string]map[string]uint64)
 	for _, validatorSubdomains := range aggregatedSubdomains {
 		for txHash, subdomains := range validatorSubdomains {
@@ -60,14 +77,31 @@ func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomain
 		}
 	}
 
-	// TODO we can check now per transaction if a label has 2f+1 at least occurrences. if not, skip. do not use it for finalized domains.
-
 	subdomainsFrequency := make(data.SubdomainsFrequency)
-	for _, subdomains := range aggregatedLabelsPerTxHash {
+	for txHash, subdomains := range aggregatedLabelsPerTxHash {
 		for subdomain, freq := range subdomains {
-			subdomainsFrequency[subdomain] += int(freq)
+			if freq < quorumThreshold {
+				lv.logger.Debug(
+					"label did not reach threshold for transaction",
+					"txHash", txHash,
+					"subdomain", subdomain,
+					"frequency", freq,
+					"threshold", quorumThreshold,
+				)
+				continue
+			}
+
+			lv.logger.Debug(
+				"label reached threshold for transaction",
+				"txHash", txHash,
+				"subdomain", subdomain,
+				"frequency", freq,
+				"threshold", quorumThreshold,
+			)
+			subdomainsFrequency[subdomain] += freq
 		}
 	}
 
+	lv.logger.Info("validation.AggregateLabels finished", "frequencies", subdomainsFrequency)
 	return subdomainsFrequency, nil
 }
