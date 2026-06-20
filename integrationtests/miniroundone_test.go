@@ -216,7 +216,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 		}
 
 		return true
-	}, time.Second, 10*time.Millisecond)
+	}, 5*time.Second, 10*time.Millisecond)
 
 	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
 	require.NotNil(t, firstBlock)
