@@ -11,6 +11,8 @@ import (
 	"moa-chain/state"
 )
 
+const miniRoundTwoWeightScale = uint64(100)
+
 type consensusSelector struct {
 	currentConsensusGroup []string
 	currentLeader         string
@@ -127,12 +129,20 @@ func (c *consensusSelector) selectConsensusGroupMiniRoundTwo(validators []*Valid
 
 	weights := make(map[string]uint64)
 	for subdomain, frequency := range frequencyMap {
-		weights[subdomain] = uint64(math.Round(float64(frequency) / float64(totalFreq)))
+		weights[subdomain] = frequency * miniRoundTwoWeightScale / totalFreq
 	}
 
 	consensusGroupDimension := len(validators) / 2
 	expandedList := c.createExpandedListMiniRoundTwo(validators, weights)
-	return c.selectUniqueFromExpandedList(selectionSeed, expandedList, uint64(consensusGroupDimension))
+	consensusGroup, err := c.selectUniqueFromExpandedList(selectionSeed, expandedList, uint64(consensusGroupDimension))
+	if err != nil {
+		return nil, err
+	}
+
+	c.currentConsensusGroup = consensusGroup
+	c.currentLeader = consensusGroup[0]
+
+	return consensusGroup, nil
 }
 
 func (c *consensusSelector) createExpandedListMiniRoundTwo(validators []*Validator, weights map[string]uint64) []string {
