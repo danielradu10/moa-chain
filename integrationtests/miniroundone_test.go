@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"moa-chain/consensus/miniround1"
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
+	"moa-chain/logging"
 	"moa-chain/mempool"
 	"moa-chain/state"
 	"moa-chain/testscommon"
@@ -514,6 +517,7 @@ type integrationTestNode struct {
 	id             string
 	loop           *consensus.RoundLoop
 	blockFinalizer *testscommon.BlockFinalizerStub
+	logger         *logging.NodeLogger
 }
 
 func createValidators(pubKeys [][]byte) []*validators.Validator {
@@ -551,7 +555,17 @@ func createNode(
 	transactions []data.Transaction,
 	labeler agent.Labeler,
 ) *integrationTestNode {
-	txPool := mempool.NewMemPool()
+	blockFinalizer := &testscommon.BlockFinalizerStub{}
+	nodeLogger, err := createIntegrationTestNodeLogger(t, validatorID)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, nodeLogger.Close())
+	})
+
+	logger := nodeLogger.Logger()
+
+	txPool := mempool.NewMemPool(logger)
 
 	for _, tx := range transactions {
 		err := txPool.AddTransaction(tx)
@@ -559,8 +573,8 @@ func createNode(
 	}
 
 	peersRegistry := broadcast.NewPeerRegistry()
-	consensusSelector := validators.NewConsensusSelector()
-	validatorsRegistry := validators.NewValidatorRegistry(consensusSelector)
+	consensusSelector := validators.NewConsensusSelector(logger)
+	validatorsRegistry := validators.NewValidatorRegistry(consensusSelector, logger)
 
 	for i, validator := range registeredValidators {
 		err := validatorsRegistry.Register(validator.PublicID(), validator)
@@ -569,8 +583,6 @@ func createNode(
 		err = peersRegistry.Register(validator.PublicID(), inboxes[i])
 		require.NoError(t, err)
 	}
-
-	blockFinalizer := &testscommon.BlockFinalizerStub{}
 
 	loop := createRoundLoop(
 		validatorID,
@@ -581,6 +593,7 @@ func createNode(
 		myInbox,
 		blockFinalizer,
 		labeler,
+		logger,
 	)
 
 	require.NotNil(t, loop)
@@ -589,7 +602,18 @@ func createNode(
 		id:             validatorID,
 		loop:           loop,
 		blockFinalizer: blockFinalizer,
+		logger:         nodeLogger,
 	}
+}
+
+func createIntegrationTestNodeLogger(t *testing.T, validatorID string) (*logging.NodeLogger, error) {
+	t.Helper()
+
+	testName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	logPath := filepath.Join("logs", testName, validatorID+".log")
+	logLevel := logging.ParseLevel(os.Getenv("MOA_TEST_LOG_LEVEL"))
+
+	return logging.NewNodeLoggerWithLevel(validatorID, logPath, logLevel)
 }
 
 func createRoundLoop(
@@ -601,6 +625,7 @@ func createRoundLoop(
 	inbox chan data.RoundEvent,
 	blockFinalizer blockFinalizer.BlockFinalizer,
 	labeler agent.Labeler,
+	logger *slog.Logger,
 ) *consensus.RoundLoop {
 	currentHeader := currentIntegrationTestHeader()
 
@@ -611,20 +636,21 @@ func createRoundLoop(
 		CurrentEpochValue:       currentHeader.Epoch,
 	}
 
-	base := createBlockBase(txPool, blockchainStateStub, labeler)
+	base := createBlockBase(txPool, blockchainStateStub, labeler, logger)
 	roundState := state.NewRoundState()
 
 	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
 		MyID:              nodeID,
 		BlockCreator:      proposing.NewBlockCreator(base),
 		BlockValidator:    validation.NewBlockProcessor(base),
-		LabelsValidator:   validation.NewLabelsValidator(),
+		LabelsValidator:   validation.NewLabelsValidator(logger),
 		RoundState:        roundState,
-		Broadcaster:       broadcast.NewBroadcaster(peerRegistry),
+		Broadcaster:       broadcast.NewBroadcaster(peerRegistry, logger),
 		Signer:            signing.NewSigner(nodeID, privateKey),
 		ValidatorRegistry: validatorRegistry,
 		BlockchainState:   blockchainStateStub,
 		BlockFinalizer:    blockFinalizer,
+		Logger:            logger,
 	}
 
 	miniRoundOneHandler := miniround1.NewMiniRoundOneHandler(miniRoundOneHandlerArgs)
@@ -634,17 +660,19 @@ func createRoundLoop(
 		CurrentStep:         data.StepIdle,
 		CurrentRoundKey:     data.RoundKey{},
 		MiniRoundOneHandler: miniRoundOneHandler,
+		Logger:              logger,
 	}
 
 	roundHandler := consensus.NewRoundHandler(roundHandlerArgs)
 
-	return consensus.NewRoundLoop(roundHandler, inbox)
+	return consensus.NewRoundLoop(roundHandler, inbox, logger)
 }
 
 func createBlockBase(
 	mempool mempool.Mempool,
 	blockchainState state.BlockchainState,
 	labelerCalled agent.Labeler,
+	logger *slog.Logger,
 ) blockprocessing.Base {
 	aliceAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
 	bobAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
@@ -688,6 +716,7 @@ func createBlockBase(
 		Labeler:                 labelerCalled,
 		AccountState:            accountStateStub,
 		Mempool:                 mempool,
+		Logger:                  logger,
 	}
 }
 
