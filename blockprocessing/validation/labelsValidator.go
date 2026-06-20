@@ -45,7 +45,7 @@ func (lv *labelsValidator) ValidateLabels(txsSubdomains data.Subdomains) error {
 }
 
 // AggregateLabels aggregates the labels of the transactions.
-func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomains) (data.SubdomainsFrequency, error) {
+func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomains, consensusGroupSize uint64) (data.SubdomainsFrequency, error) {
 	aggregatedLabelsPerTxHash := make(map[string]map[string]uint64)
 	for _, validatorSubdomains := range aggregatedSubdomains {
 		for txHash, subdomains := range validatorSubdomains {
@@ -60,12 +60,14 @@ func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomain
 		}
 	}
 
-	// TODO we can check now per transaction if a label has 2f+1 at least occurrences. if not, skip. do not use it for finalized domains.
-
 	subdomainsFrequency := make(data.SubdomainsFrequency)
 	for _, subdomains := range aggregatedLabelsPerTxHash {
 		for subdomain, freq := range subdomains {
-			subdomainsFrequency[subdomain] += int(freq)
+			if freq < (2*consensusGroupSize)/3+1 {
+				continue
+			}
+
+			subdomainsFrequency[subdomain] += freq
 		}
 	}
 

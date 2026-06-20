@@ -36,8 +36,8 @@ type BlockBody struct {
 // Subdomains defines the label extracted by a validator for each transaction.
 type Subdomains map[string][]string
 
-// SubdomainsFrequency defines the frequency of the labales extracted in a proposed block.
-type SubdomainsFrequency map[string]int
+// SubdomainsFrequency defines the frequency of the labels extracted in a proposed block.
+type SubdomainsFrequency map[string]uint64
 
 // BlockBodyExecutionResult defines the execution result of a block in mini-round one.
 // Contains the subdomains extracted by the validator after labeling each transaction.
