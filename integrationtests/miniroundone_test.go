@@ -1161,7 +1161,7 @@ func selectedConsensusGroupForRound(
 		CurrentBlockHeaderValue: currentIntegrationTestHeader(),
 	}
 
-	err := validatorRegistry.GenerateConsensusGroup(blockchainStateStub, roundKey)
+	err := validatorRegistry.GenerateConsensusGroupMiniRoundOne(blockchainStateStub, roundKey)
 	require.NoError(t, err)
 
 	consensusGroup, err := validatorRegistry.ConsensusGroup()

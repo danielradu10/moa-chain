@@ -65,7 +65,7 @@ func NewMiniRoundOneHandler(args MiniRoundOneHandlerArgs) *handler {
 // HandleConsensusSelection should be called by each validator in the beginning of the round.
 func (handler *handler) HandleConsensusSelection(key data.RoundKey) (string, error) {
 	handler.logger.Info("miniround1.HandleConsensusSelection started", "roundKey", key)
-	err := handler.validatorRegistry.GenerateConsensusGroup(handler.blockchainState, key)
+	err := handler.validatorRegistry.GenerateConsensusGroupMiniRoundOne(handler.blockchainState, key)
 	if err != nil {
 		handler.logger.Error("miniround1.HandleConsensusSelection failed", "roundKey", key, "error", err)
 		return "", err

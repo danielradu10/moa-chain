@@ -17,7 +17,8 @@ type ValidatorRegistry interface {
 	IsNodeLeader(validatorID string) bool
 	LeaderOfConsensusGroup() (string, error)
 
-	GenerateConsensusGroup(blockchainState state.BlockchainState, roundKey data.RoundKey) error
+	GenerateConsensusGroupMiniRoundOne(blockchainState state.BlockchainState, roundKey data.RoundKey) error
+	GenerateConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error
 	ConsensusGroup() ([]string, error)
 	ConsensusGroupSize() (uint64, error)
 

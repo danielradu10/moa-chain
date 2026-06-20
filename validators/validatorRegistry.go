@@ -74,12 +74,12 @@ func (vr *validatorRegistry) IsNodeLeader(validatorID string) bool {
 	return validatorID == currentLeader
 }
 
-// GenerateConsensusGroup generates the consensus group.
-func (vr *validatorRegistry) GenerateConsensusGroup(
+// GenerateConsensusGroupMiniRoundOne generates the consensus group.
+func (vr *validatorRegistry) GenerateConsensusGroupMiniRoundOne(
 	blockchainState state.BlockchainState,
 	roundKey data.RoundKey,
 ) error {
-	vr.logger.Info("validators.GenerateConsensusGroup started", "roundKey", roundKey, "numValidators", len(vr.validators))
+	vr.logger.Info("validators.GenerateConsensusGroupMiniRoundOne started", "roundKey", roundKey, "numValidators", len(vr.validators))
 
 	ids := make([]string, 0, len(vr.validators))
 	for id := range vr.validators {
@@ -94,7 +94,7 @@ func (vr *validatorRegistry) GenerateConsensusGroup(
 
 	consensusGroup, err := vr.cs.SelectConsensusGroupMiniRoundOne(blockchainState, validators, roundKey)
 	if err != nil {
-		vr.logger.Error("validators.GenerateConsensusGroup failed", "roundKey", roundKey, "error", err)
+		vr.logger.Error("validators.GenerateConsensusGroupMiniRoundOne failed", "roundKey", roundKey, "error", err)
 		return err
 	}
 
@@ -105,11 +105,47 @@ func (vr *validatorRegistry) GenerateConsensusGroup(
 
 	leader, leaderErr := vr.cs.Leader()
 	if leaderErr != nil {
-		vr.logger.Info("validators.GenerateConsensusGroup finished", "roundKey", roundKey, "consensusGroup", consensusGroup)
+		vr.logger.Info("validators.GenerateConsensusGroupMiniRoundOne finished", "roundKey", roundKey, "consensusGroup", consensusGroup)
 		return nil
 	}
 
-	vr.logger.Info("validators.GenerateConsensusGroup finished", "roundKey", roundKey, "consensusGroup", consensusGroup, "leaderID", leader)
+	vr.logger.Info("validators.GenerateConsensusGroupMiniRoundOne finished", "roundKey", roundKey, "consensusGroup", consensusGroup, "leaderID", leader)
+	return nil
+}
+
+// GenerateConsensusGroupMiniRoundTwo generates the consensus group of the second mini-round.
+func (vr *validatorRegistry) GenerateConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error {
+	vr.logger.Info("validators.GenerateConsensusGroupMiniRoundTwo started", "roundKey", roundKey, "numValidators", len(vr.validators))
+
+	ids := make([]string, 0, len(vr.validators))
+	for id := range vr.validators {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	validators := make([]*Validator, 0, len(ids))
+	for _, id := range ids {
+		validators = append(validators, vr.validators[id])
+	}
+
+	consensusGroup, err := vr.cs.SelectConsensusGroupMiniRoundTwo(blockchainState, validators, roundKey, frequencyMap)
+	if err != nil {
+		vr.logger.Error("validators.GenerateConsensusGroupMiniRoundTwo failed", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	vr.consensusGroup = make(map[string]struct{})
+	for _, validator := range consensusGroup {
+		vr.consensusGroup[validator] = struct{}{}
+	}
+
+	leader, leaderErr := vr.cs.Leader()
+	if leaderErr != nil {
+		vr.logger.Info("validators.GenerateConsensusGroupMiniRoundTwo finished", "roundKey", roundKey, "consensusGroup", consensusGroup)
+		return nil
+	}
+
+	vr.logger.Info("validators.GenerateConsensusGroupMiniRoundTwo finished", "roundKey", roundKey, "consensusGroup", consensusGroup, "leaderID", leader)
 	return nil
 }
 
