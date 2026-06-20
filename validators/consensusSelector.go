@@ -46,10 +46,10 @@ func (c *consensusSelector) SelectConsensusGroupMiniRoundOne(
 	}
 	c.logger.Debug("validators.SelectConsensusGroup got selection seed", "roundKey", roundKey, "seedLen", len(selectionSeed))
 
-	return c.selectConsensusGroupMiniRoundOne(validators, selectionSeed)
+	return c.selectConsensusGroupMiniRoundOne(validators, selectionSeed, roundKey)
 }
 
-func (c *consensusSelector) selectConsensusGroupMiniRoundOne(validators []*Validator, selectionSeed []byte) ([]string, error) {
+func (c *consensusSelector) selectConsensusGroupMiniRoundOne(validators []*Validator, selectionSeed []byte, roundKey data.RoundKey) ([]string, error) {
 	expandedList, err := c.createExpandedListMiniRoundOne(validators)
 	if err != nil {
 		c.logger.Error("validators.SelectConsensusGroup failed to create expanded list", "roundKey", roundKey, "error", err)

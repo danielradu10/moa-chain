@@ -92,7 +92,7 @@ func (vr *validatorRegistry) GenerateConsensusGroup(
 		validators = append(validators, vr.validators[id])
 	}
 
-	consensusGroup, err := vr.cs.SelectConsensusGroup(blockchainState, validators, roundKey)
+	consensusGroup, err := vr.cs.SelectConsensusGroupMiniRoundOne(blockchainState, validators, roundKey)
 	if err != nil {
 		vr.logger.Error("validators.GenerateConsensusGroup failed", "roundKey", roundKey, "error", err)
 		return err
