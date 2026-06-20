@@ -1,9 +1,15 @@
 package validators
 
+// SubdomainsScores defines the map of scores for a validator.
+// The map shows how well behaves a validator on specific subdomains.
+type SubdomainsScores map[string]int
+
+// Validator is the data structure which encapsulates info about a specific validator.
 type Validator struct {
-	publicID    string
-	publicKey   []byte
-	globalScore float64
+	publicID        string
+	publicKey       []byte
+	globalScore     float64
+	subdomainScores SubdomainsScores
 }
 
 func NewValidator(
@@ -40,4 +46,14 @@ func (v *Validator) SetPublicID(publicID string) {
 
 func (v *Validator) SetPublicKey(publicKey []byte) {
 	v.publicKey = publicKey
+}
+
+// SetSubdomainScores sets the subdomain scores of a validator.
+func (v *Validator) SetSubdomainScores(subdomainScores SubdomainsScores) {
+	v.subdomainScores = subdomainScores
+}
+
+// SubdomainScores returns the subdomain scores of a validator.
+func (v *Validator) SubdomainScores() SubdomainsScores {
+	return v.subdomainScores
 }

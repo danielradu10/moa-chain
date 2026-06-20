@@ -17,7 +17,8 @@ type ValidatorRegistry interface {
 	IsNodeLeader(validatorID string) bool
 	LeaderOfConsensusGroup() (string, error)
 
-	GenerateConsensusGroup(blockchainState state.BlockchainState, roundKey data.RoundKey) error
+	GenerateConsensusGroupMiniRoundOne(blockchainState state.BlockchainState, roundKey data.RoundKey) error
+	GenerateConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error
 	ConsensusGroup() ([]string, error)
 	ConsensusGroupSize() (uint64, error)
 
@@ -26,7 +27,8 @@ type ValidatorRegistry interface {
 
 // ConsensusSelector defines what a consensus selector should do.
 type ConsensusSelector interface {
-	SelectConsensusGroup(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey) ([]string, error)
+	SelectConsensusGroupMiniRoundOne(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey) ([]string, error)
+	SelectConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey, frequencyMap map[string]uint64) ([]string, error)
 	Leader() (string, error)
 	ConsensusGroup() ([]string, error)
 	ConsensusGroupSize() (uint64, error)

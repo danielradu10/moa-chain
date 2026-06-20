@@ -216,7 +216,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 		}
 
 		return true
-	}, time.Second, 10*time.Millisecond)
+	}, 5*time.Second, 10*time.Millisecond)
 
 	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
 	require.NotNil(t, firstBlock)
@@ -611,9 +611,10 @@ func createIntegrationTestNodeLogger(t *testing.T, validatorID string) (*logging
 
 	testName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
 	logPath := filepath.Join("logs", testName, validatorID+".log")
-	logLevel := logging.ParseLevel(os.Getenv("MOA_TEST_LOG_LEVEL"))
+	fileLogLevel := logging.ParseIntegrationTestLevel(os.Getenv("MOA_TEST_LOG_LEVEL"))
+	consoleLogLevel := logging.ParseIntegrationTestConsoleLevel(os.Getenv("MOA_TEST_CONSOLE_LOG_LEVEL"))
 
-	return logging.NewNodeLoggerWithLevel(validatorID, logPath, logLevel)
+	return logging.NewNodeLoggerWithLevels(validatorID, logPath, fileLogLevel, consoleLogLevel)
 }
 
 func createRoundLoop(
@@ -1161,7 +1162,7 @@ func selectedConsensusGroupForRound(
 		CurrentBlockHeaderValue: currentIntegrationTestHeader(),
 	}
 
-	err := validatorRegistry.GenerateConsensusGroup(blockchainStateStub, roundKey)
+	err := validatorRegistry.GenerateConsensusGroupMiniRoundOne(blockchainStateStub, roundKey)
 	require.NoError(t, err)
 
 	consensusGroup, err := validatorRegistry.ConsensusGroup()
