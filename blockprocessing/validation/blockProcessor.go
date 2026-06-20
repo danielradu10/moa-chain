@@ -21,7 +21,7 @@ func NewBlockProcessor(base blockprocessing.Base) *blockProcessor {
 	}
 
 	return &blockProcessor{
-		base,
+		Base: base,
 	}
 }
 
@@ -211,7 +211,7 @@ func (bp *blockProcessor) validateHashContinuity(
 
 func (bp *blockProcessor) validateAndExecuteBlockBody(blockBody *data.BlockBody, transactionProcessor transactionprocessing.TxProcessor) (data.Subdomains, error) {
 	executor := blockprocessing.NewBodyExecutor(bp.Logger)
-	execResult, err := executor.ExecuteBlockBody(blockBody, transactionProcessor)
+	execResult, err := executor.ExecuteBlockBodyMiniRoundOne(blockBody, transactionProcessor)
 	if err != nil {
 		return nil, err
 	}
@@ -225,4 +225,29 @@ func (bp *blockProcessor) hashProposedBlock(proposedBody *data.BlockBody, propos
 
 func (bp *blockProcessor) hashSubdomains(subdomains data.Subdomains) ([]byte, error) {
 	return hashing.ComputeSubdomainsHash(subdomains)
+}
+
+// ExecuteBlockPrompts executes the prompts of a block.
+func (bp *blockProcessor) ExecuteBlockPrompts(block *data.BlockBody) (*data.BlockBodyExecutionResultMRTwo, error) {
+	executor := blockprocessing.NewBodyExecutor(bp.Logger)
+
+	snapshot, err := bp.AccountsSnapshotFactory.CreateSnapshot()
+	if err != nil {
+		bp.Logger.Error("validation.ValidateBlock failed to create accounts snapshot", "error", err)
+		return nil, err
+	}
+	defer snapshot.Discard()
+
+	txProcessor, err := processor.NewTxProcessor(
+		snapshot,
+		bp.AccountState,
+		bp.Labeler,
+		bp.Mempool,
+	)
+	if err != nil {
+		bp.Logger.Error("failed to create transaction processor for validation", "error", err)
+		return nil, err
+	}
+
+	return executor.ExecuteBlockBodyMiniRoundTwo(block, txProcessor)
 }

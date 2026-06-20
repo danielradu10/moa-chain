@@ -50,3 +50,7 @@ func (tps *TxProcessorStub) SelectTransactions() []data.Transaction {
 
 	return nil
 }
+
+func (tps *TxProcessorStub) ExecutePromptTransaction(tx data.Transaction) (*data.TransactionResult, error) {
+	return nil, nil
+}

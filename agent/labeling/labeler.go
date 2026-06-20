@@ -13,3 +13,7 @@ type label struct {
 func (l *label) Label(tx data.Transaction) ([]string, error) {
 	return nil, agent.ErrNotImplemented
 }
+
+func (l *label) Answer(tx data.Transaction) (string, error) {
+	return "", agent.ErrNotImplemented
+}

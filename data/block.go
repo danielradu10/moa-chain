@@ -39,10 +39,17 @@ type Subdomains map[string][]string
 // SubdomainsFrequency defines the frequency of the labels extracted in a proposed block.
 type SubdomainsFrequency map[string]uint64
 
-// BlockBodyExecutionResult defines the execution result of a block in mini-round one.
+// BlockBodyExecutionResultMROne defines the execution result of a block in mini-round one.
 // Contains the subdomains extracted by the validator after labeling each transaction.
-type BlockBodyExecutionResult struct {
+// MRO is the acronym for Mini-Round One.
+type BlockBodyExecutionResultMROne struct {
 	Transactions     []Transaction
 	TotalConsumption uint64
 	Subdomains       Subdomains
+}
+
+// BlockBodyExecutionResultMRTwo defines the execution result of a block in mini-round two
+type BlockBodyExecutionResultMRTwo struct {
+	TxsResults       []TransactionResult
+	TotalConsumption uint64
 }

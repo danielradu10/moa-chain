@@ -2,6 +2,9 @@ package processor
 
 import (
 	"bytes"
+	"log"
+
+	"github.com/tiktoken-go/tokenizer"
 
 	"moa-chain/agent"
 	"moa-chain/data"
@@ -253,4 +256,34 @@ func (tp *txProcessor) ValidateTransactionsOrdering(
 func (tp *txProcessor) SelectTransactions() []data.Transaction {
 	selectedTxs := tp.mempool.SelectTransactions(tp.accountState)
 	return selectedTxs
+}
+
+// ExecutePromptTransaction executes the prompt of a transaction.
+func (tp *txProcessor) ExecutePromptTransaction(tx data.Transaction) (*data.TransactionResult, error) {
+	answer, err := tp.labeler.Answer(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	consumption := tp.calculateNumTokensFromPrompt(answer)
+	return &data.TransactionResult{
+		TxHash:            tx.GetTxHash(),
+		Answer:            answer,
+		ActualConsumption: consumption,
+	}, nil
+}
+
+// calculateNumTokensOfAnswer tokenizes the answer to get the number of tokens.
+func (tp *txProcessor) calculateNumTokensFromPrompt(answer string) uint64 {
+	enc, err := tokenizer.Get(tokenizer.Cl100kBase)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	numTokens, err := enc.Count(answer)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return uint64(numTokens)
 }

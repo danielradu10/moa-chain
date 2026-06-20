@@ -26,3 +26,7 @@ func (tl *LabelerStub) Label(tx data.Transaction) ([]string, error) {
 
 	return labels, nil
 }
+
+func (tl *LabelerStub) Answer(tx data.Transaction) (string, error) {
+	return "", nil
+}
