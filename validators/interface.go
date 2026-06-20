@@ -26,7 +26,8 @@ type ValidatorRegistry interface {
 
 // ConsensusSelector defines what a consensus selector should do.
 type ConsensusSelector interface {
-	SelectConsensusGroup(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey) ([]string, error)
+	SelectConsensusGroupMiniRoundOne(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey) ([]string, error)
+	SelectConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey, frequencyMap map[string]uint64) ([]string, error)
 	Leader() (string, error)
 	ConsensusGroup() ([]string, error)
 	ConsensusGroupSize() (uint64, error)

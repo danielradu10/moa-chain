@@ -21,7 +21,8 @@ func NewConsensusSelector() *consensusSelector {
 	}
 }
 
-func (c *consensusSelector) SelectConsensusGroup(
+// SelectConsensusGroupMiniRoundOne selects the consensus group for the first mini-round one.
+func (c *consensusSelector) SelectConsensusGroupMiniRoundOne(
 	blockchainState state.BlockchainState,
 	validators []*Validator,
 	roundKey data.RoundKey,
@@ -36,7 +37,11 @@ func (c *consensusSelector) SelectConsensusGroup(
 		return nil, err
 	}
 
-	expandedList, err := c.createExpandedList(validators)
+	return c.selectConsensusGroupMiniRoundOne(validators, selectionSeed)
+}
+
+func (c *consensusSelector) selectConsensusGroupMiniRoundOne(validators []*Validator, selectionSeed []byte) ([]string, error) {
+	expandedList, err := c.createExpandedListMiniRoundOne(validators)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +58,7 @@ func (c *consensusSelector) SelectConsensusGroup(
 	return consensusGroup, nil
 }
 
-func (c *consensusSelector) createExpandedList(validators []*Validator) ([]string, error) {
+func (c *consensusSelector) createExpandedListMiniRoundOne(validators []*Validator) ([]string, error) {
 	expandedList := make([]string, 0, len(validators))
 	for _, validator := range validators {
 		globalScore := int(math.Round(validator.GlobalScore()))
@@ -64,6 +69,65 @@ func (c *consensusSelector) createExpandedList(validators []*Validator) ([]strin
 	}
 
 	return expandedList, nil
+}
+
+// SelectConsensusGroupMiniRoundTwo select the consensus group for the second mini-round taking into consideration the frequency map resulted from the first mini-round.
+func (c *consensusSelector) SelectConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey, frequencyMap map[string]uint64) ([]string, error) {
+	provider, err := NewRandomnessProvider(blockchainState)
+	if err != nil {
+		return nil, err
+	}
+
+	selectionSeed, err := provider.SelectionSeed(roundKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.selectConsensusGroupMiniRoundTwo(validators, selectionSeed, frequencyMap)
+}
+
+func (c *consensusSelector) selectConsensusGroupMiniRoundTwo(validators []*Validator, selectionSeed []byte, frequencyMap map[string]uint64) ([]string, error) {
+	totalFreq := uint64(0)
+	for _, frequency := range frequencyMap {
+		totalFreq += frequency
+	}
+
+	if totalFreq == 0 {
+		return nil, ErrTotalFreqIsZero
+	}
+
+	weights := make(map[string]uint64)
+	for subdomain, frequency := range frequencyMap {
+		weights[subdomain] = uint64(math.Round(float64(frequency) / float64(totalFreq)))
+	}
+
+	consensusGroupDimension := len(validators) / 2
+	expandedList := c.createExpandedListMiniRoundTwo(validators, weights)
+	return c.selectUniqueFromExpandedList(selectionSeed, expandedList, uint64(consensusGroupDimension))
+}
+
+func (c *consensusSelector) createExpandedListMiniRoundTwo(validators []*Validator, weights map[string]uint64) []string {
+	expandedList := make([]string, 0, len(validators))
+	for _, validator := range validators {
+		totalScore := c.calculateGlobalScoreOnCanonicalSubdomains(validator, weights)
+
+		for i := uint64(0); i < totalScore; i++ {
+			expandedList = append(expandedList, validator.PublicID())
+		}
+	}
+
+	return expandedList
+}
+
+func (c *consensusSelector) calculateGlobalScoreOnCanonicalSubdomains(validator *Validator, wightsOfFreqMap map[string]uint64) uint64 {
+	subdomainScores := validator.SubdomainScores()
+
+	totalScore := uint64(0)
+	for subdomain := range wightsOfFreqMap {
+		totalScore += wightsOfFreqMap[subdomain] * uint64(subdomainScores[subdomain])
+	}
+
+	return totalScore
 }
 
 func (c *consensusSelector) selectUniqueFromExpandedList(
