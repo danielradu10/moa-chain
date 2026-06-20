@@ -1168,7 +1168,7 @@ func requireFinalizedFrequenciesFromValidQuorum(
 
 		if len(selected) == requiredFollowers {
 			quorum := append([]string{leaderID}, selected...)
-			expected := aggregateAgentLabelFrequencies(t, quorum, agents, transactions)
+			expected := aggregateAgentLabelFrequencies(t, quorum, agents, transactions, uint64(quorumSize))
 			if subdomainsFrequenciesEqual(actual, expected) {
 				matchingQuorum = copyStringSlice(quorum)
 			}
@@ -1197,22 +1197,32 @@ func aggregateAgentLabelFrequencies(
 	validatorIDs []string,
 	agents []agentLabelsByTxHash,
 	transactions []data.Transaction,
+	threshold uint64,
 ) data.SubdomainsFrequency {
 	t.Helper()
 
 	frequencies := make(data.SubdomainsFrequency)
-	for _, validatorID := range validatorIDs {
-		agentIndex := agentIndexForValidatorID(t, validatorID)
-		require.Less(t, agentIndex, len(agents))
 
-		agentLabels := agents[agentIndex]
-		for _, tx := range transactions {
-			txHash := string(tx.GetTxHash())
+	for _, tx := range transactions {
+		txHash := string(tx.GetTxHash())
+		txLabelsFrequencies := make(map[string]uint64)
+
+		for _, validatorID := range validatorIDs {
+			agentIndex := agentIndexForValidatorID(t, validatorID)
+			require.Less(t, agentIndex, len(agents))
+
+			agentLabels := agents[agentIndex]
 			labels, ok := agentLabels.labelsByTxHash[txHash]
 			require.Truef(t, ok, "agent %s has no labels for txHash %s", agentLabels.agent, txHash)
 
 			for _, label := range labels {
-				frequencies[label]++
+				txLabelsFrequencies[label]++
+			}
+		}
+
+		for label, frequency := range txLabelsFrequencies {
+			if frequency >= threshold {
+				frequencies[label] += frequency
 			}
 		}
 	}

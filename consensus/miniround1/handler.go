@@ -287,7 +287,7 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		return err
 	}
 
-	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains)
+	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains, consensusGroupSize)
 	if err != nil {
 		return err
 	}
@@ -405,7 +405,12 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 		}
 	}
 
-	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains)
+	consensusGroupSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		return err
+	}
+
+	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains, consensusGroupSize)
 	if err != nil {
 		return err
 	}
