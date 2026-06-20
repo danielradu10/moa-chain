@@ -1,9 +1,11 @@
 package validators
 
 import (
+	"log/slog"
 	"sort"
 
 	"moa-chain/data"
+	"moa-chain/logging"
 	"moa-chain/state"
 )
 
@@ -11,22 +13,26 @@ type validatorRegistry struct {
 	cs             ConsensusSelector
 	validators     map[string]*Validator
 	consensusGroup map[string]struct{}
+	logger         *slog.Logger
 }
 
 // NewValidatorRegistry creates a new validator registry.
 func NewValidatorRegistry(
 	cs ConsensusSelector,
+	loggers ...*slog.Logger,
 ) *validatorRegistry {
 	return &validatorRegistry{
 		validators:     make(map[string]*Validator),
 		cs:             cs,
 		consensusGroup: make(map[string]struct{}),
+		logger:         logging.FromOptional(loggers...),
 	}
 }
 
 // Register registers a new validator.
 func (vr *validatorRegistry) Register(validatorID string, validator *Validator) error {
 	vr.validators[validatorID] = validator
+	vr.logger.Info("validators.Register registered validator", "validatorID", validatorID, "numValidators", len(vr.validators))
 	return nil
 }
 
@@ -34,6 +40,7 @@ func (vr *validatorRegistry) Register(validatorID string, validator *Validator) 
 func (vr *validatorRegistry) GetPublicKey(validatorID string) ([]byte, error) {
 	_, ok := vr.validators[validatorID]
 	if !ok {
+		vr.logger.Error("validators.GetPublicKey failed because validator is unknown", "validatorID", validatorID)
 		return nil, ErrInvalidValidator
 	}
 
@@ -72,6 +79,8 @@ func (vr *validatorRegistry) GenerateConsensusGroup(
 	blockchainState state.BlockchainState,
 	roundKey data.RoundKey,
 ) error {
+	vr.logger.Info("validators.GenerateConsensusGroup started", "roundKey", roundKey, "numValidators", len(vr.validators))
+
 	ids := make([]string, 0, len(vr.validators))
 	for id := range vr.validators {
 		ids = append(ids, id)
@@ -85,6 +94,7 @@ func (vr *validatorRegistry) GenerateConsensusGroup(
 
 	consensusGroup, err := vr.cs.SelectConsensusGroup(blockchainState, validators, roundKey)
 	if err != nil {
+		vr.logger.Error("validators.GenerateConsensusGroup failed", "roundKey", roundKey, "error", err)
 		return err
 	}
 
@@ -93,6 +103,13 @@ func (vr *validatorRegistry) GenerateConsensusGroup(
 		vr.consensusGroup[validator] = struct{}{}
 	}
 
+	leader, leaderErr := vr.cs.Leader()
+	if leaderErr != nil {
+		vr.logger.Info("validators.GenerateConsensusGroup finished", "roundKey", roundKey, "consensusGroup", consensusGroup)
+		return nil
+	}
+
+	vr.logger.Info("validators.GenerateConsensusGroup finished", "roundKey", roundKey, "consensusGroup", consensusGroup, "leaderID", leader)
 	return nil
 }
 

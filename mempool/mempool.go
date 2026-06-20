@@ -3,9 +3,11 @@ package mempool
 import (
 	"container/heap"
 	"log"
+	"log/slog"
 	"sync"
 
 	"moa-chain/data"
+	"moa-chain/logging"
 	"moa-chain/state"
 
 	"github.com/tiktoken-go/tokenizer"
@@ -23,13 +25,15 @@ type memPool struct {
 
 	tokensConfig map[string]uint64
 	mempoolMutex sync.RWMutex
+	logger       *slog.Logger
 }
 
 // NewMemPool returns a new mempool
-func NewMemPool() *memPool {
+func NewMemPool(loggers ...*slog.Logger) *memPool {
 	return &memPool{
 		transactionsByHash: make(map[string]data.Transaction),
 		senders:            newSendersMap(),
+		logger:             logging.FromOptional(loggers...),
 	}
 }
 
@@ -41,11 +45,13 @@ func (mp *memPool) AddTransaction(transaction data.Transaction) error {
 	defer mp.mempoolMutex.Unlock()
 
 	if transaction == nil {
+		mp.logger.Error("mempool.AddTransaction rejected nil transaction")
 		return ErrNilTransaction
 	}
 
 	// check if the transaction is not already added (case of duplicates)
 	if mp.hasTransactionNoLock(transaction) {
+		mp.logger.Info("mempool.AddTransaction ignored duplicate transaction", "txHash", string(transaction.GetTxHash()))
 		return nil
 	}
 
@@ -57,6 +63,15 @@ func (mp *memPool) AddTransaction(transaction data.Transaction) error {
 	mp.senders.add(string(sender), transaction)
 
 	mp.transactionsCount++
+	mp.logger.Info(
+		"mempool.AddTransaction added transaction",
+		"txHash", string(transaction.GetTxHash()),
+		"sender", string(sender),
+		"nonce", transaction.GetNonce(),
+		"estimatedConsumption", transaction.GetEstimatedConsumption(),
+		"estimatedScore", transaction.GetEstimatedScore(),
+		"numTransactions", mp.transactionsCount,
+	)
 	return nil
 }
 
@@ -85,6 +100,13 @@ func (mp *memPool) precomputeTxFields(transaction data.Transaction) {
 
 	score := tip / estimatedNumTokens
 	transaction.SetEstimatedScore(score)
+	mp.logger.Debug(
+		"mempool.precomputeTxFields computed transaction selection fields",
+		"txHash", string(transaction.GetTxHash()),
+		"tip", tip,
+		"estimatedConsumption", estimatedNumTokens,
+		"estimatedScore", score,
+	)
 }
 
 // estimateNumTokens estimates the number of tokens taking into consideration numTokens from tokenizer,
@@ -132,6 +154,11 @@ func (mp *memPool) snapshot() (map[string]data.Transaction, *sendersMap) {
 	}
 
 	sendersMapSnapshot := mp.senders.snapshot()
+	mp.logger.Debug(
+		"mempool.snapshot created selection snapshot",
+		"numTransactions", len(transactionsByHashSnapshot),
+		"numSenders", sendersMapSnapshot.numAddresses(),
+	)
 	return transactionsByHashSnapshot, sendersMapSnapshot
 }
 
@@ -140,9 +167,11 @@ func (mp *memPool) SelectTransactions(
 	accountsState state.AccountsState,
 ) []data.Transaction {
 	_, sendersMapSnapshot := mp.snapshot()
+	mp.logger.Info("mempool.SelectTransactions started", "numSenders", sendersMapSnapshot.numAddresses())
 
 	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), isTransactionMoreValuable)
 	if err != nil {
+		mp.logger.Error("mempool.SelectTransactions failed to create heap", "error", err)
 		return nil
 	}
 
@@ -161,21 +190,56 @@ func (mp *memPool) SelectTransactions(
 		currentBestTransaction := currentBestItem.getCurrentTransaction()
 		estimatedConsumption := currentBestTransaction.GetEstimatedConsumption()
 		if accumulatedConsumption+estimatedConsumption > maxBlockConsumption {
+			mp.logger.Info(
+				"mempool.SelectTransactions stopped at block consumption limit",
+				"txHash", string(currentBestTransaction.GetTxHash()),
+				"accumulatedConsumption", accumulatedConsumption,
+				"nextEstimatedConsumption", estimatedConsumption,
+				"maxBlockConsumption", maxBlockConsumption,
+			)
 			break
 		}
 
 		if selSession.senderShouldBeSkipped(currentBestTransaction) {
+			mp.logger.Debug(
+				"mempool.SelectTransactions skipped sender",
+				"sender", string(currentBestTransaction.GetSender()),
+				"txHash", string(currentBestTransaction.GetTxHash()),
+				"nonce", currentBestTransaction.GetNonce(),
+			)
 			continue
 		}
 
 		if !selSession.transactionShouldBeSkipped(currentBestTransaction) {
 			err := selSession.OnSelectedTransaction(currentBestTransaction)
 			if err != nil {
+				mp.logger.Error(
+					"mempool.SelectTransactions failed to update virtual state",
+					"sender", string(currentBestTransaction.GetSender()),
+					"txHash", string(currentBestTransaction.GetTxHash()),
+					"error", err,
+				)
 				continue
 			}
 
 			selectedTransactions = append(selectedTransactions, currentBestTransaction)
 			accumulatedConsumption += estimatedConsumption
+			mp.logger.Info(
+				"mempool.SelectTransactions selected transaction",
+				"txHash", string(currentBestTransaction.GetTxHash()),
+				"sender", string(currentBestTransaction.GetSender()),
+				"nonce", currentBestTransaction.GetNonce(),
+				"estimatedConsumption", estimatedConsumption,
+				"estimatedScore", currentBestTransaction.GetEstimatedScore(),
+				"accumulatedConsumption", accumulatedConsumption,
+			)
+		} else {
+			mp.logger.Debug(
+				"mempool.SelectTransactions skipped transaction",
+				"txHash", string(currentBestTransaction.GetTxHash()),
+				"sender", string(currentBestTransaction.GetSender()),
+				"nonce", currentBestTransaction.GetNonce(),
+			)
 		}
 
 		if currentBestItem.nextTransactionOfSenderExists() {
@@ -184,6 +248,11 @@ func (mp *memPool) SelectTransactions(
 		}
 	}
 
+	mp.logger.Info(
+		"mempool.SelectTransactions finished",
+		"numSelectedTransactions", len(selectedTransactions),
+		"accumulatedConsumption", accumulatedConsumption,
+	)
 	return selectedTransactions
 }
 

@@ -27,6 +27,9 @@ go.work.sum
 # env file
 .env
 
+# Generated integration-test validator logs
+integrationtests/logs/
+
 # Editor/IDE
 # .idea/
 # .vscode/
