@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"os"
@@ -22,6 +23,16 @@ func NewNodeLogger(nodeID string, filePath string) (*NodeLogger, error) {
 
 // NewNodeLoggerWithLevel creates a logger with a caller-selected minimum level.
 func NewNodeLoggerWithLevel(nodeID string, filePath string, level slog.Level) (*NodeLogger, error) {
+	return NewNodeLoggerWithLevels(nodeID, filePath, level, level)
+}
+
+// NewNodeLoggerWithLevels creates a logger with separate file and stdout levels.
+func NewNodeLoggerWithLevels(
+	nodeID string,
+	filePath string,
+	fileLevel slog.Level,
+	consoleLevel slog.Level,
+) (*NodeLogger, error) {
 	err := os.MkdirAll(filepath.Dir(filePath), 0o755)
 	if err != nil {
 		return nil, err
@@ -32,16 +43,72 @@ func NewNodeLoggerWithLevel(nodeID string, filePath string, level slog.Level) (*
 		return nil, err
 	}
 
-	writer := io.MultiWriter(os.Stdout, file)
-	handler := slog.NewTextHandler(writer, &slog.HandlerOptions{
-		Level: level,
+	fileHandler := slog.NewTextHandler(file, &slog.HandlerOptions{
+		Level: fileLevel,
 	})
+	consoleHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: consoleLevel,
+	})
+	handler := newMultiHandler(consoleHandler, fileHandler)
 
 	return &NodeLogger{
 		logger: slog.New(handler).With("node", nodeID),
 		file:   file,
 		path:   filePath,
 	}, nil
+}
+
+type multiHandler struct {
+	handlers []slog.Handler
+}
+
+func newMultiHandler(handlers ...slog.Handler) *multiHandler {
+	return &multiHandler{
+		handlers: handlers,
+	}
+}
+
+func (mh *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	for _, handler := range mh.handlers {
+		if handler.Enabled(ctx, level) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (mh *multiHandler) Handle(ctx context.Context, record slog.Record) error {
+	for _, handler := range mh.handlers {
+		if !handler.Enabled(ctx, record.Level) {
+			continue
+		}
+
+		err := handler.Handle(ctx, record)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (mh *multiHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	handlers := make([]slog.Handler, 0, len(mh.handlers))
+	for _, handler := range mh.handlers {
+		handlers = append(handlers, handler.WithAttrs(attrs))
+	}
+
+	return newMultiHandler(handlers...)
+}
+
+func (mh *multiHandler) WithGroup(name string) slog.Handler {
+	handlers := make([]slog.Handler, 0, len(mh.handlers))
+	for _, handler := range mh.handlers {
+		handlers = append(handlers, handler.WithGroup(name))
+	}
+
+	return newMultiHandler(handlers...)
 }
 
 // ParseLevel converts a user-facing level string into a slog level.
@@ -58,10 +125,19 @@ func ParseLevel(value string) slog.Level {
 	}
 }
 
-// ParseTestLevel returns the requested test log level, defaulting tests to debug.
-func ParseTestLevel(value string) slog.Level {
+// ParseIntegrationTestLevel returns the requested integration-test log level, defaulting to debug.
+func ParseIntegrationTestLevel(value string) slog.Level {
 	if strings.TrimSpace(value) == "" {
 		return slog.LevelDebug
+	}
+
+	return ParseLevel(value)
+}
+
+// ParseIntegrationTestConsoleLevel returns the requested console log level, defaulting to errors only.
+func ParseIntegrationTestConsoleLevel(value string) slog.Level {
+	if strings.TrimSpace(value) == "" {
+		return slog.LevelError
 	}
 
 	return ParseLevel(value)
