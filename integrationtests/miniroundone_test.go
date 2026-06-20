@@ -611,7 +611,7 @@ func createIntegrationTestNodeLogger(t *testing.T, validatorID string) (*logging
 
 	testName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
 	logPath := filepath.Join("logs", testName, validatorID+".log")
-	logLevel := logging.ParseLevel(os.Getenv("MOA_TEST_LOG_LEVEL"))
+	logLevel := logging.ParseTestLevel(os.Getenv("MOA_TEST_LOG_LEVEL"))
 
 	return logging.NewNodeLoggerWithLevel(validatorID, logPath, logLevel)
 }

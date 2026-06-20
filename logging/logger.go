@@ -58,6 +58,15 @@ func ParseLevel(value string) slog.Level {
 	}
 }
 
+// ParseTestLevel returns the requested test log level, defaulting tests to debug.
+func ParseTestLevel(value string) slog.Level {
+	if strings.TrimSpace(value) == "" {
+		return slog.LevelDebug
+	}
+
+	return ParseLevel(value)
+}
+
 // NewNopLogger returns a logger that discards all records.
 func NewNopLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
