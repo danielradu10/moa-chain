@@ -21,7 +21,7 @@ func NewBlockProcessor(base blockprocessing.Base) *blockProcessor {
 	}
 
 	return &blockProcessor{
-		base,
+		Base: base,
 	}
 }
 
@@ -67,7 +67,7 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, data.Subdoma
 	txProcessor, err := processor.NewTxProcessor(
 		snapshot,
 		bp.AccountState,
-		bp.Labeler,
+		bp.Agent,
 		bp.Mempool,
 	)
 	if err != nil {
@@ -211,7 +211,7 @@ func (bp *blockProcessor) validateHashContinuity(
 
 func (bp *blockProcessor) validateAndExecuteBlockBody(blockBody *data.BlockBody, transactionProcessor transactionprocessing.TxProcessor) (data.Subdomains, error) {
 	executor := blockprocessing.NewBodyExecutor(bp.Logger)
-	execResult, err := executor.ExecuteBlockBody(blockBody, transactionProcessor)
+	execResult, err := executor.ExecuteBlockBodyMiniRoundOne(blockBody, transactionProcessor)
 	if err != nil {
 		return nil, err
 	}
@@ -225,4 +225,20 @@ func (bp *blockProcessor) hashProposedBlock(proposedBody *data.BlockBody, propos
 
 func (bp *blockProcessor) hashSubdomains(subdomains data.Subdomains) ([]byte, error) {
 	return hashing.ComputeSubdomainsHash(subdomains)
+}
+
+// ExecuteBlockPrompts executes the prompts of a block.
+func (bp *blockProcessor) ExecuteBlockPrompts(block *data.BlockBody) (*data.BlockBodyExecutionResultMRTwo, error) {
+	if bp.Logger == nil {
+		bp.Logger = logging.NewNopLogger()
+	}
+
+	executor := blockprocessing.NewBodyExecutor(bp.Logger)
+	promptExecutor, err := processor.NewPromptExecutor(bp.Agent)
+	if err != nil {
+		bp.Logger.Error("blockProcessor.ExecuteBlockPrompts", "err", err.Error())
+		return nil, err
+	}
+
+	return executor.ExecuteBlockBodyMiniRoundTwo(block, promptExecutor)
 }

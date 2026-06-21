@@ -366,6 +366,66 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 	})
 }
 
+func TestPromptExecutor_ExecutePromptTransaction(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should return answer with actual consumption", func(t *testing.T) {
+		t.Parallel()
+
+		tx := createTestTransaction(testTransactionArgs{
+			txHash: "txHash1",
+		})
+		answer := "deterministic validator answer"
+		labeler := &testscommon.LabelerStub{
+			AnswersByTxHash: map[string]string{
+				"txHash1": answer,
+			},
+		}
+		promptExecutor, err := NewPromptExecutor(labeler)
+		require.NoError(t, err)
+
+		expectedConsumption, err := calculateNumTokensFromPrompt(answer)
+		require.NoError(t, err)
+
+		result, err := promptExecutor.ExecutePromptTransaction(tx)
+
+		require.NoError(t, err)
+		require.Equal(t, []byte("txHash1"), result.TxHash)
+		require.Equal(t, answer, result.Answer)
+		require.Equal(t, expectedConsumption, result.ActualConsumption)
+		require.Greater(t, result.ActualConsumption, uint64(0))
+	})
+
+	t.Run("should return answer generation error", func(t *testing.T) {
+		t.Parallel()
+
+		expectedErr := errors.New("answer generation error")
+		tx := createTestTransaction(testTransactionArgs{
+			txHash: "txHash1",
+		})
+		promptExecutor, err := NewPromptExecutor(
+			&testscommon.LabelerStub{
+				AnswerErr: expectedErr,
+			},
+		)
+		require.NoError(t, err)
+
+		result, err := promptExecutor.ExecutePromptTransaction(tx)
+
+		require.Nil(t, result)
+		require.Equal(t, expectedErr, err)
+	})
+
+	t.Run("should return ErrNilAgent when agent is nil", func(t *testing.T) {
+		t.Parallel()
+
+		promptExecutor, err := NewPromptExecutor(nil)
+
+		require.Nil(t, promptExecutor)
+		require.Equal(t, transactionprocessing.ErrNilAgent, err)
+	})
+}
+
 func TestBlockProcessor_validateTransactionsOrdering(t *testing.T) {
 	t.Parallel()
 

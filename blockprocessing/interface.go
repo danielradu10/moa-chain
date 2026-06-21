@@ -12,6 +12,7 @@ type BlockCreator interface {
 // BlockProcessor defines what a BlockProcessor should do
 type BlockProcessor interface {
 	ValidateBlock(block *data.Block) ([]byte, data.Subdomains, []byte, error)
+	ExecuteBlockPrompts(block *data.BlockBody) (*data.BlockBodyExecutionResultMRTwo, error)
 }
 
 type LabelsValidator interface {
