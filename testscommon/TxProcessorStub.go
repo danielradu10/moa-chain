@@ -10,6 +10,7 @@ type TxProcessorStub struct {
 	ValidateTransactionsOrderingCalled func(previousTransaction data.Transaction, currentTransaction data.Transaction) error
 	LabelTransactionCalled             func(tx data.Transaction) ([]string, error)
 	SelectTransactionsCalled           func() []data.Transaction
+	ExecutePromptTransactionCalled     func(tx data.Transaction) (*data.TransactionResult, error)
 	Called                             bool
 }
 
@@ -52,5 +53,9 @@ func (tps *TxProcessorStub) SelectTransactions() []data.Transaction {
 }
 
 func (tps *TxProcessorStub) ExecutePromptTransaction(tx data.Transaction) (*data.TransactionResult, error) {
+	if tps.ExecutePromptTransactionCalled != nil {
+		return tps.ExecutePromptTransactionCalled(tx)
+	}
+
 	return nil, nil
 }

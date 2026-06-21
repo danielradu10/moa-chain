@@ -2,7 +2,6 @@ package processor
 
 import (
 	"bytes"
-	"log"
 
 	"github.com/tiktoken-go/tokenizer"
 
@@ -265,7 +264,11 @@ func (tp *txProcessor) ExecutePromptTransaction(tx data.Transaction) (*data.Tran
 		return nil, err
 	}
 
-	consumption := tp.calculateNumTokensFromPrompt(answer)
+	consumption, err := tp.calculateNumTokensFromPrompt(answer)
+	if err != nil {
+		return nil, err
+	}
+
 	return &data.TransactionResult{
 		TxHash:            tx.GetTxHash(),
 		Answer:            answer,
@@ -274,16 +277,16 @@ func (tp *txProcessor) ExecutePromptTransaction(tx data.Transaction) (*data.Tran
 }
 
 // calculateNumTokensOfAnswer tokenizes the answer to get the number of tokens.
-func (tp *txProcessor) calculateNumTokensFromPrompt(answer string) uint64 {
+func (tp *txProcessor) calculateNumTokensFromPrompt(answer string) (uint64, error) {
 	enc, err := tokenizer.Get(tokenizer.Cl100kBase)
 	if err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
 
 	numTokens, err := enc.Count(answer)
 	if err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
 
-	return uint64(numTokens)
+	return uint64(numTokens), nil
 }

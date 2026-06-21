@@ -110,6 +110,7 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundTwo(
 	transactionProcessor transactionprocessing.TxProcessor,
 ) (*data.BlockBodyExecutionResultMRTwo, error) {
 	txsResults := make([]data.TransactionResult, 0, len(blockBody.Transactions))
+	totalConsumption := uint64(0)
 	for _, tx := range blockBody.Transactions {
 		txResult, err := transactionProcessor.ExecutePromptTransaction(tx)
 		if err != nil {
@@ -117,7 +118,11 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundTwo(
 		}
 
 		txsResults = append(txsResults, *txResult)
+		totalConsumption += txResult.ActualConsumption
 	}
 
-	return &data.BlockBodyExecutionResultMRTwo{}, nil
+	return &data.BlockBodyExecutionResultMRTwo{
+		TxsResults:       txsResults,
+		TotalConsumption: totalConsumption,
+	}, nil
 }

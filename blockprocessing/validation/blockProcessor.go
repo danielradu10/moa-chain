@@ -229,6 +229,10 @@ func (bp *blockProcessor) hashSubdomains(subdomains data.Subdomains) ([]byte, er
 
 // ExecuteBlockPrompts executes the prompts of a block.
 func (bp *blockProcessor) ExecuteBlockPrompts(block *data.BlockBody) (*data.BlockBodyExecutionResultMRTwo, error) {
+	if bp.Logger == nil {
+		bp.Logger = logging.NewNopLogger()
+	}
+
 	executor := blockprocessing.NewBodyExecutor(bp.Logger)
 
 	snapshot, err := bp.AccountsSnapshotFactory.CreateSnapshot()
