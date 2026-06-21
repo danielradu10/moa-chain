@@ -381,7 +381,8 @@ func TestPromptExecutor_ExecutePromptTransaction(t *testing.T) {
 				"txHash1": answer,
 			},
 		}
-		promptExecutor := NewPromptExecutor(labeler)
+		promptExecutor, err := NewPromptExecutor(labeler)
+		require.NoError(t, err)
 
 		expectedConsumption, err := calculateNumTokensFromPrompt(answer)
 		require.NoError(t, err)
@@ -402,16 +403,26 @@ func TestPromptExecutor_ExecutePromptTransaction(t *testing.T) {
 		tx := createTestTransaction(testTransactionArgs{
 			txHash: "txHash1",
 		})
-		promptExecutor := NewPromptExecutor(
+		promptExecutor, err := NewPromptExecutor(
 			&testscommon.LabelerStub{
 				AnswerErr: expectedErr,
 			},
 		)
+		require.NoError(t, err)
 
 		result, err := promptExecutor.ExecutePromptTransaction(tx)
 
 		require.Nil(t, result)
 		require.Equal(t, expectedErr, err)
+	})
+
+	t.Run("should return ErrNilAgent when agent is nil", func(t *testing.T) {
+		t.Parallel()
+
+		promptExecutor, err := NewPromptExecutor(nil)
+
+		require.Nil(t, promptExecutor)
+		require.Equal(t, transactionprocessing.ErrNilAgent, err)
 	})
 }
 
