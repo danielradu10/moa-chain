@@ -13,7 +13,7 @@ type BlockFinalizerStub struct {
 	FinalizeCalled bool
 }
 
-func (stub *BlockFinalizerStub) FinalizeBlock(block *data.BlockOnChain) error {
+func (stub *BlockFinalizerStub) FinalizeBlockMROne(block *data.BlockOnChain) error {
 	stub.mutex.Lock()
 	defer stub.mutex.Unlock()
 

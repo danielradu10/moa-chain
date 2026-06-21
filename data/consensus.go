@@ -6,6 +6,32 @@ const (
 	VoteTypeCommit VoteType = "COMMIT"
 )
 
+// ConsensusMessage defines the standardized consensus message which will be shared between rounds.
+type ConsensusMessage struct {
+	ConsensusMessageType ConsensusMessageType
+
+	// Mini-Round One
+	ProposedBlockMessage *ProposedBlockMessage
+	AggregatedVotes      *AggregatedVotes
+	BlockVote            *BlockVote
+
+	// Mini-Round Two
+	ExecutedPrompts *AnswersBlockMessage
+}
+
+type ConsensusMessageType int
+
+const (
+	ProposedBlockConsensusMessage   ConsensusMessageType = iota // Mini-Round One
+	AggregatedVotesConsensusMessage                             // Mini-Round One
+	BlockVoteConsensusMessage                                   // Mini-Round One
+
+	ExecutedPromptsMessage // Mini-Round Two
+)
+
+// MINI-ROUND ONE
+// ##################################
+
 // ProposedBlockMessage defines the message propagated by a leader and received by all validators.
 type ProposedBlockMessage struct {
 	// RoundKey information
@@ -60,27 +86,38 @@ type AggregatedVotes struct {
 	SubdomainsSignatures [][]byte
 }
 
-// ConsensusMessage defines the standardized consensus message which will be shared between rounds.
-type ConsensusMessage struct {
-	ConsensusMessageType ConsensusMessageType
+// ##################################
 
-	ProposedBlockMessage *ProposedBlockMessage
-	AggregatedVotes      *AggregatedVotes
-	BlockVote            *BlockVote
-}
-
-type ConsensusMessageType int
-
-const (
-	ProposedBlockConsensusMessage ConsensusMessageType = iota
-	AggregatedVotesConsensusMessage
-	BlockVoteConsensusMessage
-)
+// MINI-ROUND TWO
 
 // ValidatorVote contains the validator public key and its vote.
+// It is used only when extracting the state of the votes in order to keep a simplified, minimized version of the BlockVote.
 type ValidatorVote struct {
 	ValidatorID         string
 	BlockSignature      []byte
 	Subdomains          Subdomains
 	SubdomainsSignature []byte
 }
+
+// AnswersBlockMessage defines the message propagated by the experts in the mini-round two after the prompt execution.
+type AnswersBlockMessage struct {
+	// RoundKey information.
+	Epoch     uint64
+	Round     uint64
+	MiniRound uint64
+
+	// Sender related information.
+	SenderID string
+
+	// Prompts Answers
+	Answers AnswersTxMessage
+
+	// CanonicalBlock related information.
+	CanonicalBlockHash []byte // this is the hash of the finalized block in the mini-round one.
+
+	// Block related information.
+	BlockHash      []byte // this is the hash of this block.
+	BlockSignature []byte
+}
+
+type AnswersTxMessage map[string]TransactionResult

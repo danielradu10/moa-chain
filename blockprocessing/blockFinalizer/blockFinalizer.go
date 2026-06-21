@@ -4,6 +4,8 @@ import (
 	"moa-chain/data"
 )
 
+// BlockFinalizer defines what should be done when a block is finalized in different mini-rounds.
 type BlockFinalizer interface {
-	FinalizeBlock(block *data.BlockOnChain) error
+	FinalizeBlockMROne(block *data.BlockOnChain) error
+	GetFinalizedBlockInMROne(key data.RoundKey) (*data.BlockOnChain, error)
 }

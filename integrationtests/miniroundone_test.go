@@ -643,7 +643,7 @@ func createRoundLoop(
 	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
 		MyID:              nodeID,
 		BlockCreator:      proposing.NewBlockCreator(base),
-		BlockValidator:    validation.NewBlockProcessor(base),
+		BlockProcessor:    validation.NewBlockProcessor(base),
 		LabelsValidator:   validation.NewLabelsValidator(logger),
 		RoundState:        roundState,
 		Broadcaster:       broadcast.NewBroadcaster(peerRegistry, logger),
