@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"moa-chain/data"
-	"moa-chain/testscommon"
 )
 
 func TestConsensusSelector_SelectConsensusGroupMiniRoundTwo(t *testing.T) {
@@ -160,10 +159,30 @@ func createMiniRoundTwoSelectionValidator(publicID string, scores map[string]int
 	return validator
 }
 
-func createSelectionTestBlockchainState() *testscommon.BlockchainStateStub {
-	return &testscommon.BlockchainStateStub{
-		CurrentBlockHeaderValue: &data.BlockHeader{
+func createSelectionTestBlockchainState() *selectionTestBlockchainState {
+	return &selectionTestBlockchainState{
+		currentBlockHeader: &data.BlockHeader{
 			HeaderHash: []byte("selection-test-current-header-hash"),
 		},
 	}
+}
+
+type selectionTestBlockchainState struct {
+	currentBlockHeader *data.BlockHeader
+}
+
+func (state *selectionTestBlockchainState) CurrentBlockHeader() (*data.BlockHeader, error) {
+	return state.currentBlockHeader, nil
+}
+
+func (state *selectionTestBlockchainState) CurrentRound() (uint64, error) {
+	return 0, nil
+}
+
+func (state *selectionTestBlockchainState) CurrentMiniRound() (uint64, error) {
+	return 0, nil
+}
+
+func (state *selectionTestBlockchainState) CurrentEpoch() (uint64, error) {
+	return 0, nil
 }
