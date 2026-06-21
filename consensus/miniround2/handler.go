@@ -119,6 +119,12 @@ func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey)
 		handler.logger.Error("miniround2.HandleBlockExecution failed to create execute prompts message", "err", err)
 		return err
 	}
+	signature, err := handler.signer.SignPromptExecutionHash(executionResult.BlockHash)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleBlockExecution failed to sign prompt execution hash", "err", err)
+		return err
+	}
+	executedPromptsMessage.BlockSignature = signature
 
 	err = handler.broadcaster.SendVoteToLeader(&data.ConsensusMessage{
 		ConsensusMessageType: data.ExecutedPromptsMessage,
@@ -134,7 +140,7 @@ func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey)
 
 func (handler *miniRoundTwoHandler) createExecutePromptsMessage(
 	roundKey data.RoundKey,
-	canonicalBlockHash []byte,
+	canonicalBlockHeaderHash []byte,
 	executionResult *data.BlockBodyExecutionResultMRTwo,
 ) (*data.AnswersBlockMessage, error) {
 	answers := make(data.AnswersTxMessage)
@@ -155,8 +161,7 @@ func (handler *miniRoundTwoHandler) createExecutePromptsMessage(
 		MiniRound:          roundKey.MiniRound,
 		SenderID:           handler.myID,
 		Answers:            answers,
-		CanonicalBlockHash: canonicalBlockHash,
-		BlockHash:          nil,
-		BlockSignature:     nil,
+		CanonicalBlockHash: canonicalBlockHeaderHash,
+		BlockHash:          executionResult.BlockHash,
 	}, nil
 }

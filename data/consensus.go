@@ -113,7 +113,7 @@ type AnswersBlockMessage struct {
 	Answers AnswersTxMessage
 
 	// CanonicalBlock related information.
-	CanonicalBlockHash []byte // this is the hash of the finalized block in the mini-round one.
+	CanonicalBlockHash []byte // header hash of the finalized block in mini-round one.
 
 	// Block related information.
 	BlockHash      []byte // this is the hash of this block.

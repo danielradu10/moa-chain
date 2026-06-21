@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 
+	"moa-chain/blockprocessing/hashing"
 	"moa-chain/data"
 	"moa-chain/logging"
 	"moa-chain/transactionprocessing"
@@ -157,8 +158,16 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundTwo(
 
 	exec.logger.Info("BlockBody executed in MiniRoundTwo", "totalConsumption", totalConsumption)
 
-	return &data.BlockBodyExecutionResultMRTwo{
+	executionResult := &data.BlockBodyExecutionResultMRTwo{
 		TxsResults:       txsResults,
 		TotalConsumption: totalConsumption,
-	}, nil
+	}
+	blockHash, err := hashing.ComputePromptExecutionHash(executionResult)
+	if err != nil {
+		exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo failed to hash executed prompt block", "error", err)
+		return nil, err
+	}
+	executionResult.BlockHash = blockHash
+
+	return executionResult, nil
 }

@@ -30,6 +30,13 @@ func (stub *BlockFinalizerStub) GetFinalizedBlock() *data.BlockOnChain {
 	return stub.FinalizedBlock
 }
 
+func (stub *BlockFinalizerStub) GetFinalizedBlockInMROne(key data.RoundKey) (*data.BlockOnChain, error) {
+	stub.mutex.Lock()
+	defer stub.mutex.Unlock()
+
+	return stub.FinalizedBlock, nil
+}
+
 func (stub *BlockFinalizerStub) WasFinalizeCalled() bool {
 	stub.mutex.Lock()
 	defer stub.mutex.Unlock()

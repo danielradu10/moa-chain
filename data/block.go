@@ -52,4 +52,5 @@ type BlockBodyExecutionResultMROne struct {
 type BlockBodyExecutionResultMRTwo struct {
 	TxsResults       []TransactionResult
 	TotalConsumption uint64
+	BlockHash        []byte
 }
