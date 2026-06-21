@@ -5,9 +5,12 @@ import (
 )
 
 type LabelerStub struct {
-	Err            error
-	LabelsByTxHash map[string][]string
-	LabelCalled    func(tx data.Transaction) ([]string, error)
+	Err             error
+	AnswerErr       error
+	LabelsByTxHash  map[string][]string
+	AnswersByTxHash map[string]string
+	LabelCalled     func(tx data.Transaction) ([]string, error)
+	AnswerCalled    func(tx data.Transaction) (string, error)
 }
 
 func (tl *LabelerStub) Label(tx data.Transaction) ([]string, error) {
@@ -28,5 +31,18 @@ func (tl *LabelerStub) Label(tx data.Transaction) ([]string, error) {
 }
 
 func (tl *LabelerStub) Answer(tx data.Transaction) (string, error) {
-	return "", nil
+	if tl.AnswerCalled != nil {
+		return tl.AnswerCalled(tx)
+	}
+
+	if tl.AnswerErr != nil {
+		return "", tl.AnswerErr
+	}
+
+	answer, ok := tl.AnswersByTxHash[string(tx.GetTxHash())]
+	if !ok {
+		return "", nil
+	}
+
+	return answer, nil
 }

@@ -366,6 +366,57 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 	})
 }
 
+func TestTxProcessor_ExecutePromptTransaction(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should return answer with actual consumption", func(t *testing.T) {
+		t.Parallel()
+
+		tx := createTestTransaction(testTransactionArgs{
+			txHash: "txHash1",
+		})
+		answer := "deterministic validator answer"
+		labeler := &testscommon.LabelerStub{
+			AnswersByTxHash: map[string]string{
+				"txHash1": answer,
+			},
+		}
+		txProcessor := &txProcessor{
+			labeler: labeler,
+		}
+
+		expectedConsumption, err := txProcessor.calculateNumTokensFromPrompt(answer)
+		require.NoError(t, err)
+
+		result, err := txProcessor.ExecutePromptTransaction(tx)
+
+		require.NoError(t, err)
+		require.Equal(t, []byte("txHash1"), result.TxHash)
+		require.Equal(t, answer, result.Answer)
+		require.Equal(t, expectedConsumption, result.ActualConsumption)
+		require.Greater(t, result.ActualConsumption, uint64(0))
+	})
+
+	t.Run("should return answer generation error", func(t *testing.T) {
+		t.Parallel()
+
+		expectedErr := errors.New("answer generation error")
+		tx := createTestTransaction(testTransactionArgs{
+			txHash: "txHash1",
+		})
+		txProcessor := &txProcessor{
+			labeler: &testscommon.LabelerStub{
+				AnswerErr: expectedErr,
+			},
+		}
+
+		result, err := txProcessor.ExecutePromptTransaction(tx)
+
+		require.Nil(t, result)
+		require.Equal(t, expectedErr, err)
+	})
+}
+
 func TestBlockProcessor_validateTransactionsOrdering(t *testing.T) {
 	t.Parallel()
 

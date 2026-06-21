@@ -200,6 +200,68 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 	})
 }
 
+func TestBlockProcessor_ExecuteBlockPrompts(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should execute block prompts and discard snapshot", func(t *testing.T) {
+		t.Parallel()
+
+		tx1 := createTestTransaction(testTransactionArgs{
+			txHash: "txHash1",
+		})
+		tx2 := createTestTransaction(testTransactionArgs{
+			txHash: "txHash2",
+		})
+		snapshot := &testscommon.AccountsSnapshotStub{}
+		blockProcessor := &blockProcessor{
+			Base: blockprocessing.Base{
+				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
+					Snapshot: snapshot,
+				},
+				Labeler: &testscommon.LabelerStub{
+					AnswersByTxHash: map[string]string{
+						"txHash1": "answer one",
+						"txHash2": "answer two",
+					},
+				},
+			},
+		}
+
+		result, err := blockProcessor.ExecuteBlockPrompts(&data.BlockBody{
+			Transactions: []data.Transaction{tx1, tx2},
+		})
+
+		require.NoError(t, err)
+		require.Len(t, result.TxsResults, 2)
+		require.Equal(t, []byte("txHash1"), result.TxsResults[0].TxHash)
+		require.Equal(t, "answer one", result.TxsResults[0].Answer)
+		require.Greater(t, result.TxsResults[0].ActualConsumption, uint64(0))
+		require.Equal(t, []byte("txHash2"), result.TxsResults[1].TxHash)
+		require.Equal(t, "answer two", result.TxsResults[1].Answer)
+		require.Greater(t, result.TxsResults[1].ActualConsumption, uint64(0))
+		require.Equal(t, result.TxsResults[0].ActualConsumption+result.TxsResults[1].ActualConsumption, result.TotalConsumption)
+		require.True(t, snapshot.DiscardCalled)
+	})
+
+	t.Run("should return snapshot factory error", func(t *testing.T) {
+		t.Parallel()
+
+		expectedErr := errors.New("snapshot factory error")
+		blockProcessor := &blockProcessor{
+			Base: blockprocessing.Base{
+				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
+					CreateSnapshotErr: expectedErr,
+				},
+			},
+		}
+
+		result, err := blockProcessor.ExecuteBlockPrompts(&data.BlockBody{})
+
+		require.Nil(t, result)
+		require.Equal(t, expectedErr, err)
+	})
+}
+
 func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 	t.Parallel()
 

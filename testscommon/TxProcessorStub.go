@@ -57,5 +57,7 @@ func (tps *TxProcessorStub) ExecutePromptTransaction(tx data.Transaction) (*data
 		return tps.ExecutePromptTransactionCalled(tx)
 	}
 
-	return nil, nil
+	return &data.TransactionResult{
+		TxHash: tx.GetTxHash(),
+	}, nil
 }
