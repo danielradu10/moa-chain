@@ -67,7 +67,7 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, data.Subdoma
 	txProcessor, err := processor.NewTxProcessor(
 		snapshot,
 		bp.AccountState,
-		bp.Labeler,
+		bp.Agent,
 		bp.Mempool,
 	)
 	if err != nil {
@@ -234,7 +234,11 @@ func (bp *blockProcessor) ExecuteBlockPrompts(block *data.BlockBody) (*data.Bloc
 	}
 
 	executor := blockprocessing.NewBodyExecutor(bp.Logger)
-	promptExecutor := processor.NewPromptExecutor(bp.Labeler)
+	promptExecutor, err := processor.NewPromptExecutor(bp.Agent)
+	if err != nil {
+		bp.Logger.Error("blockProcessor.ExecuteBlockPrompts", "err", err.Error())
+		return nil, err
+	}
 
 	return executor.ExecuteBlockBodyMiniRoundTwo(block, promptExecutor)
 }

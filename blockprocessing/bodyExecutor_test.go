@@ -90,6 +90,91 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
 			},
 		}, result.TxsResults)
 	})
+
+	t.Run("should return ErrNilBlock when block body is nil", func(t *testing.T) {
+		t.Parallel()
+
+		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(nil, &testscommon.TxProcessorStub{})
+
+		require.Nil(t, result)
+		require.Equal(t, ErrNilBlock, err)
+	})
+
+	t.Run("should return ErrNilPromptExecutor when prompt executor is nil", func(t *testing.T) {
+		t.Parallel()
+
+		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(&data.BlockBody{}, nil)
+
+		require.Nil(t, result)
+		require.Equal(t, ErrNilPromptExecutor, err)
+	})
+
+	t.Run("should return ErrNilTransaction when block contains nil transaction", func(t *testing.T) {
+		t.Parallel()
+
+		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
+			&data.BlockBody{Transactions: []data.Transaction{nil}},
+			&testscommon.TxProcessorStub{},
+		)
+
+		require.Nil(t, result)
+		require.Equal(t, ErrNilTransaction, err)
+	})
+
+	t.Run("should return ErrDuplicatedTransaction when block contains duplicate transaction hashes", func(t *testing.T) {
+		t.Parallel()
+
+		tx1 := createBodyExecutorTestTransaction("txHash1")
+		tx2 := createBodyExecutorTestTransaction("txHash1")
+
+		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
+			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
+			&testscommon.TxProcessorStub{},
+		)
+
+		require.Nil(t, result)
+		require.Equal(t, ErrDuplicatedTransaction, err)
+	})
+
+	t.Run("should return ErrNilTransactionResult when prompt executor returns nil result", func(t *testing.T) {
+		t.Parallel()
+
+		tx := createBodyExecutorTestTransaction("txHash1")
+		txProcessor := &testscommon.TxProcessorStub{
+			ExecutePromptTransactionCalled: func(tx data.Transaction) (*data.TransactionResult, error) {
+				return nil, nil
+			},
+		}
+
+		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
+			&data.BlockBody{Transactions: []data.Transaction{tx}},
+			txProcessor,
+		)
+
+		require.Nil(t, result)
+		require.Equal(t, ErrNilTransactionResult, err)
+	})
+
+	t.Run("should return ErrTxHashMismatch when prompt result has different transaction hash", func(t *testing.T) {
+		t.Parallel()
+
+		tx := createBodyExecutorTestTransaction("txHash1")
+		txProcessor := &testscommon.TxProcessorStub{
+			ExecutePromptTransactionCalled: func(tx data.Transaction) (*data.TransactionResult, error) {
+				return &data.TransactionResult{
+					TxHash: []byte("differentTxHash"),
+				}, nil
+			},
+		}
+
+		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
+			&data.BlockBody{Transactions: []data.Transaction{tx}},
+			txProcessor,
+		)
+
+		require.Nil(t, result)
+		require.Equal(t, ErrTxHashMismatch, err)
+	})
 }
 
 func createBodyExecutorTestTransaction(txHash string) data.Transaction {

@@ -553,7 +553,7 @@ func createNode(
 	inboxes []chan data.RoundEvent,
 	myInbox chan data.RoundEvent,
 	transactions []data.Transaction,
-	labeler agent.Labeler,
+	labeler agent.Agent,
 ) *integrationTestNode {
 	blockFinalizer := &testscommon.BlockFinalizerStub{}
 	nodeLogger, err := createIntegrationTestNodeLogger(t, validatorID)
@@ -625,7 +625,7 @@ func createRoundLoop(
 	validatorRegistry validators.ValidatorRegistry,
 	inbox chan data.RoundEvent,
 	blockFinalizer blockFinalizer.BlockFinalizer,
-	labeler agent.Labeler,
+	labeler agent.Agent,
 	logger *slog.Logger,
 ) *consensus.RoundLoop {
 	currentHeader := currentIntegrationTestHeader()
@@ -672,7 +672,7 @@ func createRoundLoop(
 func createBlockBase(
 	mempool mempool.Mempool,
 	blockchainState state.BlockchainState,
-	labelerCalled agent.Labeler,
+	labelerCalled agent.Agent,
 	logger *slog.Logger,
 ) blockprocessing.Base {
 	aliceAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
@@ -714,7 +714,7 @@ func createBlockBase(
 	return blockprocessing.Base{
 		AccountsSnapshotFactory: &accountSnapshotFactoryMock,
 		BlockchainState:         blockchainState,
-		Labeler:                 labelerCalled,
+		Agent:                   labelerCalled,
 		AccountState:            accountStateStub,
 		Mempool:                 mempool,
 		Logger:                  logger,
@@ -1078,7 +1078,7 @@ func loadAgentLabelsFixture(t *testing.T, path string) agentLabelsByTxHash {
 	}
 }
 
-func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Labeler {
+func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Agent {
 	return &testscommon.LabelerStub{
 		LabelCalled: func(tx data.Transaction) ([]string, error) {
 			txHash := string(tx.GetTxHash())

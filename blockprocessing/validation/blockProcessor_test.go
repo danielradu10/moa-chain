@@ -125,7 +125,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
 				},
-				Labeler: &testscommon.LabelerStub{
+				Agent: &testscommon.LabelerStub{
 					LabelsByTxHash: map[string][]string{
 						"txHash1": {"security", "cloud_engineering"},
 					},
@@ -180,7 +180,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
 				},
-				Labeler: &testscommon.LabelerStub{
+				Agent: &testscommon.LabelerStub{
 					LabelsByTxHash: map[string][]string{
 						"txHash1": {
 							"security",
@@ -218,7 +218,7 @@ func TestBlockProcessor_ExecuteBlockPrompts(t *testing.T) {
 		blockProcessor := &blockProcessor{
 			Base: blockprocessing.Base{
 				AccountsSnapshotFactory: snapshotFactory,
-				Labeler: &testscommon.LabelerStub{
+				Agent: &testscommon.LabelerStub{
 					AnswersByTxHash: map[string]string{
 						"txHash1": "answer one",
 						"txHash2": "answer two",

@@ -4,8 +4,8 @@ import (
 	"moa-chain/data"
 )
 
-// Labeler defines what a labeler should do
-type Labeler interface {
+// Agent defines what an agent should do
+type Agent interface {
 	Label(tx data.Transaction) ([]string, error)
 	Answer(tx data.Transaction) (string, error)
 }

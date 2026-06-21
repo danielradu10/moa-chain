@@ -152,7 +152,7 @@ func (bc *blockCreator) createProposedBodyAndDomains() (*data.BlockBody, data.Su
 	txProcessor, err := processor.NewTxProcessor(
 		snapshot,
 		bc.AccountState,
-		bc.Labeler,
+		bc.Agent,
 		bc.Mempool,
 	)
 	if err != nil {

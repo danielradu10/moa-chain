@@ -1,6 +1,7 @@
 package blockprocessing
 
 import (
+	"bytes"
 	"log/slog"
 
 	"moa-chain/data"
@@ -105,21 +106,56 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundOne(
 
 // ExecuteBlockBodyMiniRoundTwo executes the block in the mini-round two.
 // The transactions are already executed economically and verified, so this round only executes the actual prompts.
+// TODO strengthen this method, the checks in the blockBody and the information returned.
 func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundTwo(
 	blockBody *data.BlockBody,
 	promptExecutor transactionprocessing.PromptExecutor,
 ) (*data.BlockBodyExecutionResultMRTwo, error) {
+	if blockBody == nil {
+		exec.logger.Error("blockprocessing.ExecuteBlockBodyMiniRoundTwo nil block body")
+		return nil, ErrNilBlock
+	}
+	if promptExecutor == nil {
+		exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo nil prompt executor")
+		return nil, ErrNilPromptExecutor
+	}
+
 	txsResults := make([]data.TransactionResult, 0, len(blockBody.Transactions))
 	totalConsumption := uint64(0)
+	uniqueTxHashes := make(map[string]struct{})
 	for _, tx := range blockBody.Transactions {
+		if tx == nil {
+			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo nil transaction")
+			return nil, ErrNilTransaction
+		}
+
+		_, ok := uniqueTxHashes[string(tx.GetTxHash())]
+		if ok {
+			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo duplicated transaction in block body", "txHash", string(tx.GetTxHash()))
+			return nil, ErrDuplicatedTransaction
+		}
+		uniqueTxHashes[string(tx.GetTxHash())] = struct{}{}
+
 		txResult, err := promptExecutor.ExecutePromptTransaction(tx)
 		if err != nil {
+			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo prompt executor failed", "txHash", string(tx.GetTxHash()), "error", err)
 			return nil, err
+		}
+		if txResult == nil {
+			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo nil transaction result", "txHash", string(tx.GetTxHash()))
+			return nil, ErrNilTransactionResult
+		}
+
+		if !bytes.Equal(txResult.TxHash, tx.GetTxHash()) {
+			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo tx hash mismatch", "txHash", string(tx.GetTxHash()), "txResult.txHash", string(txResult.TxHash))
+			return nil, ErrTxHashMismatch
 		}
 
 		txsResults = append(txsResults, *txResult)
 		totalConsumption += txResult.ActualConsumption
 	}
+
+	exec.logger.Info("BlockBody executed in MiniRoundTwo", "totalConsumption", totalConsumption)
 
 	return &data.BlockBodyExecutionResultMRTwo{
 		TxsResults:       txsResults,

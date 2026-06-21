@@ -3,21 +3,27 @@ package processor
 import (
 	"moa-chain/agent"
 	"moa-chain/data"
+	"moa-chain/transactionprocessing"
 )
 
 type promptExecutor struct {
-	labeler agent.Labeler
+	agent agent.Agent
 }
 
-func NewPromptExecutor(labeler agent.Labeler) *promptExecutor {
-	return &promptExecutor{
-		labeler: labeler,
+// NewPromptExecutor creates a new prompt executor.
+func NewPromptExecutor(agent agent.Agent) (*promptExecutor, error) {
+	if agent == nil {
+		return nil, transactionprocessing.ErrNilAgent
 	}
+	return &promptExecutor{
+		agent: agent,
+	}, nil
 }
 
 // ExecutePromptTransaction executes the prompt of a transaction.
+// TODO maybe return more metadata per transaction.
 func (pe *promptExecutor) ExecutePromptTransaction(tx data.Transaction) (*data.TransactionResult, error) {
-	answer, err := pe.labeler.Answer(tx)
+	answer, err := pe.agent.Answer(tx)
 	if err != nil {
 		return nil, err
 	}
