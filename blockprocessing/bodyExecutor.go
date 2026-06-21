@@ -107,12 +107,12 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundOne(
 // The transactions are already executed economically and verified, so this round only executes the actual prompts.
 func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundTwo(
 	blockBody *data.BlockBody,
-	transactionProcessor transactionprocessing.TxProcessor,
+	promptExecutor transactionprocessing.PromptExecutor,
 ) (*data.BlockBodyExecutionResultMRTwo, error) {
 	txsResults := make([]data.TransactionResult, 0, len(blockBody.Transactions))
 	totalConsumption := uint64(0)
 	for _, tx := range blockBody.Transactions {
-		txResult, err := transactionProcessor.ExecutePromptTransaction(tx)
+		txResult, err := promptExecutor.ExecutePromptTransaction(tx)
 		if err != nil {
 			return nil, err
 		}

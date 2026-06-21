@@ -203,7 +203,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 func TestBlockProcessor_ExecuteBlockPrompts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("should execute block prompts and discard snapshot", func(t *testing.T) {
+	t.Run("should execute block prompts without creating account snapshot", func(t *testing.T) {
 		t.Parallel()
 
 		tx1 := createTestTransaction(testTransactionArgs{
@@ -212,12 +212,12 @@ func TestBlockProcessor_ExecuteBlockPrompts(t *testing.T) {
 		tx2 := createTestTransaction(testTransactionArgs{
 			txHash: "txHash2",
 		})
-		snapshot := &testscommon.AccountsSnapshotStub{}
+		snapshotFactory := &testscommon.AccountsSnapshotFactoryStub{
+			CreateSnapshotErr: errors.New("snapshot should not be needed"),
+		}
 		blockProcessor := &blockProcessor{
 			Base: blockprocessing.Base{
-				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
-					Snapshot: snapshot,
-				},
+				AccountsSnapshotFactory: snapshotFactory,
 				Labeler: &testscommon.LabelerStub{
 					AnswersByTxHash: map[string]string{
 						"txHash1": "answer one",
@@ -240,25 +240,7 @@ func TestBlockProcessor_ExecuteBlockPrompts(t *testing.T) {
 		require.Equal(t, "answer two", result.TxsResults[1].Answer)
 		require.Greater(t, result.TxsResults[1].ActualConsumption, uint64(0))
 		require.Equal(t, result.TxsResults[0].ActualConsumption+result.TxsResults[1].ActualConsumption, result.TotalConsumption)
-		require.True(t, snapshot.DiscardCalled)
-	})
-
-	t.Run("should return snapshot factory error", func(t *testing.T) {
-		t.Parallel()
-
-		expectedErr := errors.New("snapshot factory error")
-		blockProcessor := &blockProcessor{
-			Base: blockprocessing.Base{
-				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
-					CreateSnapshotErr: expectedErr,
-				},
-			},
-		}
-
-		result, err := blockProcessor.ExecuteBlockPrompts(&data.BlockBody{})
-
-		require.Nil(t, result)
-		require.Equal(t, expectedErr, err)
+		require.False(t, snapshotFactory.CreateCalled)
 	})
 }
 

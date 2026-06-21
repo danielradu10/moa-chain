@@ -366,7 +366,7 @@ func TestTxProcessor_ProcessTransaction(t *testing.T) {
 	})
 }
 
-func TestTxProcessor_ExecutePromptTransaction(t *testing.T) {
+func TestPromptExecutor_ExecutePromptTransaction(t *testing.T) {
 	t.Parallel()
 
 	t.Run("should return answer with actual consumption", func(t *testing.T) {
@@ -381,14 +381,12 @@ func TestTxProcessor_ExecutePromptTransaction(t *testing.T) {
 				"txHash1": answer,
 			},
 		}
-		txProcessor := &txProcessor{
-			labeler: labeler,
-		}
+		promptExecutor := NewPromptExecutor(labeler)
 
-		expectedConsumption, err := txProcessor.calculateNumTokensFromPrompt(answer)
+		expectedConsumption, err := calculateNumTokensFromPrompt(answer)
 		require.NoError(t, err)
 
-		result, err := txProcessor.ExecutePromptTransaction(tx)
+		result, err := promptExecutor.ExecutePromptTransaction(tx)
 
 		require.NoError(t, err)
 		require.Equal(t, []byte("txHash1"), result.TxHash)
@@ -404,13 +402,13 @@ func TestTxProcessor_ExecutePromptTransaction(t *testing.T) {
 		tx := createTestTransaction(testTransactionArgs{
 			txHash: "txHash1",
 		})
-		txProcessor := &txProcessor{
-			labeler: &testscommon.LabelerStub{
+		promptExecutor := NewPromptExecutor(
+			&testscommon.LabelerStub{
 				AnswerErr: expectedErr,
 			},
-		}
+		)
 
-		result, err := txProcessor.ExecutePromptTransaction(tx)
+		result, err := promptExecutor.ExecutePromptTransaction(tx)
 
 		require.Nil(t, result)
 		require.Equal(t, expectedErr, err)

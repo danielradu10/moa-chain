@@ -234,24 +234,7 @@ func (bp *blockProcessor) ExecuteBlockPrompts(block *data.BlockBody) (*data.Bloc
 	}
 
 	executor := blockprocessing.NewBodyExecutor(bp.Logger)
+	promptExecutor := processor.NewPromptExecutor(bp.Labeler)
 
-	snapshot, err := bp.AccountsSnapshotFactory.CreateSnapshot()
-	if err != nil {
-		bp.Logger.Error("validation.ValidateBlock failed to create accounts snapshot", "error", err)
-		return nil, err
-	}
-	defer snapshot.Discard()
-
-	txProcessor, err := processor.NewTxProcessor(
-		snapshot,
-		bp.AccountState,
-		bp.Labeler,
-		bp.Mempool,
-	)
-	if err != nil {
-		bp.Logger.Error("failed to create transaction processor for validation", "error", err)
-		return nil, err
-	}
-
-	return executor.ExecuteBlockBodyMiniRoundTwo(block, txProcessor)
+	return executor.ExecuteBlockBodyMiniRoundTwo(block, promptExecutor)
 }
