@@ -36,8 +36,10 @@ func TestFinalizeBlockComponent(t *testing.T) {
 		component := NewFinalizeBlockComponent()
 		roundKey := data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundTwo)}
 		block := &data.BlockOnChain{
-			AggregatedExecutionResults: &data.AggregatedExecutionResultsMessage{
-				SenderID: "leader",
+			AggregatedExecutionResults: data.AggregatedExecutionResults{
+				{
+					TxHash: []byte("txHash1"),
+				},
 			},
 		}
 

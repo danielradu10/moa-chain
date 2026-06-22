@@ -243,7 +243,7 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 		"miniround2.HandleExecutedPromptsMessage leader aggregated execution results",
 		"roundKey", roundKey,
 		"numSigners", len(aggregatedExecutionResults.Signers),
-		"numTransactions", len(aggregatedExecutionResults.TxResults),
+		"numAnswerSets", len(aggregatedExecutionResults.Answers),
 	)
 
 	consensusMessage := &data.ConsensusMessage{
@@ -277,7 +277,7 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 
 func (handler *miniRoundTwoHandler) finalizeAggregatedExecutionResultsBlock(
 	roundKey data.RoundKey,
-	aggregatedExecutionResults *data.AggregatedExecutionResultsMessage,
+	aggregatedExecutionResultsMessage *data.AggregatedExecutionResultsMessage,
 ) error {
 	finalizedBlockInMROne, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
 		Epoch:     roundKey.Epoch,
@@ -288,11 +288,132 @@ func (handler *miniRoundTwoHandler) finalizeAggregatedExecutionResultsBlock(
 		return err
 	}
 
+	aggregatedExecutionResults, err := handler.createFinalizedAggregatedExecutionResults(aggregatedExecutionResultsMessage)
+	if err != nil {
+		return err
+	}
+
 	return handler.blockFinalizer.FinalizeBlockMRTwo(roundKey, &data.BlockOnChain{
 		Block:                      finalizedBlockInMROne.Block,
 		SubdomainsFrequencies:      finalizedBlockInMROne.SubdomainsFrequencies,
 		AggregatedExecutionResults: aggregatedExecutionResults,
 	})
+}
+
+// HandleAggregatedExecutionResults handles the aggregated execution results certificate broadcast by the mini-round two leader.
+func (handler *miniRoundTwoHandler) HandleAggregatedExecutionResults(
+	roundKey data.RoundKey,
+	message *data.AggregatedExecutionResultsMessage,
+) error {
+	if message == nil {
+		return ErrNilAggregatedExecutionResults
+	}
+
+	handler.logger.Info("miniround2.HandleAggregatedExecutionResults received aggregated execution results", "roundKey", roundKey, "senderID", message.SenderID)
+
+	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		handler.logger.Error("miniround2.HandleAggregatedExecutionResults failed to get leader", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	if message.SenderID != expectedLeader {
+		handler.logger.Error("miniround2.HandleAggregatedExecutionResults message not from expected leader", "roundKey", roundKey, "senderID", message.SenderID, "expectedLeader", expectedLeader)
+		return ErrMessageNotFromLeader
+	}
+
+	if message.Epoch != roundKey.Epoch || message.Round != roundKey.Round || message.MiniRound != roundKey.MiniRound {
+		handler.logger.Error("miniround2.HandleAggregatedExecutionResults round key mismatch", "roundKey", roundKey, "messageEpoch", message.Epoch, "messageRound", message.Round, "messageMiniRound", message.MiniRound)
+		return ErrAggregatedExecutionResultsMismatch
+	}
+
+	if len(message.Signers) != len(message.BlockHashes) ||
+		len(message.Signers) != len(message.BlockSignatures) ||
+		len(message.Signers) != len(message.Answers) {
+		handler.logger.Error(
+			"miniround2.HandleAggregatedExecutionResults inconsistent certificate array lengths",
+			"roundKey", roundKey,
+			"numSigners", len(message.Signers),
+			"numBlockHashes", len(message.BlockHashes),
+			"numBlockSignatures", len(message.BlockSignatures),
+			"numAnswerSets", len(message.Answers),
+		)
+		return ErrAggregatedExecutionResultsMismatch
+	}
+
+	for index, signerID := range message.Signers {
+		executedPromptsMessage := &data.AnswersBlockMessage{
+			Epoch:              message.Epoch,
+			Round:              message.Round,
+			MiniRound:          message.MiniRound,
+			SenderID:           signerID,
+			Answers:            message.Answers[index],
+			CanonicalBlockHash: message.CanonicalBlockHash,
+			BlockHash:          message.BlockHashes[index],
+			BlockSignature:     message.BlockSignatures[index],
+		}
+
+		err = handler.verifyExecutePromptsMessage(roundKey, executedPromptsMessage)
+		if err != nil {
+			handler.logger.Error("miniround2.HandleAggregatedExecutionResults failed to verify execution result", "roundKey", roundKey, "index", index, "signerID", signerID, "error", err)
+			return err
+		}
+	}
+
+	err = handler.finalizeAggregatedExecutionResultsBlock(roundKey, message)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleAggregatedExecutionResults failed to finalize aggregated execution results block", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	handler.logger.Info("miniround2.HandleAggregatedExecutionResults finalized aggregated execution results block", "roundKey", roundKey, "numSigners", len(message.Signers))
+	return nil
+}
+
+func (handler *miniRoundTwoHandler) createFinalizedAggregatedExecutionResults(
+	message *data.AggregatedExecutionResultsMessage,
+) (data.AggregatedExecutionResults, error) {
+	if message == nil || len(message.Answers) == 0 {
+		return nil, ErrNilAnswers
+	}
+
+	txHashSet := make(map[string]struct{})
+	for txHash := range message.Answers[0] {
+		txHashSet[txHash] = struct{}{}
+	}
+
+	txHashes := make([]string, 0, len(txHashSet))
+	for txHash := range txHashSet {
+		txHashes = append(txHashes, txHash)
+	}
+	sort.Strings(txHashes)
+
+	aggregatedExecutionResults := make(data.AggregatedExecutionResults, 0, len(txHashes))
+	for _, txHash := range txHashes {
+		answers := make([]data.TransactionResult, 0, len(message.Answers))
+		for _, answerSet := range message.Answers {
+			if len(answerSet) != len(txHashSet) {
+				return nil, ErrExecutedPromptsAnswersMismatch
+			}
+
+			answer, ok := answerSet[txHash]
+			if !ok {
+				return nil, ErrExecutedPromptsAnswersMismatch
+			}
+			if !bytes.Equal(answer.TxHash, []byte(txHash)) {
+				return nil, ErrExecutedPromptsAnswersMismatch
+			}
+
+			answers = append(answers, answer)
+		}
+
+		aggregatedExecutionResults = append(aggregatedExecutionResults, data.AggregatedTransactionExecutionResults{
+			TxHash:  []byte(txHash),
+			Answers: answers,
+		})
+	}
+
+	return aggregatedExecutionResults, nil
 }
 
 func (handler *miniRoundTwoHandler) createAggregatedExecutionResultsMessage(
@@ -323,10 +444,10 @@ func (handler *miniRoundTwoHandler) createAggregatedExecutionResultsMessage(
 	}
 
 	canonicalBlockHash := orderedMessages[0].CanonicalBlockHash
-	txHashSet := make(map[string]struct{})
 	signers := make([]string, 0, len(orderedMessages))
 	blockHashes := make([][]byte, 0, len(orderedMessages))
 	blockSignatures := make([][]byte, 0, len(orderedMessages))
+	answers := make([]data.AnswersTxMessage, 0, len(orderedMessages))
 
 	for _, message := range orderedMessages {
 		if message == nil {
@@ -339,37 +460,7 @@ func (handler *miniRoundTwoHandler) createAggregatedExecutionResultsMessage(
 		signers = append(signers, message.SenderID)
 		blockHashes = append(blockHashes, message.BlockHash)
 		blockSignatures = append(blockSignatures, message.BlockSignature)
-
-		for txHash := range message.Answers {
-			txHashSet[txHash] = struct{}{}
-		}
-	}
-
-	txHashes := make([]string, 0, len(txHashSet))
-	for txHash := range txHashSet {
-		txHashes = append(txHashes, txHash)
-	}
-	sort.Strings(txHashes)
-
-	txResults := make([]data.AggregatedTransactionExecutionResults, 0, len(txHashes))
-	for _, txHash := range txHashes {
-		answers := make([]data.TransactionResult, 0, len(orderedMessages))
-		for _, message := range orderedMessages {
-			answer, ok := message.Answers[txHash]
-			if !ok {
-				return nil, ErrExecutedPromptsAnswersMismatch
-			}
-			if !bytes.Equal(answer.TxHash, []byte(txHash)) {
-				return nil, ErrExecutedPromptsAnswersMismatch
-			}
-
-			answers = append(answers, answer)
-		}
-
-		txResults = append(txResults, data.AggregatedTransactionExecutionResults{
-			TxHash:  []byte(txHash),
-			Answers: answers,
-		})
+		answers = append(answers, message.Answers)
 	}
 
 	return &data.AggregatedExecutionResultsMessage{
@@ -381,7 +472,7 @@ func (handler *miniRoundTwoHandler) createAggregatedExecutionResultsMessage(
 		Signers:            signers,
 		BlockHashes:        blockHashes,
 		BlockSignatures:    blockSignatures,
-		TxResults:          txResults,
+		Answers:            answers,
 	}, nil
 }
 

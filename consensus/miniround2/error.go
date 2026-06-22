@@ -10,6 +10,15 @@ var ErrDuplicatedAnswer = errors.New("duplicated answer")
 // ErrNilAnswers signals nil answers.
 var ErrNilAnswers = errors.New("nil answers")
 
+// ErrNilAggregatedExecutionResults signals a nil aggregated execution results message.
+var ErrNilAggregatedExecutionResults = errors.New("nil aggregated execution results")
+
+// ErrAggregatedExecutionResultsMismatch signals inconsistent aggregated execution results arrays.
+var ErrAggregatedExecutionResultsMismatch = errors.New("aggregated execution results mismatch")
+
+// ErrMessageNotFromLeader signals that the message was not sent by the expected leader.
+var ErrMessageNotFromLeader = errors.New("message not from leader")
+
 // ErrOnlyLeaderCanCollectVotes signals that a non-leader received a message in the collecting step.
 var ErrOnlyLeaderCanCollectVotes = errors.New("only leader can collect votes")
 

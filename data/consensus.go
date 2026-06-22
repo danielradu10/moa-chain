@@ -124,8 +124,8 @@ type AnswersBlockMessage struct {
 
 type AnswersTxMessage map[string]TransactionResult
 
-// AggregatedExecutionResultsMessage defines the execution results collected by the leader in mini-round two.
-// Signers, block hashes, signatures, and each transaction's answers are aligned by index.
+// AggregatedExecutionResultsMessage defines the execution result certificate collected by the leader in mini-round two.
+// Signers, block hashes, signatures, and answers are aligned by index.
 type AggregatedExecutionResultsMessage struct {
 	// RoundKey information.
 	Epoch     uint64
@@ -143,13 +143,6 @@ type AggregatedExecutionResultsMessage struct {
 	BlockHashes     [][]byte
 	BlockSignatures [][]byte
 
-	// Transaction execution results, sorted deterministically by TxHash.
-	TxResults []AggregatedTransactionExecutionResults
-}
-
-// AggregatedTransactionExecutionResults contains all collected answers for a single transaction.
-// Answers are aligned with AggregatedExecutionResultsMessage.Signers by index.
-type AggregatedTransactionExecutionResults struct {
-	TxHash  []byte
-	Answers []TransactionResult
+	// Answers related information.
+	Answers []AnswersTxMessage
 }
