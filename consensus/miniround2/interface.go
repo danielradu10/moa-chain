@@ -8,5 +8,5 @@ import (
 type MiniRoundTwoHandler interface {
 	HandleConsensusSelection(key data.RoundKey) (string, error)
 	HandleBlockExecution(roundKey data.RoundKey) error
-	HandleExecutePromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error
+	HandleExecutedPromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error
 }

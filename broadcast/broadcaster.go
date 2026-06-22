@@ -54,6 +54,10 @@ func (b *broadcaster) BroadcastAggregatedVotes(aggregatedVotesMessage *data.Cons
 	return b.broadcast(aggregatedVotesMessage, myID, receivers)
 }
 
+func (b *broadcaster) BroadcastAggregatedExecutionResults(aggregatedExecutionResultsMessage *data.ConsensusMessage, myID string, receivers []string) error {
+	return b.broadcast(aggregatedExecutionResultsMessage, myID, receivers)
+}
+
 func (b *broadcaster) broadcast(message *data.ConsensusMessage, myID string, receivers []string) error {
 	if message == nil {
 		b.logger.Error("cannot broadcast nil consensus message", "senderID", myID)

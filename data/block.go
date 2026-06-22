@@ -8,8 +8,9 @@ type Block struct {
 
 // BlockOnChain defines the block that is finalized on chain.
 type BlockOnChain struct {
-	Block                 Block
-	SubdomainsFrequencies SubdomainsFrequency
+	Block                      Block
+	SubdomainsFrequencies      SubdomainsFrequency
+	AggregatedExecutionResults *AggregatedExecutionResultsMessage
 }
 
 // BlockHeader defines the header of a block

@@ -1,10 +1,13 @@
 package miniround2
 
 import (
+	"bytes"
 	"log/slog"
+	"sort"
 
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/blockFinalizer"
+	"moa-chain/blockprocessing/hashing"
 	"moa-chain/broadcast"
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
@@ -171,31 +174,215 @@ func (handler *miniRoundTwoHandler) createExecutePromptsMessage(
 	}, nil
 }
 
-func (handler *miniRoundTwoHandler) HandleExecutePromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error {
+// HandleExecutedPromptsMessage handles the event of receiving an execution result.
+// The method should be called only by the leader of the consensus group and only the leader should receive.
+func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error {
 	if message == nil {
 		return ErrNilAnswers
 	}
 
-	handler.logger.Info("miniround2.HandleExecutePromptsMessage leader received block vote", "roundKey", roundKey, "signerID", message.SenderID)
+	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader received block vote", "roundKey", roundKey, "signerID", message.SenderID)
 
 	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
 	if err != nil {
-		handler.logger.Error("miniround2.HandleExecutePromptsMessage leader failed to get selected leader while handling vote", "roundKey", roundKey, "error", err)
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage leader failed to get selected leader while handling vote", "roundKey", roundKey, "error", err)
 		return err
 	}
 
 	if leaderID != handler.myID {
-		handler.logger.Error("miniround2.HandleExecutePromptsMessage non-leader attempted to collect votes", "roundKey", roundKey, "expectedLeader", leaderID, "localNode", handler.myID)
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage non-leader attempted to collect votes", "roundKey", roundKey, "expectedLeader", leaderID, "localNode", handler.myID)
 		return ErrOnlyLeaderCanCollectVotes
 	}
 
 	err = handler.verifyExecutePromptsMessage(roundKey, message)
 	if err != nil {
-		handler.logger.Error("miniround2.HandleExecutePromptsMessage failed to verify executed prompts message", "roundKey", roundKey, "senderID", message.SenderID, "error", err)
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage failed to verify executed prompts message", "roundKey", roundKey, "senderID", message.SenderID, "error", err)
 		return err
 	}
 
+	err = handler.roundState.AddExecutedPromptsMessage(roundKey, message)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage failed to store executed prompts message", "roundKey", roundKey, "senderID", message.SenderID, "error", err)
+		return err
+	}
+
+	answers, err := handler.roundState.GetExecutedPromptsMessages(roundKey)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage failed to get executed prompts messages", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	consensusGroupSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage failed to get consensus group size", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	if uint64(len(answers)) < (2*consensusGroupSize)/3+1 || handler.roundState.IsCertificateSet(roundKey) {
+		handler.logger.Info(
+			"miniround2.HandleExecutedPromptsMessage leader waiting for more votes or certificate already set",
+			"roundKey", roundKey,
+			"numNodesWhichSentExecutionResults", len(answers),
+			"consensusGroupSize", consensusGroupSize,
+			"quorum", (2*consensusGroupSize)/3+1,
+			"certificateSet", handler.roundState.IsCertificateSet(roundKey),
+		)
+
+		return nil
+	}
+
+	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader reached quorum", "roundKey", roundKey, "numNodesWhichSentExecutionResults", len(answers), "consensusGroupSize", consensusGroupSize)
+
+	aggregatedExecutionResults, err := handler.createAggregatedExecutionResultsMessage(roundKey, answers)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage failed to aggregate execution results", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	handler.logger.Info(
+		"miniround2.HandleExecutedPromptsMessage leader aggregated execution results",
+		"roundKey", roundKey,
+		"numSigners", len(aggregatedExecutionResults.Signers),
+		"numTransactions", len(aggregatedExecutionResults.TxResults),
+	)
+
+	consensusMessage := &data.ConsensusMessage{
+		ConsensusMessageType:       data.AggregatedExecutionResultsConsensusMessage,
+		AggregatedExecutionResults: aggregatedExecutionResults,
+	}
+
+	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
+	handler.logger.Info(
+		"miniround2.HandleExecutedPromptsMessage leader broadcasting aggregated execution results",
+		"roundKey", roundKey,
+		"numReceivers", len(validatorsIDs),
+	)
+
+	err = handler.broadcaster.BroadcastAggregatedExecutionResults(consensusMessage, handler.myID, validatorsIDs)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage leader failed to broadcast aggregated execution results", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	err = handler.finalizeAggregatedExecutionResultsBlock(roundKey, aggregatedExecutionResults)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage leader failed to finalize aggregated execution results block", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader finalized aggregated execution results block", "roundKey", roundKey)
+
 	return nil
+}
+
+func (handler *miniRoundTwoHandler) finalizeAggregatedExecutionResultsBlock(
+	roundKey data.RoundKey,
+	aggregatedExecutionResults *data.AggregatedExecutionResultsMessage,
+) error {
+	finalizedBlockInMROne, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
+		Epoch:     roundKey.Epoch,
+		Round:     roundKey.Round,
+		MiniRound: roundKey.MiniRound - 1,
+	})
+	if err != nil {
+		return err
+	}
+
+	return handler.blockFinalizer.FinalizeBlockMRTwo(roundKey, &data.BlockOnChain{
+		Block:                      finalizedBlockInMROne.Block,
+		SubdomainsFrequencies:      finalizedBlockInMROne.SubdomainsFrequencies,
+		AggregatedExecutionResults: aggregatedExecutionResults,
+	})
+}
+
+func (handler *miniRoundTwoHandler) createAggregatedExecutionResultsMessage(
+	roundKey data.RoundKey,
+	messages []*data.AnswersBlockMessage,
+) (*data.AggregatedExecutionResultsMessage, error) {
+	if len(messages) == 0 {
+		return nil, ErrNilAnswers
+	}
+
+	orderedMessages := make([]*data.AnswersBlockMessage, len(messages))
+	copy(orderedMessages, messages)
+	sort.Slice(orderedMessages, func(i, j int) bool {
+		if orderedMessages[i] == nil {
+			return false
+		}
+		if orderedMessages[j] == nil {
+			return true
+		}
+		if orderedMessages[i].SenderID == orderedMessages[j].SenderID {
+			return bytes.Compare(orderedMessages[i].BlockHash, orderedMessages[j].BlockHash) < 0
+		}
+
+		return orderedMessages[i].SenderID < orderedMessages[j].SenderID
+	})
+	if orderedMessages[0] == nil {
+		return nil, ErrNilAnswers
+	}
+
+	canonicalBlockHash := orderedMessages[0].CanonicalBlockHash
+	txHashSet := make(map[string]struct{})
+	signers := make([]string, 0, len(orderedMessages))
+	blockHashes := make([][]byte, 0, len(orderedMessages))
+	blockSignatures := make([][]byte, 0, len(orderedMessages))
+
+	for _, message := range orderedMessages {
+		if message == nil {
+			return nil, ErrNilAnswers
+		}
+		if !bytes.Equal(message.CanonicalBlockHash, canonicalBlockHash) {
+			return nil, ErrCanonicalBlockHashMismatch
+		}
+
+		signers = append(signers, message.SenderID)
+		blockHashes = append(blockHashes, message.BlockHash)
+		blockSignatures = append(blockSignatures, message.BlockSignature)
+
+		for txHash := range message.Answers {
+			txHashSet[txHash] = struct{}{}
+		}
+	}
+
+	txHashes := make([]string, 0, len(txHashSet))
+	for txHash := range txHashSet {
+		txHashes = append(txHashes, txHash)
+	}
+	sort.Strings(txHashes)
+
+	txResults := make([]data.AggregatedTransactionExecutionResults, 0, len(txHashes))
+	for _, txHash := range txHashes {
+		answers := make([]data.TransactionResult, 0, len(orderedMessages))
+		for _, message := range orderedMessages {
+			answer, ok := message.Answers[txHash]
+			if !ok {
+				return nil, ErrExecutedPromptsAnswersMismatch
+			}
+			if !bytes.Equal(answer.TxHash, []byte(txHash)) {
+				return nil, ErrExecutedPromptsAnswersMismatch
+			}
+
+			answers = append(answers, answer)
+		}
+
+		txResults = append(txResults, data.AggregatedTransactionExecutionResults{
+			TxHash:  []byte(txHash),
+			Answers: answers,
+		})
+	}
+
+	return &data.AggregatedExecutionResultsMessage{
+		Epoch:              roundKey.Epoch,
+		Round:              roundKey.Round,
+		MiniRound:          roundKey.MiniRound,
+		SenderID:           handler.myID,
+		CanonicalBlockHash: canonicalBlockHash,
+		Signers:            signers,
+		BlockHashes:        blockHashes,
+		BlockSignatures:    blockSignatures,
+		TxResults:          txResults,
+	}, nil
 }
 
 func (handler *miniRoundTwoHandler) verifyExecutePromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error {
@@ -220,11 +407,69 @@ func (handler *miniRoundTwoHandler) verifyExecutePromptsMessage(roundKey data.Ro
 		return err
 	}
 
-	err = handler.signer.Verify(publicKey, message.BlockHash, signature)
+	executionResultHash, err := handler.computeExecutionResultHashFromMessage(roundKey, message)
+	if err != nil {
+		handler.logger.Error("failed to compute executed prompts hash from message", "roundKey", roundKey, "signerID", validatorID, "error", err)
+		return err
+	}
+
+	if !bytes.Equal(executionResultHash, message.BlockHash) {
+		handler.logger.Error("executed prompts hash mismatch", "roundKey", roundKey, "signerID", validatorID)
+		return ErrExecutionResultHashMismatch
+	}
+
+	err = handler.signer.Verify(publicKey, executionResultHash, signature)
 	if err != nil {
 		handler.logger.Error("executed prompts signature verification failed", "roundKey", roundKey, "signerID", validatorID, "error", err)
 		return err
 	}
 
 	return nil
+}
+
+func (handler *miniRoundTwoHandler) computeExecutionResultHashFromMessage(
+	roundKey data.RoundKey,
+	message *data.AnswersBlockMessage,
+) ([]byte, error) {
+	finalizedBlockInMROne, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
+		Epoch:     roundKey.Epoch,
+		Round:     roundKey.Round,
+		MiniRound: roundKey.MiniRound - 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	canonicalBlock := finalizedBlockInMROne.Block
+	if !bytes.Equal(message.CanonicalBlockHash, canonicalBlock.Header.HeaderHash) {
+		return nil, ErrCanonicalBlockHashMismatch
+	}
+
+	canonicalTxs := canonicalBlock.Body.Transactions
+	if len(message.Answers) != len(canonicalTxs) {
+		return nil, ErrExecutedPromptsAnswersMismatch
+	}
+
+	txResults := make([]data.TransactionResult, 0, len(canonicalTxs))
+	totalConsumption := uint64(0)
+	for _, tx := range canonicalTxs {
+		txHash := tx.GetTxHash()
+
+		txResult, ok := message.Answers[string(txHash)]
+		if !ok {
+			return nil, ErrExecutedPromptsAnswersMismatch
+		}
+
+		if !bytes.Equal(txResult.TxHash, txHash) {
+			return nil, ErrExecutedPromptsAnswersMismatch
+		}
+
+		txResults = append(txResults, txResult)
+		totalConsumption += txResult.ActualConsumption
+	}
+
+	return hashing.ComputePromptExecutionHash(&data.BlockBodyExecutionResultMRTwo{
+		TxsResults:       txResults,
+		TotalConsumption: totalConsumption,
+	})
 }

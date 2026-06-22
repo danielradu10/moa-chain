@@ -206,11 +206,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 		}
 
 		for _, node := range nodes {
-			if !node.blockFinalizer.WasFinalizeCalled() {
-				return false
-			}
-
-			if node.blockFinalizer.GetFinalizedBlock() == nil {
+			finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+			if err != nil || finalizedBlock == nil {
 				return false
 			}
 		}
@@ -218,12 +215,14 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 		return true
 	}, 5*time.Second, 10*time.Millisecond)
 
-	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
+	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
 	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
 	for _, node := range nodes {
-		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
+		finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
 		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
@@ -337,11 +336,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 		}
 
 		for _, node := range nodes {
-			if !node.blockFinalizer.WasFinalizeCalled() {
-				return false
-			}
-
-			if node.blockFinalizer.GetFinalizedBlock() == nil {
+			finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+			if err != nil || finalizedBlock == nil {
 				return false
 			}
 		}
@@ -349,7 +345,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 		return true
 	}, time.Second, 10*time.Millisecond)
 
-	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
+	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
 	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
@@ -357,7 +354,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 	require.Equal(t, expectedSubdomains(), firstBlock.SubdomainsFrequencies)
 
 	for _, node := range nodes {
-		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
+		finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
 		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
@@ -463,11 +461,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 		}
 
 		for _, node := range nodes {
-			if !node.blockFinalizer.WasFinalizeCalled() {
-				return false
-			}
-
-			if node.blockFinalizer.GetFinalizedBlock() == nil {
+			finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+			if err != nil || finalizedBlock == nil {
 				return false
 			}
 		}
@@ -475,7 +470,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 		return true
 	}, time.Second, 10*time.Millisecond)
 
-	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
+	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
 	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
@@ -494,7 +490,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 	)
 
 	for _, node := range nodes {
-		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
+		finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
 		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
@@ -516,7 +513,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 type integrationTestNode struct {
 	id             string
 	loop           *consensus.RoundLoop
-	blockFinalizer *testscommon.BlockFinalizerStub
+	blockFinalizer *blockFinalizer.FinalizeBlockComponent
 	logger         *logging.NodeLogger
 }
 
@@ -555,7 +552,7 @@ func createNode(
 	transactions []data.Transaction,
 	labeler agent.Agent,
 ) *integrationTestNode {
-	blockFinalizer := &testscommon.BlockFinalizerStub{}
+	finalizer := blockFinalizer.NewFinalizeBlockComponent()
 	nodeLogger, err := createIntegrationTestNodeLogger(t, validatorID)
 	require.NoError(t, err)
 
@@ -591,7 +588,7 @@ func createNode(
 		peersRegistry,
 		validatorsRegistry,
 		myInbox,
-		blockFinalizer,
+		finalizer,
 		labeler,
 		logger,
 	)
@@ -601,7 +598,7 @@ func createNode(
 	return &integrationTestNode{
 		id:             validatorID,
 		loop:           loop,
-		blockFinalizer: blockFinalizer,
+		blockFinalizer: finalizer,
 		logger:         nodeLogger,
 	}
 }

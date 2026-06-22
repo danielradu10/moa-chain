@@ -379,7 +379,7 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 	}
 	handler.logger.Info("miniround1.HandleBlockVote leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies)
 
-	err = handler.blockFinalizer.FinalizeBlockMROne(&data.BlockOnChain{Block: *currentProposedBlock, SubdomainsFrequencies: subdomainsFrequencies})
+	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{Block: *currentProposedBlock, SubdomainsFrequencies: subdomainsFrequencies})
 	if err != nil {
 		handler.logger.Error("leader failed to finalize block", "roundKey", roundKey, "error", err)
 		return err
@@ -527,7 +527,7 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 	}
 	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies)
 
-	err = handler.blockFinalizer.FinalizeBlockMROne(&data.BlockOnChain{Block: *block, SubdomainsFrequencies: subdomainsFrequencies})
+	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{Block: *block, SubdomainsFrequencies: subdomainsFrequencies})
 	if err != nil {
 		handler.logger.Error("failed to finalize block from aggregated votes", "roundKey", roundKey, "error", err)
 		return err

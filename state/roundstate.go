@@ -2,23 +2,32 @@ package state
 
 import (
 	"errors"
+	"sort"
 
 	"moa-chain/data"
 )
 
 // roundState defines the round state component.
+// It is intended to be owned by a single RoundLoop, which processes inbox
+// events sequentially. Because handlers access it through that event loop,
+// the internal maps do not need a mutex for the current execution model.
+// If round handlers start mutating round state from additional goroutines,
+// this component must be protected by synchronization or replaced by an
+// event-loop-owned command API.
 type roundState struct {
-	proposedBlocks map[data.RoundKey]*data.Block
-	votes          map[data.RoundKey]map[string]*data.BlockVote
-	certificates   map[data.RoundKey]*data.AggregatedVotes
+	proposedBlocks  map[data.RoundKey]*data.Block
+	votes           map[data.RoundKey]map[string]*data.BlockVote
+	certificates    map[data.RoundKey]*data.AggregatedVotes
+	executedPrompts map[data.RoundKey]map[string]*data.AnswersBlockMessage
 }
 
 // NewRoundState creates a new round state which caches blocks and votes.
 func NewRoundState() *roundState {
 	return &roundState{
-		proposedBlocks: make(map[data.RoundKey]*data.Block),
-		votes:          make(map[data.RoundKey]map[string]*data.BlockVote),
-		certificates:   make(map[data.RoundKey]*data.AggregatedVotes),
+		proposedBlocks:  make(map[data.RoundKey]*data.Block),
+		votes:           make(map[data.RoundKey]map[string]*data.BlockVote),
+		certificates:    make(map[data.RoundKey]*data.AggregatedVotes),
+		executedPrompts: make(map[data.RoundKey]map[string]*data.AnswersBlockMessage),
 	}
 }
 
@@ -104,9 +113,52 @@ func (state *roundState) IsCertificateSet(roundKey data.RoundKey) bool {
 	return ok
 }
 
+// AddExecutedPromptsMessage stores the executed prompts message received from a validator in mini-round two.
+func (state *roundState) AddExecutedPromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error {
+	if message == nil {
+		return ErrNilExecutedPromptsMessage
+	}
+
+	messagesMap, ok := state.executedPrompts[roundKey]
+	if !ok {
+		messagesMap = make(map[string]*data.AnswersBlockMessage)
+		state.executedPrompts[roundKey] = messagesMap
+	}
+
+	_, ok = messagesMap[message.SenderID]
+	if ok {
+		return ErrExecutedPromptsAlreadyExistsForSender
+	}
+
+	messagesMap[message.SenderID] = message
+	return nil
+}
+
+// GetExecutedPromptsMessages returns the executed prompts messages received in a mini-round two.
+func (state *roundState) GetExecutedPromptsMessages(roundKey data.RoundKey) ([]*data.AnswersBlockMessage, error) {
+	messages, ok := state.executedPrompts[roundKey]
+	if !ok {
+		return nil, ErrNoExecutedPromptsForCurrentRoundKey
+	}
+
+	senderIDs := make([]string, 0, len(messages))
+	for senderID := range messages {
+		senderIDs = append(senderIDs, senderID)
+	}
+	sort.Strings(senderIDs)
+
+	extractedMessages := make([]*data.AnswersBlockMessage, 0, len(senderIDs))
+	for _, senderID := range senderIDs {
+		extractedMessages = append(extractedMessages, messages[senderID])
+	}
+
+	return extractedMessages, nil
+}
+
 // ClearRoundState clears the state of a round.
 func (state *roundState) ClearRoundState(roundKey data.RoundKey) {
 	delete(state.proposedBlocks, roundKey)
 	delete(state.votes, roundKey)
 	delete(state.certificates, roundKey)
+	delete(state.executedPrompts, roundKey)
 }

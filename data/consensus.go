@@ -16,7 +16,8 @@ type ConsensusMessage struct {
 	BlockVote            *BlockVote
 
 	// Mini-Round Two
-	ExecutedPrompts *AnswersBlockMessage
+	ExecutedPrompts            *AnswersBlockMessage
+	AggregatedExecutionResults *AggregatedExecutionResultsMessage
 }
 
 type ConsensusMessageType int
@@ -26,7 +27,8 @@ const (
 	AggregatedVotesConsensusMessage                             // Mini-Round One
 	BlockVoteConsensusMessage                                   // Mini-Round One
 
-	ExecutedPromptsMessage // Mini-Round Two
+	ExecutedPromptsMessage                     // Mini-Round Two
+	AggregatedExecutionResultsConsensusMessage // Mini-Round Two
 )
 
 // MINI-ROUND ONE
@@ -121,3 +123,33 @@ type AnswersBlockMessage struct {
 }
 
 type AnswersTxMessage map[string]TransactionResult
+
+// AggregatedExecutionResultsMessage defines the execution results collected by the leader in mini-round two.
+// Signers, block hashes, signatures, and each transaction's answers are aligned by index.
+type AggregatedExecutionResultsMessage struct {
+	// RoundKey information.
+	Epoch     uint64
+	Round     uint64
+	MiniRound uint64
+
+	// Leader related information.
+	SenderID string
+
+	// CanonicalBlock related information.
+	CanonicalBlockHash []byte // header hash of the finalized block in mini-round one.
+
+	// Execution result signatures related information.
+	Signers         []string
+	BlockHashes     [][]byte
+	BlockSignatures [][]byte
+
+	// Transaction execution results, sorted deterministically by TxHash.
+	TxResults []AggregatedTransactionExecutionResults
+}
+
+// AggregatedTransactionExecutionResults contains all collected answers for a single transaction.
+// Answers are aligned with AggregatedExecutionResultsMessage.Signers by index.
+type AggregatedTransactionExecutionResults struct {
+	TxHash  []byte
+	Answers []TransactionResult
+}
