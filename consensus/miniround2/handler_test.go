@@ -124,7 +124,7 @@ func TestMiniRoundTwoHandler_verifyExecutePromptsMessage(t *testing.T) {
 		publicKey, privateKey := createTestKeyPair(t)
 		finalizedBlock := createTestFinalizedBlock()
 		signer := signing.NewSigner("validator-1", privateKey)
-		signature, err := signer.SignPromptExecutionHash([]byte("different-execution-result-hash"))
+		signature, err := signer.Sign([]byte("different-execution-result-hash"))
 		require.NoError(t, err)
 		message := createSignedExecutedPromptsMessage(t, signer, finalizedBlock)
 		message.BlockSignature = signature
@@ -648,7 +648,7 @@ func createSignedExecutedPromptsMessage(
 	executionResultHash, err := hashing.ComputePromptExecutionHash(executionResult)
 	require.NoError(t, err)
 
-	signature, err := signer.SignPromptExecutionHash(executionResultHash)
+	signature, err := signer.Sign(executionResultHash)
 	require.NoError(t, err)
 
 	return &data.AnswersBlockMessage{

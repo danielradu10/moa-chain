@@ -127,7 +127,7 @@ func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey)
 		return err
 	}
 
-	signature, err := handler.signer.SignPromptExecutionHash(executionResult.BlockHash)
+	signature, err := handler.signer.Sign(executionResult.BlockHash)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleBlockExecution failed to sign prompt execution hash", "err", err)
 		return err
@@ -231,6 +231,9 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 		return nil
 	}
 
+	// From this point the leader has enough independently verified execution results to build
+	// the mini-round two certificate. The certificate is evidence only; the finalized
+	// txHash -> answers view is derived locally after the certificate is broadcast.
 	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader reached quorum", "roundKey", roundKey, "numNodesWhichSentExecutionResults", len(answers), "consensusGroupSize", consensusGroupSize)
 
 	aggregatedExecutionResults, err := handler.createAggregatedExecutionResultsMessage(roundKey, answers)
@@ -293,6 +296,9 @@ func (handler *miniRoundTwoHandler) finalizeAggregatedExecutionResultsBlock(
 		return err
 	}
 
+	// Mini-round two finalization keeps the canonical mini-round one block data and stores only
+	// the deterministic execution-result aggregation. The broadcast certificate remains the proof
+	// used to recompute this finalized view, but it is not itself the finalized artifact.
 	return handler.blockFinalizer.FinalizeBlockMRTwo(roundKey, &data.BlockOnChain{
 		Block:                      finalizedBlockInMROne.Block,
 		SubdomainsFrequencies:      finalizedBlockInMROne.SubdomainsFrequencies,
@@ -300,7 +306,11 @@ func (handler *miniRoundTwoHandler) finalizeAggregatedExecutionResultsBlock(
 	})
 }
 
-// HandleAggregatedExecutionResults handles the aggregated execution results certificate broadcast by the mini-round two leader.
+// HandleAggregatedExecutionResults verifies and finalizes the execution result certificate broadcast by the mini-round two leader.
+// Each receiver first checks that the message comes from the selected leader and that the certificate arrays are aligned.
+// It then reconstructs every validator execution result from the signer, hash, signature, and answer slices, and verifies it
+// with the same rules used by the leader: signer membership, canonical block hash, execution result hash, and signature validity.
+// After all entries are valid, the receiver locally derives the deterministic txHash -> answers aggregation and finalizes it.
 func (handler *miniRoundTwoHandler) HandleAggregatedExecutionResults(
 	roundKey data.RoundKey,
 	message *data.AggregatedExecutionResultsMessage,
@@ -341,6 +351,9 @@ func (handler *miniRoundTwoHandler) HandleAggregatedExecutionResults(
 		return ErrAggregatedExecutionResultsMismatch
 	}
 
+	// The certificate is encoded as parallel slices to mirror mini-round one. Reconstruct each
+	// original execution-result message so all validators run the exact same verification path
+	// as the leader did when it collected the result.
 	for index, signerID := range message.Signers {
 		executedPromptsMessage := &data.AnswersBlockMessage{
 			Epoch:              message.Epoch,
@@ -382,6 +395,8 @@ func (handler *miniRoundTwoHandler) createFinalizedAggregatedExecutionResults(
 		txHashSet[txHash] = struct{}{}
 	}
 
+	// Maps are intentionally converted to a sorted slice before finalization. This makes the
+	// finalized txHash -> answers artifact independent from Go map iteration order.
 	txHashes := make([]string, 0, len(txHashSet))
 	for txHash := range txHashSet {
 		txHashes = append(txHashes, txHash)
@@ -392,6 +407,8 @@ func (handler *miniRoundTwoHandler) createFinalizedAggregatedExecutionResults(
 	for _, txHash := range txHashes {
 		answers := make([]data.TransactionResult, 0, len(message.Answers))
 		for _, answerSet := range message.Answers {
+			// All validators must have answered the same canonical transaction set; otherwise
+			// different nodes could derive different finalized aggregates from the same evidence.
 			if len(answerSet) != len(txHashSet) {
 				return nil, ErrExecutedPromptsAnswersMismatch
 			}
@@ -426,6 +443,9 @@ func (handler *miniRoundTwoHandler) createAggregatedExecutionResultsMessage(
 
 	orderedMessages := make([]*data.AnswersBlockMessage, len(messages))
 	copy(orderedMessages, messages)
+
+	// Arrival order is not consensus-safe, so the leader canonicalizes certificate order before
+	// broadcasting. Receivers use this order when deriving the finalized answer slices.
 	sort.Slice(orderedMessages, func(i, j int) bool {
 		if orderedMessages[i] == nil {
 			return false
@@ -543,6 +563,9 @@ func (handler *miniRoundTwoHandler) computeExecutionResultHashFromMessage(
 
 	txResults := make([]data.TransactionResult, 0, len(canonicalTxs))
 	totalConsumption := uint64(0)
+
+	// Rebuild the execution result in canonical mini-round one transaction order before hashing.
+	// The incoming answers are a map, so hashing them directly would be nondeterministic.
 	for _, tx := range canonicalTxs {
 		txHash := tx.GetTxHash()
 

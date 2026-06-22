@@ -38,11 +38,6 @@ func (s *signer) Sign(message []byte) ([]byte, error) {
 	return ed25519.Sign(s.privateKey, message), nil
 }
 
-// SignPromptExecutionHash signs a mini-round two prompt execution result hash.
-func (s *signer) SignPromptExecutionHash(executionResultHash []byte) ([]byte, error) {
-	return s.Sign(executionResultHash)
-}
-
 // Verify verifies a signature of a message using the public key
 func (s *signer) Verify(publicKey []byte, message []byte, signature []byte) error {
 	if publicKey == nil {

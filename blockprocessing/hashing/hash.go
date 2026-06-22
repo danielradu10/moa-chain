@@ -3,15 +3,9 @@ package hashing
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"errors"
 	"sort"
 
 	"moa-chain/data"
-)
-
-var (
-	errNilBlock       = errors.New("nil block")
-	errNilTransaction = errors.New("nil transaction")
 )
 
 // ComputeBodyHash computes a deterministic hash of the block body.
@@ -28,7 +22,7 @@ var (
 // - labels are hashed explicitly because tx.GetTxHash() may not commit to them
 func ComputeBodyHash(body *data.BlockBody) ([]byte, error) {
 	if body == nil {
-		return nil, errNilBlock
+		return nil, ErrNilBlock
 	}
 
 	h := sha256.New()
@@ -40,7 +34,7 @@ func ComputeBodyHash(body *data.BlockBody) ([]byte, error) {
 
 	for _, tx := range txs {
 		if tx == nil {
-			return nil, errNilTransaction
+			return nil, ErrNilTransaction
 		}
 
 		txHash := tx.GetTxHash()
@@ -74,7 +68,7 @@ func ComputeBodyHash(body *data.BlockBody) ([]byte, error) {
 // - bodyHash is passed explicitly to avoid ambiguity
 func ComputeHeaderHash(header *data.BlockHeader) ([]byte, error) {
 	if header == nil {
-		return nil, errNilBlock
+		return nil, ErrNilBlock
 	}
 
 	h := sha256.New()
@@ -160,7 +154,7 @@ func ComputeSubdomainsHash(subdomains data.Subdomains) ([]byte, error) {
 // - answers are length-prefixed before hashing
 func ComputePromptExecutionHash(executionResult *data.BlockBodyExecutionResultMRTwo) ([]byte, error) {
 	if executionResult == nil {
-		return nil, errNilBlock
+		return nil, ErrNilBlock
 	}
 
 	h := sha256.New()
