@@ -21,3 +21,12 @@ var ErrNilBlock = errors.New("nil block")
 
 // ErrNilVote signals a nil block.
 var ErrNilVote = errors.New("nil vote")
+
+// ErrNilExecutedPromptsMessage signals a nil executed prompts message.
+var ErrNilExecutedPromptsMessage = errors.New("nil executed prompts message")
+
+// ErrExecutedPromptsAlreadyExistsForSender signals duplicated executed prompts from the same sender.
+var ErrExecutedPromptsAlreadyExistsForSender = errors.New("executed prompts already exists for sender")
+
+// ErrNoExecutedPromptsForCurrentRoundKey signals that there are no executed prompts for the current round.
+var ErrNoExecutedPromptsForCurrentRoundKey = errors.New("no executed prompts for current round")

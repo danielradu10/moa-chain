@@ -46,11 +46,14 @@ We need a collection of dominant answers per transaction so that the next leader
 - [ ] Have each selected validator send signed answers directly to the mini-round two leader.
 - [ ] Have the leader collect its own answers and validator answers.
 - [ ] Have the leader finalize once it has enough valid signed answer evidence under the chosen quorum rule.
-- [ ] Broadcast the aggregated answer evidence to validators.
+- [ ] Broadcast the aggregated answer evidence to validators: signer IDs, execution result hashes, signatures, and original answer maps aligned by index.
+- [ ] Do not broadcast a derived `txHash -> []answers` map; each validator should build that view locally after verifying the answer evidence.
 - [ ] Verify on each validator that signers belong to the expected expert set.
 - [ ] Verify all answer signatures against the exact signed payload.
 - [ ] Verify every answer references the expected round, block, and transaction.
-- [ ] Store the answer evidence certificate or enough proof to audit it later.
+- [ ] Finalize the locally derived `txHash -> []answers` result, sorted deterministically by transaction hash and aligned by deterministic signer order.
+- [ ] Store enough answer evidence proof to audit the finalized aggregation later.
+- [ ] TODO: optimize the mini-round two certificate payload. The PoC sends full answer maps with the signatures so validation is simple and auditable, but this is bandwidth-heavy.
 - [ ] Add unit tests for expert selection determinism, signature verification, invalid signers, duplicate answers, missing answers, and malformed payloads.
 - [ ] Add integration tests for a full mini-round two happy path using deterministic test agents.
 

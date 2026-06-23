@@ -29,6 +29,7 @@ Key review areas:
 - Non-obvious private logic has concise comments.
 - Duplicated logic is avoided without over-abstracting.
 - Tests match the repository's existing style and cover meaningful behavior.
+- Reusable stubs and mocks that implement repository interfaces live in `testscommon`, not inline inside package `_test.go` files.
 - Integration tests are added when behavior crosses package boundaries or affects consensus flow.
 - The code preserves deterministic behavior for all consensus-visible outputs.
 - The code has defensible time complexity and memory usage.

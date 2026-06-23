@@ -38,6 +38,7 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, uint64(8), result.TotalConsumption)
+		require.NotEmpty(t, result.BlockHash)
 		require.Equal(t, []data.TransactionResult{
 			{
 				TxHash:            []byte("txHash1"),
@@ -84,6 +85,7 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), result.TotalConsumption)
+		require.NotEmpty(t, result.BlockHash)
 		require.Equal(t, []data.TransactionResult{
 			{
 				TxHash: []byte("txHash1"),
