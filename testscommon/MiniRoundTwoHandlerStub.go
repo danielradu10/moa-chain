@@ -1,0 +1,54 @@
+package testscommon
+
+import "moa-chain/data"
+
+type MiniRoundTwoHandlerStub struct {
+	HandleConsensusSelectionCalled bool
+	HandleConsensusSelectionKey    data.RoundKey
+	HandleConsensusSelectionLeader string
+	HandleConsensusSelectionErr    error
+
+	HandleBlockExecutionCalled bool
+	HandleBlockExecutionKey    data.RoundKey
+	HandleBlockExecutionErr    error
+
+	HandleExecutedPromptsMessageCalled  bool
+	HandleExecutedPromptsMessageKey     data.RoundKey
+	HandleExecutedPromptsMessageMessage *data.AnswersBlockMessage
+	HandleExecutedPromptsMessageErr     error
+
+	HandleAggregatedExecutionResultsCalled  bool
+	HandleAggregatedExecutionResultsKey     data.RoundKey
+	HandleAggregatedExecutionResultsMessage *data.AggregatedExecutionResultsMessage
+	HandleAggregatedExecutionResultsErr     error
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleConsensusSelection(key data.RoundKey) (string, error) {
+	stub.HandleConsensusSelectionCalled = true
+	stub.HandleConsensusSelectionKey = key
+
+	return stub.HandleConsensusSelectionLeader, stub.HandleConsensusSelectionErr
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleBlockExecution(roundKey data.RoundKey) error {
+	stub.HandleBlockExecutionCalled = true
+	stub.HandleBlockExecutionKey = roundKey
+
+	return stub.HandleBlockExecutionErr
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error {
+	stub.HandleExecutedPromptsMessageCalled = true
+	stub.HandleExecutedPromptsMessageKey = roundKey
+	stub.HandleExecutedPromptsMessageMessage = message
+
+	return stub.HandleExecutedPromptsMessageErr
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleAggregatedExecutionResults(roundKey data.RoundKey, message *data.AggregatedExecutionResultsMessage) error {
+	stub.HandleAggregatedExecutionResultsCalled = true
+	stub.HandleAggregatedExecutionResultsKey = roundKey
+	stub.HandleAggregatedExecutionResultsMessage = message
+
+	return stub.HandleAggregatedExecutionResultsErr
+}
