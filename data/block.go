@@ -8,8 +8,9 @@ type Block struct {
 
 // BlockOnChain defines the block that is finalized on chain.
 type BlockOnChain struct {
-	Block                 Block
-	SubdomainsFrequencies SubdomainsFrequency
+	Block                      Block
+	SubdomainsFrequencies      SubdomainsFrequency
+	AggregatedExecutionResults AggregatedExecutionResults
 }
 
 // BlockHeader defines the header of a block
@@ -39,10 +40,29 @@ type Subdomains map[string][]string
 // SubdomainsFrequency defines the frequency of the labels extracted in a proposed block.
 type SubdomainsFrequency map[string]uint64
 
-// BlockBodyExecutionResult defines the execution result of a block in mini-round one.
+// BlockBodyExecutionResultMROne defines the execution result of a block in mini-round one.
 // Contains the subdomains extracted by the validator after labeling each transaction.
-type BlockBodyExecutionResult struct {
+// MRO is the acronym for Mini-Round One.
+type BlockBodyExecutionResultMROne struct {
 	Transactions     []Transaction
 	TotalConsumption uint64
 	Subdomains       Subdomains
+}
+
+// BlockBodyExecutionResultMRTwo defines the execution result of a block in mini-round two
+type BlockBodyExecutionResultMRTwo struct {
+	TxsResults       []TransactionResult
+	TotalConsumption uint64
+	BlockHash        []byte
+}
+
+// AggregatedExecutionResults defines the finalized mini-round two execution results.
+// Results are sorted deterministically by transaction hash.
+type AggregatedExecutionResults []AggregatedTransactionExecutionResults
+
+// AggregatedTransactionExecutionResults contains all collected answers for a single transaction.
+// Answers are aligned with the deterministic signer order from the verified mini-round two certificate.
+type AggregatedTransactionExecutionResults struct {
+	TxHash  []byte
+	Answers []TransactionResult
 }

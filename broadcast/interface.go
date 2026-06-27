@@ -9,6 +9,7 @@ type Broadcaster interface {
 	SendVoteToLeader(voteMessage *data.ConsensusMessage, leaderID string) error
 	BroadcastProposedBlock(blockMessage *data.ConsensusMessage, myID string, receivers []string) error
 	BroadcastAggregatedVotes(aggregatedVotesMessage *data.ConsensusMessage, myID string, receivers []string) error
+	BroadcastAggregatedExecutionResults(aggregatedExecutionResultsMessage *data.ConsensusMessage, myID string, receivers []string) error
 }
 
 // PeerRegistry defines what a peer registry should do.

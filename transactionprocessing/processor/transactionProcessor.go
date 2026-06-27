@@ -14,13 +14,13 @@ type txProcessor struct {
 	accountsProvider state.AccountsProvider
 	accountState     state.AccountsState
 	mempool          mempool.Mempool
-	labeler          agent.Labeler
+	labeler          agent.Agent
 }
 
 func NewTxProcessor(
 	accountsProvider state.AccountsProvider,
 	accountState state.AccountsState,
-	labeler agent.Labeler,
+	labeler agent.Agent,
 	mempool mempool.Mempool,
 ) (*txProcessor, error) {
 	return &txProcessor{

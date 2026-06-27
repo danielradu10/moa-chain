@@ -2,7 +2,7 @@ package mempool
 
 import (
 	"container/heap"
-	"log"
+
 	"log/slog"
 	"sync"
 
@@ -55,7 +55,10 @@ func (mp *memPool) AddTransaction(transaction data.Transaction) error {
 		return nil
 	}
 
-	mp.precomputeTxFields(transaction)
+	err := mp.precomputeTxFields(transaction)
+	if err != nil {
+		return err
+	}
 
 	mp.addTxByHashNoLock(transaction)
 
@@ -92,8 +95,12 @@ func (mp *memPool) addTxByHashNoLock(transaction data.Transaction) {
 
 // precomputeTxFields precomputes the necessary fields of a transaction for SelectTransactions.
 // (i.e. score, estimated gas consumption and other fields)
-func (mp *memPool) precomputeTxFields(transaction data.Transaction) {
-	estimatedNumTokens := mp.estimateNumTokens(transaction)
+func (mp *memPool) precomputeTxFields(transaction data.Transaction) error {
+	estimatedNumTokens, err := mp.estimateNumTokens(transaction)
+	if err != nil {
+		return err
+	}
+
 	transaction.SetEstimatedConsumption(estimatedNumTokens)
 
 	tip := transaction.GetTip()
@@ -107,13 +114,18 @@ func (mp *memPool) precomputeTxFields(transaction data.Transaction) {
 		"estimatedConsumption", estimatedNumTokens,
 		"estimatedScore", score,
 	)
+
+	return nil
 }
 
 // estimateNumTokens estimates the number of tokens taking into consideration numTokens from tokenizer,
 // numTokens from thinking mode, numTokens from output mode
 // TODO search for keywords which usually increase the number of tokens
-func (mp *memPool) estimateNumTokens(transaction data.Transaction) uint64 {
-	numTokensFromPrompt := mp.calculateNumTokensFromPrompt(transaction)
+func (mp *memPool) estimateNumTokens(transaction data.Transaction) (uint64, error) {
+	numTokensFromPrompt, err := mp.calculateNumTokensFromPrompt(transaction)
+	if err != nil {
+		return 0, err
+	}
 
 	outputUserDimension := transaction.GetUserOutputDimension()
 	thinkingMode := transaction.GetThinkingMode()
@@ -122,24 +134,24 @@ func (mp *memPool) estimateNumTokens(transaction data.Transaction) uint64 {
 	outputUserDimensionEstimatedTokens := mp.tokensConfig[outputUserDimension]
 
 	estimatedTokens := numTokensFromPrompt + thinkingEstimatedTokens + outputUserDimensionEstimatedTokens
-	return estimatedTokens
+	return estimatedTokens, nil
 }
 
 // calculateNumTokensFromPrompt tokenizes the prompt to get the number of tokens
-func (mp *memPool) calculateNumTokensFromPrompt(transaction data.Transaction) uint64 {
+func (mp *memPool) calculateNumTokensFromPrompt(transaction data.Transaction) (uint64, error) {
 	prompt := transaction.GetPrompt()
 
 	enc, err := tokenizer.Get(tokenizer.Cl100kBase)
 	if err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
 
 	numTokens, err := enc.Count(string(prompt))
 	if err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
 
-	return uint64(numTokens)
+	return uint64(numTokens), nil
 }
 
 // snapshot does a snapshot of each important map from the MemPool.

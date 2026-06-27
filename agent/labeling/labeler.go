@@ -1,15 +1,19 @@
 package labeling
 
 import (
-	"moa-chain/agent"
+	agent2 "moa-chain/agent"
 	"moa-chain/data"
 )
 
-// label defines the data structure used to label our transaction
-type label struct {
+// agent defines the data structure used to agent our transaction
+type agent struct {
 }
 
 // Label finds the labels (the subdomains) of a given transaction
-func (l *label) Label(tx data.Transaction) ([]string, error) {
-	return nil, agent.ErrNotImplemented
+func (l *agent) Label(tx data.Transaction) ([]string, error) {
+	return nil, agent2.ErrNotImplemented
+}
+
+func (l *agent) Answer(tx data.Transaction) (string, error) {
+	return "", agent2.ErrNotImplemented
 }

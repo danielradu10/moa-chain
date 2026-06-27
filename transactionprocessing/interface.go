@@ -11,3 +11,8 @@ type TxProcessor interface {
 	ValidateTransactionsOrdering(previousTransaction data.Transaction, currentTransaction data.Transaction) error
 	SelectTransactions() []data.Transaction
 }
+
+// PromptExecutor defines the prompt execution behavior needed in mini-round two.
+type PromptExecutor interface {
+	ExecutePromptTransaction(tx data.Transaction) (*data.TransactionResult, error)
+}

@@ -56,5 +56,8 @@ type RoundState interface {
 	AddVote(roundKey data.RoundKey, vote *data.BlockVote) error
 	GetVotes(roundKey data.RoundKey) ([]*data.ValidatorVote, error)
 
+	AddExecutedPromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error
+	GetExecutedPromptsMessages(roundKey data.RoundKey) ([]*data.AnswersBlockMessage, error)
+
 	ClearRoundState(roundKey data.RoundKey)
 }

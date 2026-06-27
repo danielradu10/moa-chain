@@ -34,7 +34,7 @@ type MiniRoundOneHandlerArgs struct {
 	MyID string
 
 	BlockCreator      blockprocessing.BlockCreator
-	BlockValidator    blockprocessing.BlockProcessor
+	BlockProcessor    blockprocessing.BlockProcessor
 	LabelsValidator   blockprocessing.LabelsValidator
 	RoundState        state.RoundState
 	Broadcaster       broadcast.Broadcaster
@@ -50,7 +50,7 @@ func NewMiniRoundOneHandler(args MiniRoundOneHandlerArgs) *handler {
 	return &handler{
 		myID:              args.MyID,
 		blockCreator:      args.BlockCreator,
-		blockValidator:    args.BlockValidator,
+		blockValidator:    args.BlockProcessor,
 		labelsValidator:   args.LabelsValidator,
 		roundState:        args.RoundState,
 		broadcaster:       args.Broadcaster,
@@ -65,7 +65,8 @@ func NewMiniRoundOneHandler(args MiniRoundOneHandlerArgs) *handler {
 // HandleConsensusSelection should be called by each validator in the beginning of the round.
 func (handler *handler) HandleConsensusSelection(key data.RoundKey) (string, error) {
 	handler.logger.Info("miniround1.HandleConsensusSelection started", "roundKey", key)
-	err := handler.validatorRegistry.GenerateConsensusGroup(handler.blockchainState, key)
+
+	err := handler.validatorRegistry.GenerateConsensusGroupMiniRoundOne(handler.blockchainState, key)
 	if err != nil {
 		handler.logger.Error("miniround1.HandleConsensusSelection failed", "roundKey", key, "error", err)
 		return "", err
@@ -90,6 +91,7 @@ func (handler *handler) HandleConsensusSelection(key data.RoundKey) (string, err
 // This method will be called when a validator becomes leader in a specific mini-round.
 func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
 	handler.logger.Info("miniround1.HandleProposingBlock leader started block proposal", "roundKey", roundKey)
+
 	// TODO should propose the domains also?
 	block, subdomains, subdomainsHash, err := handler.blockCreator.ProposeBlockAndDomains()
 	if err != nil {
@@ -166,6 +168,7 @@ func (handler *handler) HandleProposingBlock(roundKey data.RoundKey) error {
 
 	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
 	handler.logger.Info("miniround1.HandleProposingBlock broadcasting proposed block", "roundKey", roundKey, "numReceivers", len(validatorsIDs))
+
 	err = handler.broadcaster.BroadcastProposedBlock(consensusMessage, handler.myID, validatorsIDs)
 	if err != nil {
 		handler.logger.Error("leader failed to broadcast proposed block", "roundKey", roundKey, "error", err)
@@ -188,6 +191,7 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 		handler.logger.Error("received proposed block message with nil block", "roundKey", roundKey, "senderID", message.SenderID)
 		return ErrNilBlock
 	}
+
 	handler.logger.Info(
 		"miniround1.HandleProposedBlock received proposed block",
 		"roundKey", roundKey,
@@ -273,6 +277,7 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		handler.logger.Error("leader received nil block vote", "roundKey", roundKey)
 		return ErrNilVote
 	}
+
 	handler.logger.Info("miniround1.HandleBlockVote leader received block vote", "roundKey", roundKey, "signerID", vote.SignerID)
 
 	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
@@ -374,7 +379,7 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 	}
 	handler.logger.Info("miniround1.HandleBlockVote leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies)
 
-	err = handler.blockFinalizer.FinalizeBlock(&data.BlockOnChain{Block: *currentProposedBlock, SubdomainsFrequencies: subdomainsFrequencies})
+	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{Block: *currentProposedBlock, SubdomainsFrequencies: subdomainsFrequencies})
 	if err != nil {
 		handler.logger.Error("leader failed to finalize block", "roundKey", roundKey, "error", err)
 		return err
@@ -383,6 +388,7 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 
 	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
 	handler.logger.Info("miniround1.HandleBlockVote leader broadcasting aggregated votes", "roundKey", roundKey, "numReceivers", len(validatorsIDs))
+
 	return handler.broadcaster.BroadcastAggregatedVotes(consensusMessage, handler.myID, validatorsIDs)
 }
 
@@ -453,6 +459,7 @@ func (handler *handler) extractSignersAndVotes(votes []*data.ValidatorVote) ([][
 // TODO This method should be more aggressive!
 func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *data.AggregatedVotes) error {
 	handler.logger.Info("miniround1.HandleAggregatedVotes received aggregated votes", "roundKey", roundKey)
+
 	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
 	if err != nil {
 		handler.logger.Error("failed to get leader while handling aggregated votes", "roundKey", roundKey, "error", err)
@@ -520,13 +527,13 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 	}
 	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies)
 
-	err = handler.blockFinalizer.FinalizeBlock(&data.BlockOnChain{Block: *block, SubdomainsFrequencies: subdomainsFrequencies})
+	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{Block: *block, SubdomainsFrequencies: subdomainsFrequencies})
 	if err != nil {
 		handler.logger.Error("failed to finalize block from aggregated votes", "roundKey", roundKey, "error", err)
 		return err
 	}
-	handler.logger.Info("miniround1.HandleAggregatedVotes finalized block", "roundKey", roundKey, "numFrequencies", len(subdomainsFrequencies))
 
+	handler.logger.Info("miniround1.HandleAggregatedVotes finalized block", "roundKey", roundKey, "numFrequencies", len(subdomainsFrequencies))
 	return nil
 }
 

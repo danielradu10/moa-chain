@@ -32,23 +32,42 @@ We need a collection of dominant answers per transaction so that the next leader
 - [ ] Add data structures for expert answers, for example `SignedAnswer`, `TransactionAnswers`, and `AggregatedAnswers`.
 - [ ] Define the exact signed payload for each answer. It should commit to epoch, round, mini-round, block hash, transaction hash, answer hash, and expert-selection version.
 - [ ] Extend validator profiles with per-subdomain scores.
-- [ ] Define deterministic expert selection from mini-round one frequencies and validator domain scores.
+- [ ] Implement the first expert-selection version with one global effective score per validator, computed from mini-round one subdomain frequencies and validator domain scores.
+- [ ] Compute total subdomain frequency from mini-round one finalized frequencies.
+- [ ] Compute fixed-point subdomain weights deterministically.
+- [ ] Compute one effective expert score per validator by combining subdomain weights with validator subdomain scores.
+- [ ] Define how zero, missing, or unknown subdomain scores are handled.
+- [ ] Build the mini-round two expanded validator list from effective expert scores.
+- [ ] Reuse the deterministic unique-selection algorithm to select the expert group.
+- [ ] Define the selected expert group size.
 - [ ] Use fixed-point integer weights for consensus-visible selection rules; avoid floats in finalized protocol logic.
 - [ ] Define canonical ordering and tie-breaking for validators, subdomains, selected experts, and answer payloads.
 - [ ] Implement answer execution for selected expert validators.
 - [ ] Have each selected validator send signed answers directly to the mini-round two leader.
 - [ ] Have the leader collect its own answers and validator answers.
 - [ ] Have the leader finalize once it has enough valid signed answer evidence under the chosen quorum rule.
-- [ ] Broadcast the aggregated answer evidence to validators.
+- [ ] Broadcast the aggregated answer evidence to validators: signer IDs, execution result hashes, signatures, and original answer maps aligned by index.
+- [ ] Do not broadcast a derived `txHash -> []answers` map; each validator should build that view locally after verifying the answer evidence.
 - [ ] Verify on each validator that signers belong to the expected expert set.
 - [ ] Verify all answer signatures against the exact signed payload.
 - [ ] Verify every answer references the expected round, block, and transaction.
-- [ ] Store the answer evidence certificate or enough proof to audit it later.
+- [ ] Finalize the locally derived `txHash -> []answers` result, sorted deterministically by transaction hash and aligned by deterministic signer order.
+- [ ] Store enough answer evidence proof to audit the finalized aggregation later.
+- [ ] TODO: optimize the mini-round two certificate payload. The PoC sends full answer maps with the signatures so validation is simple and auditable, but this is bandwidth-heavy.
 - [ ] Add unit tests for expert selection determinism, signature verification, invalid signers, duplicate answers, missing answers, and malformed payloads.
 - [ ] Add integration tests for a full mini-round two happy path using deterministic test agents.
 
 ### Phase 2: Deterministic Answer Grouping
 
+- [ ] Design the second expert-selection version with explicit per-subdomain expert assignment, for example `subdomain -> []validatorID`.
+- [ ] Decide whether validators can be assigned to multiple subdomains in the same round.
+- [ ] Use this likely first rule: a validator may be assigned to multiple subdomains, but answers each transaction at most once.
+- [ ] Define deterministic per-subdomain selection using subdomain-specific validator scores and canonical tie-breaking.
+- [ ] Decide whether subdomains should be processed by descending weight, and define lexicographic tie-breaking for equal weights.
+- [ ] If assignment diversity is needed, define a deterministic saturation penalty instead of globally removing a validator after its first assignment.
+- [ ] Extend finalized mini-round one state, if needed, from global frequencies to accepted labels per transaction, for example `txHash -> []acceptedSubdomain`.
+- [ ] Route each transaction to the union of experts assigned to its accepted subdomains.
+- [ ] Add tests for overlapping subdomain assignments and the rule that one validator answers a transaction only once.
 - [ ] Decide whether answer clustering belongs in mini-round two or should remain an input for mini-round three.
 - [ ] Define `AnswerCluster` and explicit per-transaction statuses such as `DominantClusterFound`, `NoDominantCluster`, `InsufficientAnswers`, and `ExecutionFailed`.
 - [ ] Define what evidence a cluster must include: answer hashes, signer IDs, cluster ID, and threshold support.

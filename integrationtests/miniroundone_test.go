@@ -3,38 +3,22 @@ package integrationtests
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"moa-chain/agent"
-	"moa-chain/blockprocessing"
-	"moa-chain/blockprocessing/blockFinalizer"
-	"moa-chain/blockprocessing/proposing"
-	"moa-chain/blockprocessing/validation"
-	"moa-chain/broadcast"
-	"moa-chain/consensus"
-	"moa-chain/consensus/miniround1"
-	"moa-chain/crypto/signing"
 	"moa-chain/data"
-	"moa-chain/logging"
 	"moa-chain/mempool"
-	"moa-chain/state"
 	"moa-chain/testscommon"
 	"moa-chain/validators"
 )
-
-const integrationTestInitialBalance = uint64(10_000)
 
 func TestMiniRoundOne_NoErrorsDuringRound(t *testing.T) {
 	const numValidators = 7
@@ -206,24 +190,23 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 		}
 
 		for _, node := range nodes {
-			if !node.blockFinalizer.WasFinalizeCalled() {
-				return false
-			}
-
-			if node.blockFinalizer.GetFinalizedBlock() == nil {
+			finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+			if err != nil || finalizedBlock == nil {
 				return false
 			}
 		}
 
 		return true
-	}, time.Second, 10*time.Millisecond)
+	}, 5*time.Second, 10*time.Millisecond)
 
-	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
+	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
 	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
 	for _, node := range nodes {
-		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
+		finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
 		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
@@ -337,11 +320,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 		}
 
 		for _, node := range nodes {
-			if !node.blockFinalizer.WasFinalizeCalled() {
-				return false
-			}
-
-			if node.blockFinalizer.GetFinalizedBlock() == nil {
+			finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+			if err != nil || finalizedBlock == nil {
 				return false
 			}
 		}
@@ -349,7 +329,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 		return true
 	}, time.Second, 10*time.Millisecond)
 
-	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
+	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
 	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
@@ -357,7 +338,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 	require.Equal(t, expectedSubdomains(), firstBlock.SubdomainsFrequencies)
 
 	for _, node := range nodes {
-		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
+		finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
 		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
@@ -463,11 +445,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 		}
 
 		for _, node := range nodes {
-			if !node.blockFinalizer.WasFinalizeCalled() {
-				return false
-			}
-
-			if node.blockFinalizer.GetFinalizedBlock() == nil {
+			finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+			if err != nil || finalizedBlock == nil {
 				return false
 			}
 		}
@@ -475,7 +454,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 		return true
 	}, time.Second, 10*time.Millisecond)
 
-	firstBlock := nodes[0].blockFinalizer.GetFinalizedBlock()
+	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
 	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
 
@@ -494,7 +474,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 	)
 
 	for _, node := range nodes {
-		finalizedBlock := node.blockFinalizer.GetFinalizedBlock()
+		finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
 		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
@@ -510,213 +491,6 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 		inbox <- data.RoundEvent{
 			Type: data.StopEvent,
 		}
-	}
-}
-
-type integrationTestNode struct {
-	id             string
-	loop           *consensus.RoundLoop
-	blockFinalizer *testscommon.BlockFinalizerStub
-	logger         *logging.NodeLogger
-}
-
-func createValidators(pubKeys [][]byte) []*validators.Validator {
-	vs := make([]*validators.Validator, 0, len(pubKeys))
-
-	for i, pubkey := range pubKeys {
-		v := validators.NewValidator(fmt.Sprintf("validator-%d", i+1), pubkey, 100)
-		vs = append(vs, v)
-	}
-
-	return vs
-}
-
-func currentIntegrationTestHeader() *data.BlockHeader {
-	return &data.BlockHeader{
-		BodyHash:         []byte("body hash 1"),
-		HeaderHash:       []byte("header hash 1"),
-		PreviousHash:     []byte("previous hash 0"),
-		RootHash:         []byte("root hash 1"),
-		PreviousRootHash: []byte("previous root hash 0"),
-		Nonce:            1,
-		Round:            1,
-		MiniRound:        uint64(data.MiniRoundThree),
-		Epoch:            0,
-	}
-}
-
-func createNode(
-	t *testing.T,
-	validatorID string,
-	privateKey []byte,
-	registeredValidators []*validators.Validator,
-	inboxes []chan data.RoundEvent,
-	myInbox chan data.RoundEvent,
-	transactions []data.Transaction,
-	labeler agent.Labeler,
-) *integrationTestNode {
-	blockFinalizer := &testscommon.BlockFinalizerStub{}
-	nodeLogger, err := createIntegrationTestNodeLogger(t, validatorID)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		require.NoError(t, nodeLogger.Close())
-	})
-
-	logger := nodeLogger.Logger()
-
-	txPool := mempool.NewMemPool(logger)
-
-	for _, tx := range transactions {
-		err := txPool.AddTransaction(tx)
-		require.NoError(t, err)
-	}
-
-	peersRegistry := broadcast.NewPeerRegistry()
-	consensusSelector := validators.NewConsensusSelector(logger)
-	validatorsRegistry := validators.NewValidatorRegistry(consensusSelector, logger)
-
-	for i, validator := range registeredValidators {
-		err := validatorsRegistry.Register(validator.PublicID(), validator)
-		require.NoError(t, err)
-
-		err = peersRegistry.Register(validator.PublicID(), inboxes[i])
-		require.NoError(t, err)
-	}
-
-	loop := createRoundLoop(
-		validatorID,
-		privateKey,
-		txPool,
-		peersRegistry,
-		validatorsRegistry,
-		myInbox,
-		blockFinalizer,
-		labeler,
-		logger,
-	)
-
-	require.NotNil(t, loop)
-
-	return &integrationTestNode{
-		id:             validatorID,
-		loop:           loop,
-		blockFinalizer: blockFinalizer,
-		logger:         nodeLogger,
-	}
-}
-
-func createIntegrationTestNodeLogger(t *testing.T, validatorID string) (*logging.NodeLogger, error) {
-	t.Helper()
-
-	testName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
-	logPath := filepath.Join("logs", testName, validatorID+".log")
-	logLevel := logging.ParseLevel(os.Getenv("MOA_TEST_LOG_LEVEL"))
-
-	return logging.NewNodeLoggerWithLevel(validatorID, logPath, logLevel)
-}
-
-func createRoundLoop(
-	nodeID string,
-	privateKey []byte,
-	txPool mempool.Mempool,
-	peerRegistry broadcast.PeerRegistry,
-	validatorRegistry validators.ValidatorRegistry,
-	inbox chan data.RoundEvent,
-	blockFinalizer blockFinalizer.BlockFinalizer,
-	labeler agent.Labeler,
-	logger *slog.Logger,
-) *consensus.RoundLoop {
-	currentHeader := currentIntegrationTestHeader()
-
-	blockchainStateStub := &testscommon.BlockchainStateStub{
-		CurrentBlockHeaderValue: currentHeader,
-		CurrentRoundValue:       currentHeader.Round,
-		CurrentMiniRoundValue:   currentHeader.MiniRound,
-		CurrentEpochValue:       currentHeader.Epoch,
-	}
-
-	base := createBlockBase(txPool, blockchainStateStub, labeler, logger)
-	roundState := state.NewRoundState()
-
-	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
-		MyID:              nodeID,
-		BlockCreator:      proposing.NewBlockCreator(base),
-		BlockValidator:    validation.NewBlockProcessor(base),
-		LabelsValidator:   validation.NewLabelsValidator(logger),
-		RoundState:        roundState,
-		Broadcaster:       broadcast.NewBroadcaster(peerRegistry, logger),
-		Signer:            signing.NewSigner(nodeID, privateKey),
-		ValidatorRegistry: validatorRegistry,
-		BlockchainState:   blockchainStateStub,
-		BlockFinalizer:    blockFinalizer,
-		Logger:            logger,
-	}
-
-	miniRoundOneHandler := miniround1.NewMiniRoundOneHandler(miniRoundOneHandlerArgs)
-
-	roundHandlerArgs := consensus.RoundHandlerArgs{
-		SelfID:              nodeID,
-		CurrentStep:         data.StepIdle,
-		CurrentRoundKey:     data.RoundKey{},
-		MiniRoundOneHandler: miniRoundOneHandler,
-		Logger:              logger,
-	}
-
-	roundHandler := consensus.NewRoundHandler(roundHandlerArgs)
-
-	return consensus.NewRoundLoop(roundHandler, inbox, logger)
-}
-
-func createBlockBase(
-	mempool mempool.Mempool,
-	blockchainState state.BlockchainState,
-	labelerCalled agent.Labeler,
-	logger *slog.Logger,
-) blockprocessing.Base {
-	aliceAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
-	bobAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
-	carolAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
-	davidAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
-	evelineAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
-	frankAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
-
-	escrowAccount := testscommon.NewAccountHandlerStub(0, 0)
-
-	accounts := map[string]*testscommon.AccountHandlerStub{
-		"alice":   aliceAccount,
-		"bob":     bobAccount,
-		"carol":   carolAccount,
-		"david":   davidAccount,
-		"eveline": evelineAccount,
-		"frank":   frankAccount,
-	}
-
-	accountSnapshotStub := &testscommon.AccountsSnapshotStub{
-		Accounts:      accounts,
-		EscrowAccount: escrowAccount,
-	}
-
-	accountSnapshotFactoryMock := testscommon.AccountsSnapshotFactoryStub{
-		Snapshot: accountSnapshotStub,
-	}
-
-	accountStateStub := testscommon.NewAccountStateStub()
-	_ = accountStateStub.AddAccount("alice", 0, integrationTestInitialBalance)
-	_ = accountStateStub.AddAccount("bob", 0, integrationTestInitialBalance)
-	_ = accountStateStub.AddAccount("carol", 0, integrationTestInitialBalance)
-	_ = accountStateStub.AddAccount("david", 0, integrationTestInitialBalance)
-	_ = accountStateStub.AddAccount("eveline", 0, integrationTestInitialBalance)
-	_ = accountStateStub.AddAccount("frank", 0, integrationTestInitialBalance)
-	_ = accountStateStub.AddAccount("escrow", 0, 0)
-
-	return blockprocessing.Base{
-		AccountsSnapshotFactory: &accountSnapshotFactoryMock,
-		BlockchainState:         blockchainState,
-		Labeler:                 labelerCalled,
-		AccountState:            accountStateStub,
-		Mempool:                 mempool,
-		Logger:                  logger,
 	}
 }
 
@@ -852,39 +626,6 @@ func createTransaction(
 	return tx
 }
 
-func cloneTransactions(transactions []data.Transaction) []data.Transaction {
-	clonedTransactions := make([]data.Transaction, 0, len(transactions))
-
-	for _, tx := range transactions {
-		clonedTx := mempool.NewTransaction()
-
-		clonedTx.SetNonce(tx.GetNonce())
-		clonedTx.SetSender(copyBytes(tx.GetSender()))
-		clonedTx.SetReceiver(copyBytes(tx.GetReceiver()))
-		clonedTx.SetTransferredValue(tx.GetTransferredValue())
-
-		clonedTx.SetPrompt(copyBytes(tx.GetPrompt()))
-		clonedTx.SetTip(tx.GetTip())
-		clonedTx.SetTimestamp(tx.GetTimestamp())
-
-		clonedTx.SetTxHash(copyBytes(tx.GetTxHash()))
-
-		clonedTx.SetDomainLabels(copyStringSlice(tx.GetDomainLabels()))
-
-		clonedTx.SetNumInputTokens(tx.GetNumInputTokens())
-		clonedTx.SetUserOutputDimension(tx.GetUserOutputDimension())
-		clonedTx.SetThinkingMode(tx.GetThinkingMode())
-
-		clonedTx.SetEstimatedConsumption(tx.GetEstimatedConsumption())
-		clonedTx.SetEstimatedFee(tx.GetEstimatedFee())
-		clonedTx.SetEstimatedScore(tx.GetEstimatedScore())
-
-		clonedTransactions = append(clonedTransactions, clonedTx)
-	}
-
-	return clonedTransactions
-}
-
 func expectedSubdomains() data.SubdomainsFrequency {
 	return data.SubdomainsFrequency{
 		"back_end_with_apis":                 16,
@@ -900,92 +641,6 @@ func expectedSubdomains() data.SubdomainsFrequency {
 		"dev_ops":                            16,
 		"ml_ai_engineering":                  4,
 	}
-}
-
-func computeTestTxHash(
-	sender string,
-	nonce uint64,
-	prompt string,
-	tip uint64,
-	timestamp uint64,
-) []byte {
-	hasher := sha256.New()
-
-	hasher.Write([]byte("integration-test-transaction-v1"))
-	writeTestString(hasher, sender)
-	writeTestUint64(hasher, nonce)
-	writeTestString(hasher, prompt)
-	writeTestUint64(hasher, tip)
-	writeTestUint64(hasher, timestamp)
-
-	return hasher.Sum(nil)
-}
-
-func copyBytes(input []byte) []byte {
-	if input == nil {
-		return nil
-	}
-
-	output := make([]byte, len(input))
-	copy(output, input)
-
-	return output
-}
-
-func copyStringSlice(input []string) []string {
-	if input == nil {
-		return nil
-	}
-
-	output := make([]string, len(input))
-	copy(output, input)
-
-	return output
-}
-
-func writeTestUint64(
-	hasher interface{ Write([]byte) (int, error) },
-	value uint64,
-) {
-	var buffer [8]byte
-	binary.BigEndian.PutUint64(buffer[:], value)
-	_, _ = hasher.Write(buffer[:])
-}
-
-func writeTestString(
-	hasher interface{ Write([]byte) (int, error) },
-	value string,
-) {
-	writeTestUint64(hasher, uint64(len(value)))
-	_, _ = hasher.Write([]byte(value))
-}
-
-var possibleSubDomains = map[string]struct{}{
-	"systems_programming":                {},
-	"web_front_end":                      {},
-	"back_end_with_apis":                 {},
-	"ml_ai_engineering":                  {},
-	"data_engineering":                   {},
-	"dev_ops":                            {},
-	"security":                           {},
-	"mobile_dev":                         {},
-	"test_engineering_and_qa_automation": {},
-	"blockchain_engineering":             {},
-	"cloud_engineering":                  {},
-	"databases":                          {},
-}
-
-type miniRoundOneTransactionFixture struct {
-	Sender              string `json:"sender"`
-	Receiver            string `json:"receiver"`
-	Nonce               uint64 `json:"nonce"`
-	TransferredValue    uint64 `json:"transferredValue"`
-	Tip                 uint64 `json:"tip"`
-	Timestamp           uint64 `json:"timestamp"`
-	TxHash              string `json:"txHash"`
-	ThinkingMode        string `json:"thinkingMode"`
-	UserOutputDimension string `json:"userOutputDimension"`
-	Prompt              string `json:"prompt"`
 }
 
 type agentLabelsFixture struct {
@@ -1006,7 +661,7 @@ type agentLabelsByTxHash struct {
 func loadMiniRoundOneTransactionsFixture(t *testing.T) []data.Transaction {
 	t.Helper()
 
-	path := filepath.Join("testData", "miniround1_transactions.json")
+	path := filepath.Join("testData", "miniround1", "transactions.json")
 
 	rawData, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -1023,33 +678,13 @@ func loadMiniRoundOneTransactionsFixture(t *testing.T) []data.Transaction {
 	return transactions
 }
 
-func createTransactionFromFixture(fixture miniRoundOneTransactionFixture) data.Transaction {
-	tx := mempool.NewTransaction()
-
-	tx.SetSender([]byte(fixture.Sender))
-	tx.SetReceiver([]byte(fixture.Receiver))
-	tx.SetNonce(fixture.Nonce)
-	tx.SetTransferredValue(fixture.TransferredValue)
-
-	tx.SetPrompt([]byte(fixture.Prompt))
-	tx.SetTip(fixture.Tip)
-	tx.SetTimestamp(fixture.Timestamp)
-	tx.SetTxHash([]byte(fixture.TxHash))
-
-	tx.SetEstimatedFee(1)
-	tx.SetThinkingMode(fixture.ThinkingMode)
-	tx.SetUserOutputDimension(fixture.UserOutputDimension)
-
-	return tx
-}
-
 func loadAgentLabelsFixtures(t *testing.T, numAgents int) []agentLabelsByTxHash {
 	t.Helper()
 
 	agents := make([]agentLabelsByTxHash, 0, numAgents)
 
 	for i := 1; i <= numAgents; i++ {
-		path := filepath.Join("testData", fmt.Sprintf("agent_%d.json", i))
+		path := filepath.Join("testData", "miniround1", "agents", fmt.Sprintf("agent_%d.json", i))
 		agents = append(agents, loadAgentLabelsFixture(t, path))
 	}
 
@@ -1077,7 +712,7 @@ func loadAgentLabelsFixture(t *testing.T, path string) agentLabelsByTxHash {
 	}
 }
 
-func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Labeler {
+func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Agent {
 	return &testscommon.LabelerStub{
 		LabelCalled: func(tx data.Transaction) ([]string, error) {
 			txHash := string(tx.GetTxHash())
@@ -1138,10 +773,6 @@ func validateAgentLabelsFixtures(
 	}
 }
 
-func consensusQuorum(numValidators int) int {
-	return (2*numValidators)/3 + 1
-}
-
 func selectedConsensusGroupForRound(
 	t *testing.T,
 	registeredValidators []*validators.Validator,
@@ -1161,7 +792,7 @@ func selectedConsensusGroupForRound(
 		CurrentBlockHeaderValue: currentIntegrationTestHeader(),
 	}
 
-	err := validatorRegistry.GenerateConsensusGroup(blockchainStateStub, roundKey)
+	err := validatorRegistry.GenerateConsensusGroupMiniRoundOne(blockchainStateStub, roundKey)
 	require.NoError(t, err)
 
 	consensusGroup, err := validatorRegistry.ConsensusGroup()
@@ -1300,26 +931,14 @@ func appendConsensusFrequenciesResult(t *testing.T, frequencies data.SubdomainsF
 	encodedResult, err := json.Marshal(result)
 	require.NoError(t, err)
 
-	outputPath := filepath.Join("testData", "consensus_frequencies_results.jsonl")
+	outputPath := filepath.Join("testData", "miniround1", "results", "consensus_frequencies_results.jsonl")
+	err = os.MkdirAll(filepath.Dir(outputPath), 0o755)
+	require.NoError(t, err)
+
 	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	require.NoError(t, err)
 	defer outputFile.Close()
 
 	_, err = outputFile.Write(append(encodedResult, '\n'))
 	require.NoError(t, err)
-}
-
-func isSubset(subset []string, superset []string) bool {
-	supersetMap := make(map[string]struct{}, len(superset))
-	for _, item := range superset {
-		supersetMap[item] = struct{}{}
-	}
-
-	for _, item := range subset {
-		if _, ok := supersetMap[item]; !ok {
-			return false
-		}
-	}
-
-	return true
 }

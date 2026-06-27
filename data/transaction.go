@@ -38,3 +38,10 @@ type Transaction interface {
 
 	IsInterfaceNil() bool
 }
+
+// TransactionResult defines the result of a transaction after executing the prompt.
+type TransactionResult struct {
+	TxHash            []byte
+	Answer            string
+	ActualConsumption uint64
+}

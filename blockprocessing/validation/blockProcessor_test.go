@@ -125,7 +125,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
 				},
-				Labeler: &testscommon.LabelerStub{
+				Agent: &testscommon.LabelerStub{
 					LabelsByTxHash: map[string][]string{
 						"txHash1": {"security", "cloud_engineering"},
 					},
@@ -180,7 +180,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
 				},
-				Labeler: &testscommon.LabelerStub{
+				Agent: &testscommon.LabelerStub{
 					LabelsByTxHash: map[string][]string{
 						"txHash1": {
 							"security",
@@ -197,6 +197,50 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 
 		require.NoError(t, err)
 		require.True(t, snapshot.DiscardCalled)
+	})
+}
+
+func TestBlockProcessor_ExecuteBlockPrompts(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should execute block prompts without creating account snapshot", func(t *testing.T) {
+		t.Parallel()
+
+		tx1 := createTestTransaction(testTransactionArgs{
+			txHash: "txHash1",
+		})
+		tx2 := createTestTransaction(testTransactionArgs{
+			txHash: "txHash2",
+		})
+		snapshotFactory := &testscommon.AccountsSnapshotFactoryStub{
+			CreateSnapshotErr: errors.New("snapshot should not be needed"),
+		}
+		blockProcessor := &blockProcessor{
+			Base: blockprocessing.Base{
+				AccountsSnapshotFactory: snapshotFactory,
+				Agent: &testscommon.LabelerStub{
+					AnswersByTxHash: map[string]string{
+						"txHash1": "answer one",
+						"txHash2": "answer two",
+					},
+				},
+			},
+		}
+
+		result, err := blockProcessor.ExecuteBlockPrompts(&data.BlockBody{
+			Transactions: []data.Transaction{tx1, tx2},
+		})
+
+		require.NoError(t, err)
+		require.Len(t, result.TxsResults, 2)
+		require.Equal(t, []byte("txHash1"), result.TxsResults[0].TxHash)
+		require.Equal(t, "answer one", result.TxsResults[0].Answer)
+		require.Greater(t, result.TxsResults[0].ActualConsumption, uint64(0))
+		require.Equal(t, []byte("txHash2"), result.TxsResults[1].TxHash)
+		require.Equal(t, "answer two", result.TxsResults[1].Answer)
+		require.Greater(t, result.TxsResults[1].ActualConsumption, uint64(0))
+		require.Equal(t, result.TxsResults[0].ActualConsumption+result.TxsResults[1].ActualConsumption, result.TotalConsumption)
+		require.False(t, snapshotFactory.CreateCalled)
 	})
 }
 

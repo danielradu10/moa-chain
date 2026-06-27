@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"sort"
 
-	"moa-chain/blockprocessing"
 	"moa-chain/data"
 )
 
@@ -23,7 +22,7 @@ import (
 // - labels are hashed explicitly because tx.GetTxHash() may not commit to them
 func ComputeBodyHash(body *data.BlockBody) ([]byte, error) {
 	if body == nil {
-		return nil, blockprocessing.ErrNilBlock
+		return nil, ErrNilBlock
 	}
 
 	h := sha256.New()
@@ -35,7 +34,7 @@ func ComputeBodyHash(body *data.BlockBody) ([]byte, error) {
 
 	for _, tx := range txs {
 		if tx == nil {
-			return nil, blockprocessing.ErrNilTransaction
+			return nil, ErrNilTransaction
 		}
 
 		txHash := tx.GetTxHash()
@@ -69,7 +68,7 @@ func ComputeBodyHash(body *data.BlockBody) ([]byte, error) {
 // - bodyHash is passed explicitly to avoid ambiguity
 func ComputeHeaderHash(header *data.BlockHeader) ([]byte, error) {
 	if header == nil {
-		return nil, blockprocessing.ErrNilBlock
+		return nil, ErrNilBlock
 	}
 
 	h := sha256.New()
@@ -138,6 +137,37 @@ func ComputeSubdomainsHash(subdomains data.Subdomains) ([]byte, error) {
 			writeString(h, domain)
 		}
 	}
+
+	return h.Sum(nil), nil
+}
+
+// ComputePromptExecutionHash computes a deterministic hash of the mini-round two execution result.
+//
+// Hash input:
+// 1. a domain separator
+// 2. the ordered list of transaction prompt results
+// 3. the total prompt execution consumption
+//
+// Important:
+// - transaction result order is preserved
+// - BlockHash itself is NOT included
+// - answers are length-prefixed before hashing
+func ComputePromptExecutionHash(executionResult *data.BlockBodyExecutionResultMRTwo) ([]byte, error) {
+	if executionResult == nil {
+		return nil, ErrNilBlock
+	}
+
+	h := sha256.New()
+	writeBytes(h, []byte("prompt-execution-v1"))
+
+	writeUint64(h, uint64(len(executionResult.TxsResults)))
+	for _, txResult := range executionResult.TxsResults {
+		writeBytes(h, txResult.TxHash)
+		writeString(h, txResult.Answer)
+		writeUint64(h, txResult.ActualConsumption)
+	}
+
+	writeUint64(h, executionResult.TotalConsumption)
 
 	return h.Sum(nil), nil
 }

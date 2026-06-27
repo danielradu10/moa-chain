@@ -11,7 +11,7 @@ import (
 type Base struct {
 	AccountsSnapshotFactory state.AccountsSnapshotFactory
 	BlockchainState         state.BlockchainState
-	Labeler                 agent.Labeler
+	Agent                   agent.Agent
 	AccountState            state.AccountsState
 	Mempool                 mempool.Mempool
 	Logger                  *slog.Logger

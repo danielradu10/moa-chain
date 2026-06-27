@@ -387,7 +387,10 @@ func TestMemPool_calculateNumTokensFromPrompt(t *testing.T) {
 
 	expectedTokens := countPromptTokensForTest(t, prompt)
 
-	require.Equal(t, expectedTokens, mp.calculateNumTokensFromPrompt(tx))
+	calculatedTokens, err := mp.calculateNumTokensFromPrompt(tx)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedTokens, calculatedTokens)
 }
 
 func TestMemPool_calculateNumTokensFromPromptShouldIncreaseForLongerRealPrompt(t *testing.T) {
@@ -400,7 +403,13 @@ func TestMemPool_calculateNumTokensFromPromptShouldIncreaseForLongerRealPrompt(t
 	shortTx := &transaction{prompt: []byte(shortPrompt)}
 	longTx := &transaction{prompt: []byte(longPrompt)}
 
-	require.Greater(t, mp.calculateNumTokensFromPrompt(longTx), mp.calculateNumTokensFromPrompt(shortTx))
+	longRes, err := mp.calculateNumTokensFromPrompt(longTx)
+	require.NoError(t, err)
+
+	shortRes, err := mp.calculateNumTokensFromPrompt(shortTx)
+	require.NoError(t, err)
+
+	require.Greater(t, longRes, shortRes)
 }
 
 func TestMemPool_estimateNumTokens(t *testing.T) {
@@ -416,7 +425,9 @@ func TestMemPool_estimateNumTokens(t *testing.T) {
 
 	expectedTokens := countPromptTokensForTest(t, prompt) + mp.tokensConfig["medium"] + mp.tokensConfig["standard"]
 
-	require.Equal(t, expectedTokens, mp.estimateNumTokens(tx))
+	actualRes, err := mp.estimateNumTokens(tx)
+	require.NoError(t, err)
+	require.Equal(t, expectedTokens, actualRes)
 }
 
 func TestMemPool_precomputeTxFields(t *testing.T) {
@@ -431,7 +442,8 @@ func TestMemPool_precomputeTxFields(t *testing.T) {
 		thinkingMode:        "thinking",
 	}
 
-	mp.precomputeTxFields(tx)
+	err := mp.precomputeTxFields(tx)
+	require.NoError(t, err)
 
 	expectedConsumption := countPromptTokensForTest(t, prompt) + mp.tokensConfig["long"] + mp.tokensConfig["thinking"]
 	require.Equal(t, expectedConsumption, tx.GetEstimatedConsumption())

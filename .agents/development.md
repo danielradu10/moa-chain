@@ -66,6 +66,7 @@ Add tests when behavior changes. Match the current repository style.
 - Add focused unit tests near the package under change.
 - Add integration tests only when behavior crosses packages or changes the mini-round flow.
 - Use `testify/require`, table tests, and local helper constructors consistently with existing tests.
+- Put reusable test doubles in `testscommon`. Do not define package-local stubs in `_test.go` files when the stub implements a repository interface or can be reused by other packages.
 - Test edge cases, not just the happy path.
 - For deterministic logic, test ordering and stable output explicitly.
 - For consensus logic, test invalid signers, wrong leaders, duplicate votes, missing evidence, malformed labels, quorum boundaries, and different vote arrival orders when relevant.
