@@ -1,5 +1,3 @@
-Sigur. L-aș scrie în engleză, ca să fie direct util pentru un agent/software engineer care implementează componenta.
-
 ````markdown
 # Answer Clustering Component
 
