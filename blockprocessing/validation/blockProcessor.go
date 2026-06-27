@@ -188,7 +188,7 @@ func (bp *blockProcessor) validateRootHashContinuity(
 	// check that the new root hash is constructed over the latest root hash
 	blockPreviousRootHash := blockToBeValidated.PreviousRootHash
 	currentChainLatestRootHash := currentBlockHeader.RootHash
-	if bytes.Compare(blockPreviousRootHash, currentChainLatestRootHash) != 0 {
+	if !bytes.Equal(blockPreviousRootHash, currentChainLatestRootHash) {
 		return blockprocessing.ErrDiscontinuousRootHash
 	}
 
@@ -202,7 +202,7 @@ func (bp *blockProcessor) validateHashContinuity(
 	// check that the new block is constructed over the last block
 	blockPreviousHash := blockToBeValidated.PreviousHash
 	currentChainHeaderHash := currentBlockHeader.HeaderHash
-	if bytes.Compare(currentChainHeaderHash, blockPreviousHash) != 0 {
+	if !bytes.Equal(currentChainHeaderHash, blockPreviousHash) {
 		return blockprocessing.ErrDiscontinuousHash
 	}
 

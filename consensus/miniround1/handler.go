@@ -200,6 +200,11 @@ func (handler *handler) HandleProposedBlock(roundKey data.RoundKey, message *dat
 	)
 
 	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		handler.logger.Error("error when inspecting consensus group", "roundKey", roundKey, "error", err)
+		return err
+	}
+
 	if message.SenderID != expectedLeader {
 		handler.logger.Error("proposed block was not sent by expected leader", "roundKey", roundKey, "senderID", message.SenderID, "expectedLeader", expectedLeader)
 		return ErrMessageNotFromLeader

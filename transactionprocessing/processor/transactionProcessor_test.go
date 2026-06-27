@@ -539,56 +539,6 @@ func createTestTransaction(args testTransactionArgs) *testscommon.TransactionStu
 	return ts
 }
 
-func createCurrentBlockHeader(currentMiniRound data.MiniRound) *data.BlockHeader {
-	return &data.BlockHeader{
-		HeaderHash: []byte("currentHeaderHash"),
-		RootHash:   []byte("currentRootHash"),
-		Nonce:      7,
-		Round:      10,
-		MiniRound:  uint64(currentMiniRound),
-		Epoch:      1,
-	}
-}
-
-func createValidNextHeaderForCurrentHeader(currentHeader *data.BlockHeader) *data.BlockHeader {
-	nextMiniRound := data.MiniRoundTwo
-	nextRound := currentHeader.Round
-
-	switch data.MiniRound(currentHeader.MiniRound) {
-	case data.MiniRoundOne:
-		nextMiniRound = data.MiniRoundTwo
-		nextRound = currentHeader.Round
-	case data.MiniRoundTwo:
-		nextMiniRound = data.MiniRoundThree
-		nextRound = currentHeader.Round
-	case data.MiniRoundThree:
-		nextMiniRound = data.MiniRoundOne
-		nextRound = currentHeader.Round + 1
-	}
-
-	return &data.BlockHeader{
-		PreviousHash:     currentHeader.HeaderHash,
-		PreviousRootHash: currentHeader.RootHash,
-		Nonce:            currentHeader.Nonce + 1,
-		Round:            nextRound,
-		MiniRound:        uint64(nextMiniRound),
-		Epoch:            currentHeader.Epoch,
-	}
-}
-
-func createValidBlockForCurrentHeader(
-	currentHeader *data.BlockHeader,
-	transactions []data.Transaction,
-	_ map[string]uint64,
-) *data.Block {
-	return &data.Block{
-		Header: *createValidNextHeaderForCurrentHeader(currentHeader),
-		Body: data.BlockBody{
-			Transactions: transactions,
-		},
-	}
-}
-
 type testAccountsProviderArgs struct {
 	accountState   *testscommon.AccountStateStub
 	addresses      []string

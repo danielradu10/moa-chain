@@ -346,7 +346,10 @@ func appendMiniRoundTwoAggregatedExecutionResult(
 
 	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	require.NoError(t, err)
-	defer outputFile.Close()
+	defer func() {
+		err = outputFile.Close()
+		require.NoError(t, err)
+	}()
 
 	_, err = outputFile.Write(append(encodedResult, '\n'))
 	require.NoError(t, err)
