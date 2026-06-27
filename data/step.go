@@ -8,6 +8,8 @@ const (
 	StepAwaitProposal
 	StepCollectVotes
 	StepAwaitAggregatedVotes
+	StepCollectExecutionResults
+	StepAwaitAggregatedExecutionResults
 	StepFinished
 	StepFailed
 )

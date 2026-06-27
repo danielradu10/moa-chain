@@ -1,9 +1,12 @@
 package consensus
 
 import (
+	"errors"
 	"log/slog"
 
+	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/consensus/miniround1"
+	"moa-chain/consensus/miniround2"
 	"moa-chain/data"
 	"moa-chain/logging"
 )
@@ -14,6 +17,8 @@ type roundHandler struct {
 	currentStep         data.Step
 	currentRoundKey     data.RoundKey
 	miniRoundOneHandler miniround1.MiniRoundOneHandler
+	miniRoundTwoHandler miniround2.MiniRoundTwoHandler
+	blockFinalizer      blockFinalizer.BlockFinalizer
 	logger              *slog.Logger
 }
 
@@ -22,6 +27,8 @@ type RoundHandlerArgs struct {
 	CurrentStep         data.Step
 	CurrentRoundKey     data.RoundKey
 	MiniRoundOneHandler miniround1.MiniRoundOneHandler
+	MiniRoundTwoHandler miniround2.MiniRoundTwoHandler
+	BlockFinalizer      blockFinalizer.BlockFinalizer
 	Logger              *slog.Logger
 }
 
@@ -32,6 +39,8 @@ func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 		currentStep:         args.CurrentStep,
 		currentRoundKey:     args.CurrentRoundKey,
 		miniRoundOneHandler: args.MiniRoundOneHandler,
+		miniRoundTwoHandler: args.MiniRoundTwoHandler,
+		blockFinalizer:      args.BlockFinalizer,
 		logger:              logging.FromOptional(args.Logger),
 	}
 }
@@ -40,6 +49,16 @@ func (rh *roundHandler) StartRound(roundKey data.RoundKey) error {
 	rh.logger.Info("consensus.StartRound started", "roundKey", roundKey, "currentStep", rh.currentStep)
 	rh.currentRoundKey = roundKey
 
+	switch roundKey.MiniRound {
+	case uint64(data.MiniRoundTwo):
+		return rh.startMiniRoundTwo(roundKey)
+
+	default:
+		return rh.startMiniRoundOne(roundKey)
+	}
+}
+
+func (rh *roundHandler) startMiniRoundOne(roundKey data.RoundKey) error {
 	leaderID, err := rh.miniRoundOneHandler.HandleConsensusSelection(roundKey)
 	if err != nil {
 		rh.logger.Error("consensus.StartRound consensus selection failed", "roundKey", roundKey, "error", err)
@@ -70,6 +89,31 @@ func (rh *roundHandler) StartRound(roundKey data.RoundKey) error {
 	return nil
 }
 
+func (rh *roundHandler) startMiniRoundTwo(roundKey data.RoundKey) error {
+	leaderID, err := rh.miniRoundTwoHandler.HandleConsensusSelection(roundKey)
+	if err != nil {
+		rh.logger.Error("consensus.StartRound mini-round two consensus selection failed", "roundKey", roundKey, "error", err)
+		return err
+	}
+	rh.logger.Info("consensus.StartRound mini-round two consensus selection completed", "roundKey", roundKey, "leaderID", leaderID)
+
+	err = rh.miniRoundTwoHandler.HandleBlockExecution(roundKey)
+	if err != nil {
+		rh.currentStep = data.StepFailed
+		rh.logger.Error("consensus.StartRound mini-round two block execution failed", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	if leaderID == rh.selfID {
+		rh.currentStep = data.StepCollectExecutionResults
+	} else {
+		rh.currentStep = data.StepAwaitAggregatedExecutionResults
+	}
+
+	rh.logger.Info("consensus.StartRound mini-round two step changed", "roundKey", roundKey, "step", rh.currentStep)
+	return nil
+}
+
 func (rh *roundHandler) HandleMessage(message data.ConsensusMessage) error {
 	rh.logger.Debug("consensus.HandleMessage handling consensus message", "messageType", message.ConsensusMessageType, "currentStep", rh.currentStep)
 	switch message.ConsensusMessageType {
@@ -81,6 +125,12 @@ func (rh *roundHandler) HandleMessage(message data.ConsensusMessage) error {
 
 	case data.AggregatedVotesConsensusMessage:
 		return rh.handleAggregatedVotes(message)
+
+	case data.ExecutedPromptsMessage:
+		return rh.handleExecutedPrompts(message)
+
+	case data.AggregatedExecutionResultsConsensusMessage:
+		return rh.handleAggregatedExecutionResults(message)
 
 	default:
 		return ErrUnknownConsensusMessage
@@ -126,11 +176,6 @@ func (rh *roundHandler) handleProposedBlock(message data.ConsensusMessage) error
 }
 
 func (rh *roundHandler) handleBlockVote(message data.ConsensusMessage) error {
-	if rh.currentStep != data.StepCollectVotes {
-		rh.logger.Error("unexpected block vote message for step", "currentStep", rh.currentStep)
-		return ErrUnexpectedMessageForStep
-	}
-
 	vote := message.BlockVote
 	if vote == nil {
 		rh.logger.Error("block vote is nil")
@@ -143,13 +188,33 @@ func (rh *roundHandler) handleBlockVote(message data.ConsensusMessage) error {
 		MiniRound: vote.MiniRound,
 	}
 
+	if rh.shouldIgnoreFinalizedMiniRoundMessage(roundKey) {
+		rh.logger.Info("ignoring block vote for finalized mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
+		return nil
+	}
+
+	if rh.currentStep != data.StepCollectVotes {
+		rh.logger.Error("unexpected block vote message for step", "currentStep", rh.currentStep)
+		return ErrUnexpectedMessageForStep
+	}
+
 	if roundKey != rh.currentRoundKey {
+		if rh.isFinalizedPreviousMiniRound(roundKey) {
+			rh.logger.Info("ignoring stale block vote for finalized previous mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
+			return nil
+		}
+
 		rh.logger.Error("block vote for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey)
 		return ErrMessageForDifferentRound
 	}
 
 	rh.logger.Info("handling block vote", "roundKey", roundKey, "signerID", vote.SignerID)
-	return rh.miniRoundOneHandler.HandleBlockVote(roundKey, vote)
+	err := rh.miniRoundOneHandler.HandleBlockVote(roundKey, vote)
+	if err != nil {
+		return err
+	}
+
+	return rh.startMiniRoundTwoIfMiniRoundOneWasFinalized(roundKey)
 }
 
 func (rh *roundHandler) handleAggregatedVotes(message data.ConsensusMessage) error {
@@ -171,6 +236,11 @@ func (rh *roundHandler) handleAggregatedVotes(message data.ConsensusMessage) err
 	}
 
 	if roundKey != rh.currentRoundKey {
+		if rh.isFinalizedPreviousMiniRound(roundKey) {
+			rh.logger.Info("ignoring stale aggregated votes for finalized previous mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
+			return nil
+		}
+
 		rh.logger.Error("aggregated votes for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey)
 		return ErrMessageForDifferentRound
 	}
@@ -183,9 +253,173 @@ func (rh *roundHandler) handleAggregatedVotes(message data.ConsensusMessage) err
 		return err
 	}
 
+	return rh.startNextMiniRound(roundKey)
+}
+
+func (rh *roundHandler) startMiniRoundTwoIfMiniRoundOneWasFinalized(roundKey data.RoundKey) error {
+	_, err := rh.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+	if err != nil {
+		if errors.Is(err, blockFinalizer.ErrFinalizedBlockNotFound) {
+			return nil
+		}
+
+		rh.currentStep = data.StepFailed
+		rh.logger.Error("failed to check mini-round one finalization", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	return rh.startNextMiniRound(roundKey)
+}
+
+func (rh *roundHandler) startNextMiniRound(roundKey data.RoundKey) error {
+	nextRoundKey := data.RoundKey{
+		Epoch:     roundKey.Epoch,
+		Round:     roundKey.Round,
+		MiniRound: roundKey.MiniRound + 1,
+	}
+
+	if nextRoundKey.MiniRound == uint64(data.MiniRoundTwo) {
+		finalizedBlock, err := rh.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+		if err != nil {
+			rh.currentStep = data.StepFailed
+			rh.logger.Error("failed to get finalized mini-round one block before starting mini-round two", "roundKey", roundKey, "error", err)
+			return err
+		}
+
+		if len(finalizedBlock.SubdomainsFrequencies) == 0 {
+			rh.currentStep = data.StepFinished
+			rh.logger.Info("mini-round one finalized without subdomain frequencies; skipping mini-round two", "roundKey", roundKey)
+			return nil
+		}
+	}
+
+	rh.logger.Info("starting next mini-round", "currentRoundKey", roundKey, "nextRoundKey", nextRoundKey)
+	return rh.StartRound(nextRoundKey)
+}
+
+func (rh *roundHandler) isFinalizedPreviousMiniRound(roundKey data.RoundKey) bool {
+	if roundKey.Epoch != rh.currentRoundKey.Epoch ||
+		roundKey.Round != rh.currentRoundKey.Round ||
+		roundKey.MiniRound+1 != rh.currentRoundKey.MiniRound {
+		return false
+	}
+
+	_, err := rh.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+	return err == nil
+}
+
+func (rh *roundHandler) shouldIgnoreFinalizedMiniRoundMessage(roundKey data.RoundKey) bool {
+	if roundKey == rh.currentRoundKey {
+		return rh.currentStep == data.StepFinished && rh.isFinalizedRoundKey(roundKey)
+	}
+
+	return rh.isFinalizedPreviousMiniRound(roundKey)
+}
+
+func (rh *roundHandler) isFinalizedRoundKey(roundKey data.RoundKey) bool {
+	switch roundKey.MiniRound {
+	case uint64(data.MiniRoundOne):
+		_, err := rh.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
+		return err == nil
+
+	case uint64(data.MiniRoundTwo):
+		_, err := rh.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey)
+		return err == nil
+
+	default:
+		return false
+	}
+}
+
+func (rh *roundHandler) handleExecutedPrompts(message data.ConsensusMessage) error {
+	executedPrompts := message.ExecutedPrompts
+	if executedPrompts == nil {
+		rh.logger.Error("executed prompts message is nil")
+		return ErrNilExecutedPrompts
+	}
+
+	roundKey := data.RoundKey{
+		Epoch:     executedPrompts.Epoch,
+		Round:     executedPrompts.Round,
+		MiniRound: executedPrompts.MiniRound,
+	}
+
+	if rh.shouldIgnoreFinalizedMiniRoundMessage(roundKey) {
+		rh.logger.Info("ignoring executed prompts for finalized mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
+		return nil
+	}
+
+	if rh.currentStep != data.StepCollectExecutionResults {
+		rh.logger.Error("unexpected executed prompts message for step", "currentStep", rh.currentStep)
+		return ErrUnexpectedMessageForStep
+	}
+
+	if roundKey != rh.currentRoundKey {
+		rh.logger.Error("executed prompts for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey)
+		return ErrMessageForDifferentRound
+	}
+
+	rh.logger.Info("handling executed prompts", "roundKey", roundKey, "senderID", executedPrompts.SenderID)
+	err := rh.miniRoundTwoHandler.HandleExecutedPromptsMessage(roundKey, executedPrompts)
+	if err != nil {
+		rh.currentStep = data.StepFailed
+		rh.logger.Error("executed prompts handling failed", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	_, err = rh.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey)
+	if err == nil {
+		rh.currentStep = data.StepFinished
+		rh.logger.Info("mini-round two leader finished", "roundKey", roundKey)
+		return nil
+	}
+	if !errors.Is(err, blockFinalizer.ErrFinalizedBlockNotFound) {
+		rh.currentStep = data.StepFailed
+		rh.logger.Error("failed to check mini-round two finalization", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+func (rh *roundHandler) handleAggregatedExecutionResults(message data.ConsensusMessage) error {
+	aggregatedExecutionResults := message.AggregatedExecutionResults
+	if aggregatedExecutionResults == nil {
+		rh.logger.Error("aggregated execution results are nil")
+		return ErrNilAggregatedExecutionResults
+	}
+
+	roundKey := data.RoundKey{
+		Epoch:     aggregatedExecutionResults.Epoch,
+		Round:     aggregatedExecutionResults.Round,
+		MiniRound: aggregatedExecutionResults.MiniRound,
+	}
+
+	if rh.shouldIgnoreFinalizedMiniRoundMessage(roundKey) {
+		rh.logger.Info("ignoring aggregated execution results for finalized mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
+		return nil
+	}
+
+	if rh.currentStep != data.StepAwaitAggregatedExecutionResults {
+		rh.logger.Error("unexpected aggregated execution results message for step", "currentStep", rh.currentStep)
+		return ErrUnexpectedMessageForStep
+	}
+
+	if roundKey != rh.currentRoundKey {
+		rh.logger.Error("aggregated execution results for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey)
+		return ErrMessageForDifferentRound
+	}
+
+	rh.logger.Info("handling aggregated execution results", "roundKey", roundKey, "senderID", aggregatedExecutionResults.SenderID, "numSigners", len(aggregatedExecutionResults.Signers))
+	err := rh.miniRoundTwoHandler.HandleAggregatedExecutionResults(roundKey, aggregatedExecutionResults)
+	if err != nil {
+		rh.currentStep = data.StepFailed
+		rh.logger.Error("aggregated execution results handling failed", "roundKey", roundKey, "error", err)
+		return err
+	}
+
 	rh.currentStep = data.StepFinished
-	rh.logger.Info("round finished", "roundKey", roundKey)
-	//return rh.timer.Stop()
+	rh.logger.Info("mini-round two finished", "roundKey", roundKey)
 	return nil
 }
 
@@ -213,6 +447,14 @@ func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error 
 	case data.StepAwaitAggregatedVotes:
 		rh.currentStep = data.StepFailed
 		return ErrAggregatedVotesTimeout
+
+	case data.StepCollectExecutionResults:
+		rh.currentStep = data.StepFailed
+		return ErrNotEnoughExecutionResults
+
+	case data.StepAwaitAggregatedExecutionResults:
+		rh.currentStep = data.StepFailed
+		return ErrAggregatedExecutionResultsTimeout
 
 	default:
 		return nil
