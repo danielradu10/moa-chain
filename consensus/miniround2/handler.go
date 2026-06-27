@@ -51,6 +51,7 @@ func NewMiniRoundTwoHandler(args MiniRoundTwoHandlerArgs) *miniRoundTwoHandler {
 		broadcaster:       args.Broadcaster,
 		signer:            args.Signer,
 		validatorRegistry: args.ValidatorRegistry,
+		blockchainState:   args.BlockchainState,
 		blockFinalizer:    args.BlockFinalizer,
 		logger:            args.Logger,
 	}
@@ -97,6 +98,11 @@ func (handler *miniRoundTwoHandler) HandleConsensusSelection(key data.RoundKey) 
 // Each validator should sign its execution of the prompts and send
 func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey) error {
 	handler.logger.Info("miniround2.HandleBlockExecution started", "roundKey", roundKey)
+
+	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
+		handler.logger.Info("miniround2.HandleBlockExecution local node is not in consensus group; skipping prompt execution", "roundKey", roundKey, "validatorID", handler.myID)
+		return nil
+	}
 
 	finalizedBlockInMRO, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
 		Epoch:     roundKey.Epoch,
