@@ -1,0 +1,12 @@
+[
+  {"agentId":"agent-01","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"The sender signs with the private key, and validators verify the signature with the corresponding public key."},
+  {"agentId":"agent-02","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"A digital signature is generated using the signer's private key and checked using that signer's public key."},
+  {"agentId":"agent-03","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"Use the secret private key for signing; anyone with the public key can verify the result."},
+  {"agentId":"agent-04","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"Private keys create signatures, while matching public keys allow validators to verify them."},
+  {"agentId":"agent-05","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"The account owner signs the message with its private key and nodes validate it with the public key."},
+  {"agentId":"agent-06","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"Signing requires possession of the private key, whereas verification requires only the public key."},
+  {"agentId":"agent-07","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"Messages are signed privately with the private key and verified openly with the associated public key."},
+  {"agentId":"agent-08","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"The sender creates the signature with the public key, and validators verify it using the sender's private key."},
+  {"agentId":"agent-09","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"A public key is used for signing the message, while the matching private key is distributed for signature verification."},
+  {"agentId":"agent-10","txHash":"tx-key-role-reversal","prompt":"Which keys are used to create and verify a digital signature?","answer":"Validators create signatures with public keys and later confirm those signatures with private keys."}
+]

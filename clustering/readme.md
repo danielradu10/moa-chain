@@ -1,360 +1,430 @@
-````markdown
-# Answer Clustering Component
+# Answer Clustering
 
 ## Purpose
 
-This component is responsible for clustering validator answers in Mini-Round 2.
+This component groups semantically similar validator answers for the same
+transaction. It is intended to support dominant-cluster detection before a later
+aggregation stage.
 
-The goal is not to find identical answers and not to produce the final user-facing response. Instead, the component detects whether there is a dominant group of semantically compatible answers that can be passed to Mini-Round 3.
+The current implementation detects semantic similarity. It does not determine
+whether an answer is factually correct.
 
-Mini-Round 3 will use the dominant cluster as input for a leader/aggregator agent, following the Mixture-of-Agents idea: multiple compatible answers are synthesized into a better final answer.
+## Components
 
-## Problem Statement
+### Embedding
 
-For each transaction, Mini-Round 2 receives a set of signed answers from validators.
+[`embed.py`](embed.py) exposes:
 
-Input:
-
-```text
-txHash -> [signedAnswer_1, signedAnswer_2, ..., signedAnswer_n]
-````
-
-The clustering component must decide:
-
-```text
-Does there exist a dominant semantic cluster with at least 2f + 1 unique validator answers?
+```python
+embed_answers(answers: list[str]) -> list[list[float]]
 ```
 
-If yes, only that dominant cluster is forwarded to Mini-Round 3.
+Embeddings remain in memory and are never written to an intermediate file.
 
-If no dominant cluster exists before the execution window expires, the transaction is marked as:
-
-```text
-NotAnswered
-```
-
-## Important Conceptual Rule
-
-This component performs semantic agreement detection, not exact answer matching.
-
-Two answers may belong to the same cluster even if they are phrased differently, as long as they express a compatible solution direction.
-
-For example, these answers may belong to the same cluster:
+The embedding configuration is:
 
 ```text
-Use short-lived JWT access tokens and refresh tokens.
-Create login and refresh endpoints, validate token expiration and signature.
-Use middleware to validate JWTs and rotate refresh tokens securely.
+model: sentence-transformers/all-MiniLM-L6-v2
+revision: 1110a243fdf4706b3f48f1d95db1a4f5529b4d41
+device: CPU
+normalization: L2-normalized embeddings
 ```
 
-They are not identical, but they are semantically compatible and useful as input for Mini-Round 3.
+The exact model revision and CPU execution are fixed to reduce differences
+between executions. Tests also seed Python, NumPy, and PyTorch and enable
+deterministic PyTorch algorithms.
 
-## Recommended Algorithm
+### Clustering
 
-The recommended first implementation is:
+[`cluster.py`](cluster.py) performs hierarchical clustering independently for
+each `txHash`.
+
+The current defaults are:
 
 ```text
-deterministic embeddings
-+ cosine distance
-+ complete-linkage hierarchical clustering
-+ fixed semantic distance threshold
+distance metric: cosine distance
+linkage: single
+distance threshold: 0.3
 ```
 
-The algorithm must not require a predefined number of clusters.
+SciPy provides the implementation:
 
-The component should not use `k = 2`, k-means with fixed `k`, or any method that forces answers into a fixed number of groups.
+```python
+scipy.spatial.distance.pdist(..., metric="cosine")
+scipy.cluster.hierarchy.linkage(...)
+scipy.cluster.hierarchy.fcluster(..., criterion="distance")
+```
 
-## Dominant Cluster Rule
-
-For a transaction `txHash`, a dominant cluster exists if:
+Supported linkage methods are:
 
 ```text
-exists cluster C such that:
-    size(C) >= quorum
+single
+complete
+average
+weighted
 ```
 
-where:
+The linkage method and threshold can be changed without changing source code:
+
+```bash
+.venv/bin/python clustering/cluster.py answers.json clusters.json \
+  --linkage complete \
+  --distance-threshold 0.3
+```
+
+The input is a JSON array. Additional fields are preserved:
+
+```json
+[
+  {
+    "agentId": "agent-01",
+    "txHash": "tx-001",
+    "prompt": "Why should validators verify signatures?",
+    "answer": "Signatures establish authenticity and integrity."
+  }
+]
+```
+
+The output adds `clusterId` but does not expose embeddings:
+
+```json
+[
+  {
+    "agentId": "agent-01",
+    "txHash": "tx-001",
+    "prompt": "Why should validators verify signatures?",
+    "answer": "Signatures establish authenticity and integrity.",
+    "clusterId": 0
+  }
+]
+```
+
+Cluster IDs have no semantic meaning. Only membership matters.
+
+## Linkage behavior
+
+Single linkage uses the closest pair across two clusters. It can join a new
+answer when that answer is close to only one member of a larger cluster. This
+allows semantic chains.
+
+Complete linkage uses the most distant pair across two clusters. Every member
+of a merged cluster must remain within the selected linkage cutoff. It resists
+chains but can fragment valid paraphrases.
+
+Average and weighted linkage are available for later experiments but have not
+yet been evaluated by the current test analysis.
+
+## Tests
+
+All tests use the real pinned embedding model. There are no mocked embeddings.
+Fixtures are stored in [`testdata`](testdata).
+
+Run the suite with a cached model:
+
+```bash
+HF_HUB_OFFLINE=1 .venv/bin/python -m unittest \
+  clustering.test_cluster \
+  clustering.test_research_scenarios \
+  -v
+```
+
+### 1. Obvious dominant cluster
+
+Fixture: [`obvious_dominant_cluster.json`](testdata/obvious_dominant_cluster.json)
+
+Eight agents give compatible answers about signature authenticity and message
+integrity. Two agents answer unrelated questions about photosynthesis and
+cooking.
+
+Expected and observed with single linkage:
 
 ```text
-quorum = 2f + 1
+[8, 1, 1]
 ```
 
-In Approach 1 of Mini-Round 2, all validators in the selected consensus group execute all transactions, so the quorum is computed from the Mini-Round 2 consensus group size:
+This is the baseline case and passes.
+
+### 2. Topical but factually wrong answers
+
+Fixture: [`topical_but_wrong_answers.json`](testdata/topical_but_wrong_answers.json)
+
+Eight answers are correct. Agent 09 incorrectly claims that signatures encrypt
+the full message. Agent 10 incorrectly claims that a signature proves factual
+correctness and prevents blockchain forks.
+
+Observed with single linkage:
 
 ```text
-f = floor((consensusGroupSize - 1) / 3)
-quorum = 2f + 1
+[9, 1]
 ```
 
-## Component API
+Agent 09 joins the correct cluster because it is semantically close to the
+signature topic. Agent 10 remains separate. This passing test records the fact
+that semantic proximity does not imply factual correctness.
 
-The implementation should expose a function similar to:
+### 3. Direct contradiction
+
+Fixture: [`direct_contradiction.json`](testdata/direct_contradiction.json)
+
+Agents 01-08 support signature verification. Agents 09-10 use similar vocabulary
+but recommend accepting unsigned or invalidly signed messages.
+
+Logical expectation:
 
 ```text
-ClusterAnswers(request) -> ClusterResult
+[8, 2]
 ```
 
-Suggested request structure:
+Observed with single linkage:
 
 ```text
-ClusterRequest:
-    roundId
-    miniRoundId
-    blockHash
-    txHash
-    consensusGroupSize
-    quorum
-    answers[]
-    config
+[9, 1]
 ```
 
-Suggested answer structure:
+The embedding model does not reliably represent negation or reversed intent.
+This research test is marked as an expected failure.
+
+### 4. Competing authentication approaches
+
+Fixture:
+[`competing_authentication_approaches.json`](testdata/competing_authentication_approaches.json)
+
+Five agents recommend stateless JWT authentication. Five recommend stateful
+server-side sessions. Both groups are topically related but propose different
+architectures.
+
+Logical expectation:
 
 ```text
-SignedAnswer:
-    validatorId
-    txHash
-    answerText
-    answerHash
-    signature
+[5, 5]
 ```
 
-Suggested config structure:
+Observed with single linkage:
 
 ```text
-ClusteringConfig:
-    embeddingModelId
-    embeddingModelHash
-    preprocessingVersion
-    distanceMetric
-    clusteringAlgorithm
-    distanceThreshold
-    numericPrecision
-    tieBreakingRule
+[3, 3, 1, 1, 1, 1]
 ```
 
-Suggested result structure:
+The `0.3` threshold fragments both coherent approaches. This research test is an
+expected failure.
+
+### 5. Semantic bridge
+
+Fixture: [`semantic_bridge.json`](testdata/semantic_bridge.json)
+
+Four agents explicitly select PostgreSQL, four explicitly select MongoDB, and
+two give generic database-selection advice. The generic answers should not chain
+the incompatible concrete choices together.
+
+Logical expectation:
 
 ```text
-ClusterResult:
-    txHash
-    status: Answered | NotAnswered
-    dominantCluster
-    allClusters
-    rejectedAnswers
-    metadata
+[4, 4, 1, 1]
 ```
 
-Where:
+Observed with single linkage:
 
 ```text
-dominantCluster:
-    clusterId
-    members[]
-    size
-    averageDistance
-    maxPairwiseDistance
+[7, 1, 1, 1]
 ```
 
-## Determinism Requirements
+Single linkage creates a mixed cluster containing PostgreSQL and MongoDB
+recommendations. This illustrates the chaining problem and is an expected
+failure.
 
-The clustering result must be reproducible by every validator.
+### 6. Subtle key-role reversal
 
-The following must be fixed and versioned:
+Fixture:
+[`subtle_key_role_reversal.json`](testdata/subtle_key_role_reversal.json)
+
+Seven agents correctly say that private keys sign and public keys verify. Three
+agents reverse the roles while retaining almost identical terminology.
+
+Logical expectation:
 
 ```text
-embedding model
-model version/hash
-tokenizer version
-preprocessing rules
-embedding precision or quantization
-distance metric
-clustering algorithm
-distance threshold
-answer ordering
-tie-breaking rules
+[7, 3]
 ```
 
-All input answers must be ordered deterministically before clustering, for example by:
+Observed with single linkage:
 
 ```text
-validatorId ascending
+[8, 1, 1]
 ```
 
-or:
+Some reversed answers join correct answers while some correct paraphrases are
+excluded. This is an expected failure caused by using semantic similarity as a
+proxy for logical compatibility.
+
+### 7. Presentation styles
+
+Fixture: [`presentation_styles.json`](testdata/presentation_styles.json)
+
+Eight answers describe payment idempotency using short prose, detailed prose,
+numbered steps, and pseudocode. Two answers are unrelated.
+
+Logical expectation:
 
 ```text
-answerHash ascending
+[8, 1, 1]
 ```
 
-The chosen rule must be part of the protocol configuration.
-
-## Preprocessing
-
-Before embedding, each answer should pass through a deterministic preprocessing step.
-
-The first version may include:
+Observed with single linkage:
 
 ```text
-normalize line endings
-trim leading/trailing whitespace
-normalize repeated blank lines
-preserve code blocks
-preserve markdown structure
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ```
 
-Do not aggressively rewrite the answer. The goal is to remove formatting noise, not to change the semantic content.
+The current threshold is too strict for these stylistically diverse answers.
+This is an expected failure.
 
-## Clustering Procedure
+### 8. Unrelated-word injection
 
-For each transaction:
+Fixture:
+[`unrelated_word_injection.json`](testdata/unrelated_word_injection.json)
+
+Agents 01-07 give compatible correct answers. Agent 08 gives a complete correct
+answer and appends:
 
 ```text
-1. Receive all valid signed answers available for txHash.
-2. Remove duplicate answers from the same validator.
-3. Sort answers using the canonical ordering rule.
-4. Preprocess each answer deterministically.
-5. Compute one embedding per answer.
-6. Compute the pairwise cosine distance matrix.
-7. Start with each answer as its own cluster.
-8. Repeatedly merge the two closest clusters only if the complete-linkage distance is <= threshold.
-9. Stop when no valid merge remains.
-10. Check whether any cluster has at least quorum unique validators.
-11. If yes, return Answered and the dominant cluster.
-12. If no and the execution window expired, return NotAnswered.
+recipe bowls sushi
 ```
 
-Complete-linkage distance between two clusters is defined as:
+The appended words do not negate or modify the answer, so agent 08 should remain
+in the correct cluster. Agents 09-10 are entirely unrelated.
+
+Logical expectation:
 
 ```text
-distance(clusterA, clusterB) =
-    max distance(answer_i, answer_j)
-    for answer_i in clusterA
-    for answer_j in clusterB
+[8, 1, 1]
 ```
 
-This is intentionally strict. It prevents chain effects where answer A is close to B, B is close to C, but A is not close to C.
-
-## Tie-Breaking
-
-If multiple clusters satisfy the quorum condition, select the dominant cluster deterministically.
-
-Recommended order:
+Observed with single linkage:
 
 ```text
-1. largest cluster size
-2. lowest max pairwise distance
-3. lowest average pairwise distance
-4. lexicographically smallest sorted list of validatorIds
+[7, 1, 1, 1]
 ```
 
-The same tie-breaking rule must be used by all nodes.
+The injected words move the embedding far enough that agent 08 becomes a
+singleton. This demonstrates sensitivity to irrelevant appended content and is
+an expected failure.
 
-## Answered vs NotAnswered
+## Single-linkage and complete-linkage analysis
 
-A transaction can be marked as `Answered` as soon as a valid dominant cluster exists.
+[`diagnose.py`](diagnose.py) calculates pairwise distances, distribution
+statistics, cluster memberships, and merge distances:
 
-A transaction can be marked as `NotAnswered` only after:
+```bash
+HF_HUB_OFFLINE=1 .venv/bin/python -m clustering.diagnose \
+  clustering/testdata/obvious_dominant_cluster.json \
+  clustering/testdata/topical_but_wrong_answers.json
+```
+
+For the eight correct signature-verification answers, the 28 pairwise cosine
+distances are summarized as follows:
+
+| Minimum | Maximum | Mean | Median |
+|---:|---:|---:|---:|
+| 0.077052 | 0.353224 | 0.239964 | 0.257870 |
+
+The maximum correct-to-correct distance exceeds `0.3`. Consequently, complete
+linkage cannot put all eight correct answers into one cluster at the current
+threshold.
+
+### Unrelated-answer scenario
+
+| Distribution | Minimum | Maximum | Mean | Median |
+|---|---:|---:|---:|---:|
+| Agent 09 to correct answers | 0.956454 | 1.029765 | 0.983047 | 0.976134 |
+| Agent 10 to correct answers | 0.978198 | 1.081036 | 1.015422 | 1.003931 |
 
 ```text
-all expected answers were received
+single:   [8, 1, 1]
+complete: [4, 3, 1, 1, 1]
 ```
 
-or:
+Both incorrect answers remain outside under both methods. Complete linkage
+fragments the correct answers.
+
+### Topical-but-wrong scenario
+
+| Distribution | Minimum | Maximum | Mean | Median |
+|---|---:|---:|---:|---:|
+| Agent 09 to correct answers | 0.249751 | 0.407046 | 0.300768 | 0.292422 |
+| Agent 10 to correct answers | 0.393594 | 0.566268 | 0.468641 | 0.472392 |
 
 ```text
-the execution window expired
+single:   [9, 1]
+complete: [4, 4, 1, 1]
 ```
 
-The absence of an early cluster is not enough to mark the transaction as `NotAnswered`, because later answers may still form a dominant cluster.
+Under single linkage, agent 09 joins through agent 01 at distance `0.249751`.
+Only one close cross-cluster pair is needed, so agent 09 becomes connected to the
+entire correct cluster.
 
-## Validation Expectations
-
-The clustering component may assume that signature verification is performed before clustering, but each answer must still contain enough metadata to bind it to:
+Under complete linkage, agent 09 joins only agents 01, 03, and 06 at merge
+distance `0.280837`. It cannot merge further at threshold `0.3` because its
+distances to agents 04, 05, 07, and 08 are respectively:
 
 ```text
-roundId
-miniRoundId
-blockHash
-txHash
-validatorId
-answerHash
+0.407046, 0.324765, 0.304008, 0.316106
 ```
 
-The final Mini-Round 2 artifact should include enough information for validators to recompute and verify the clustering result.
+Complete linkage prevents agent 09 from joining every correct answer, but it
+also fails to preserve the eight correct answers as one cluster.
 
-## Testing Requirements
+## Conclusions
 
-The implementation should include tests for:
+1. The obvious unrelated-outlier scenario works with single linkage at `0.3`.
+2. Single linkage is vulnerable to semantic chaining and can absorb incorrect or
+   incompatible answers through one nearby answer.
+3. Complete linkage reduces chaining, but `0.3` is too strict for the current
+   correct paraphrases.
+4. The embedding model captures topic and wording more reliably than negation,
+   factual correctness, or logical compatibility.
+5. A single global threshold does not currently generalize across signature,
+   authentication, database, and payment examples.
+6. Irrelevant appended words can materially move an otherwise correct answer's
+   embedding.
+7. Neither linkage method should be selected as the production protocol solely
+   from the current fixtures. Average and weighted linkage, threshold selection,
+   preprocessing, and a larger labeled evaluation set still need analysis.
+
+The default remains single linkage with threshold `0.3` until those experiments
+are completed.
+
+## Limitations and missing protocol behavior
+
+The current implementation has the following limitations:
+
+- Semantic similarity does not prove factual correctness.
+- Contradictions and negations may receive similar embeddings.
+- Single linkage can create chain effects.
+- Complete linkage can fragment valid paraphrases.
+- The threshold is manually selected and not calibrated on a representative
+  dataset.
+- Formatting, verbosity, code, and irrelevant suffixes can change distances.
+- CPU execution and a pinned model revision improve repeatability, but exact
+  floating-point equality across all hardware and dependency versions is not
+  guaranteed.
+- Model and dependency artifacts are not yet verified against protocol-level
+  cryptographic hashes.
+- The model is loaded for every call rather than held by a long-lived service.
+- Input validation does not yet enforce one answer per validator.
+- Signature verification and answer-hash verification are outside this Python
+  component.
+- Quorum calculation, dominant-cluster selection, tie-breaking between equally
+  sized clusters, and `Answered`/`NotAnswered` status are not implemented.
+- The tests are small, manually constructed research cases and do not represent
+  the full distribution of production answers.
+
+## Current test status
+
+The two baseline tests pass. The six research tests express the logically desired
+membership and are marked as expected failures because the current configuration
+does not satisfy them:
 
 ```text
-single dominant cluster exists
-no dominant cluster exists
-multiple clusters but none reaches quorum
-multiple valid clusters with deterministic tie-breaking
-duplicate answer from same validator
-same answers in different input order
-threshold too strict
-threshold too permissive
-cluster created only after additional answers arrive
-NotAnswered only after timeout/all answers
-```
-
-The most important determinism test:
-
-```text
-Given the same answers in different input orders,
-the component must return exactly the same clusters and dominant cluster.
-```
-
-## Out of Scope for First Version
-
-The first implementation should not include:
-
-```text
-exact match clustering as the main method
-LLM-as-a-judge in the consensus-critical path
-test-based code execution
-AST-based code comparison
-language-specific static analysis
-spectral clustering as the canonical algorithm
-```
-
-These may be explored later, but the first version should focus on deterministic semantic clustering using embeddings and complete-linkage hierarchical clustering.
-
-## Limitations
-
-This component does not prove that an answer is objectively correct.
-
-It only proves that at least `2f + 1` validators produced semantically compatible answers.
-
-For coding-related prompts, future versions may improve correctness detection using:
-
-```text
-code-aware embeddings
-test execution
-static analysis
-structured answer formats
-domain-specific validation rules
-```
-
-## Expected Outcome
-
-For each transaction, the component must return either:
-
-```text
-Answered:
-    dominant cluster with at least 2f + 1 semantically compatible signed answers
-```
-
-or:
-
-```text
-NotAnswered:
-    no dominant cluster was found before the execution window ended
-```
-
-Only `Answered` transactions are forwarded to Mini-Round 3.
-
-```
+Ran 8 tests
+OK (expected failures=6)
 ```

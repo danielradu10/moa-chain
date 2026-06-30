@@ -1,0 +1,12 @@
+[
+  {"agentId":"agent-01","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"Use PostgreSQL because the application needs relational tables, joins, and ACID transactions."},
+  {"agentId":"agent-02","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"PostgreSQL is the right datastore for structured relational data and transactional consistency."},
+  {"agentId":"agent-03","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"Choose a PostgreSQL relational database with normalized schemas and reliable SQL transactions."},
+  {"agentId":"agent-04","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"Store the data in Postgres to support constraints, joins, and strongly consistent transactions."},
+  {"agentId":"agent-05","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"Use a production database selected for the application's data model, query patterns, and consistency requirements."},
+  {"agentId":"agent-06","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"Choose the primary datastore by evaluating schema flexibility, queries, scalability, and transaction needs."},
+  {"agentId":"agent-07","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"Use MongoDB because the application needs flexible JSON documents and evolving schemas."},
+  {"agentId":"agent-08","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"MongoDB is the right datastore for document-oriented records with a flexible schema."},
+  {"agentId":"agent-09","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"Choose a MongoDB document database to store nested JSON objects without rigid relational tables."},
+  {"agentId":"agent-10","txHash":"tx-semantic-bridge","prompt":"Which database should store the application's primary data?","answer":"Store the data in MongoDB for document queries, horizontal scaling, and schema flexibility."}
+]
