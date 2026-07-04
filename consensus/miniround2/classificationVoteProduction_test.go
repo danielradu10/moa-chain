@@ -129,13 +129,14 @@ func TestSignAnswerClassificationVoteRejectsUnexpectedEvidenceAndPrompt(t *testi
 }
 
 type classificationProductionContext struct {
-	roundKey    data.RoundKey
-	handler     *miniRoundTwoHandler
-	evidence    *data.AggregatedExecutionResultsMessage
-	signer      *recordingMessageSigner
-	publicKeys  map[string][]byte
-	broadcaster *testscommon.BroadcasterStub
-	roundState  state.RoundState
+	roundKey      data.RoundKey
+	handler       *miniRoundTwoHandler
+	evidence      *data.AggregatedExecutionResultsMessage
+	signer        *recordingMessageSigner
+	publicKeys    map[string][]byte
+	memberSigners map[string]signing.MessageSigner
+	broadcaster   *testscommon.BroadcasterStub
+	roundState    state.RoundState
 }
 
 func newClassificationProductionContext(
@@ -168,6 +169,8 @@ func newClassificationProductionContext(
 		ConsensusValidators:     map[string]bool{"leader": true, "validator-a": true, "validator-b": true},
 		PublicKeysByValidatorID: publicKeys,
 		LeaderID:                leaderID,
+		ConsensusGroupSizeValue: 3,
+		ConsensusGroupValue:     producerIDs,
 	}
 	handler := createTestMiniRoundTwoHandler(testMiniRoundTwoHandlerArgs{
 		myID:               myID,
@@ -181,13 +184,14 @@ func newClassificationProductionContext(
 	})
 
 	return classificationProductionContext{
-		roundKey:    roundKey,
-		handler:     handler,
-		evidence:    createAggregatedExecutionResultsMessageFromExecutedPrompts(leaderID, roundKey, messages...),
-		signer:      recordingSigner,
-		publicKeys:  publicKeys,
-		broadcaster: broadcaster,
-		roundState:  roundState,
+		roundKey:      roundKey,
+		handler:       handler,
+		evidence:      createAggregatedExecutionResultsMessageFromExecutedPrompts(leaderID, roundKey, messages...),
+		signer:        recordingSigner,
+		publicKeys:    publicKeys,
+		memberSigners: producerSigners,
+		broadcaster:   broadcaster,
+		roundState:    roundState,
 	}
 }
 

@@ -344,7 +344,7 @@ Tests:
 - wrong evidence or prompt hash cannot be signed;
 - judge failure does not produce a partial vote.
 
-### PR 6: Leader vote collection and certificate broadcast
+### PR 6: Leader vote collection and certificate broadcast — Done
 
 Scope:
 
