@@ -36,3 +36,30 @@ var ErrExecutedPromptsAnswersMismatch = errors.New("executed prompts answers mis
 
 // ErrExecutionResultHashMismatch signals that the answers hash does not match the signed block hash.
 var ErrExecutionResultHashMismatch = errors.New("execution result hash mismatch")
+
+// ErrInvalidAnswerCandidate signals a candidate with missing or malformed identity fields.
+var ErrInvalidAnswerCandidate = errors.New("invalid answer candidate")
+
+// ErrDuplicatedAnswerCandidate signals that a candidate appears more than once.
+var ErrDuplicatedAnswerCandidate = errors.New("duplicated answer candidate")
+
+// ErrMissingAnswerCandidate signals that a classification does not cover an expected candidate.
+var ErrMissingAnswerCandidate = errors.New("missing answer candidate")
+
+// ErrUnknownAnswerCandidate signals that a classification contains an unexpected candidate.
+var ErrUnknownAnswerCandidate = errors.New("unknown answer candidate")
+
+// ErrInvalidAnswerCategory signals a category not defined by the protocol.
+var ErrInvalidAnswerCategory = errors.New("invalid answer category")
+
+// ErrNonCanonicalClassification signals protocol data that is not canonically ordered.
+var ErrNonCanonicalClassification = errors.New("non-canonical answer classification")
+
+// ErrDuplicatedClassificationJudge signals more than one vote from the same judge.
+var ErrDuplicatedClassificationJudge = errors.New("duplicated classification judge")
+
+// ErrInvalidClassificationVote signals a malformed classification vote.
+var ErrInvalidClassificationVote = errors.New("invalid classification vote")
+
+// ErrInvalidAnswerEvidence signals a malformed answer evidence certificate.
+var ErrInvalidAnswerEvidence = errors.New("invalid answer evidence")
