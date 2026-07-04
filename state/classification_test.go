@@ -32,6 +32,25 @@ func TestRoundState_AnswerClassificationVotes(t *testing.T) {
 	)
 }
 
+func TestRoundState_AnswerEvidence(t *testing.T) {
+	t.Parallel()
+
+	roundState := NewRoundState()
+	roundKey := data.RoundKey{Epoch: 1, Round: 2, MiniRound: 1}
+	evidence := &data.AggregatedExecutionResultsMessage{SenderID: "leader"}
+
+	require.NoError(t, roundState.SetAnswerEvidence(roundKey, evidence))
+	stored, err := roundState.GetAnswerEvidence(roundKey)
+	require.NoError(t, err)
+	require.Same(t, evidence, stored)
+	require.ErrorIs(t, roundState.SetAnswerEvidence(roundKey, evidence), ErrAnswerEvidenceAlreadyExists)
+
+	roundState.ClearRoundState(roundKey)
+	stored, err = roundState.GetAnswerEvidence(roundKey)
+	require.Nil(t, stored)
+	require.ErrorIs(t, err, ErrNoAnswerEvidenceForCurrentRoundKey)
+}
+
 func TestRoundState_AnswerClassificationCertificate(t *testing.T) {
 	t.Parallel()
 

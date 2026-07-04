@@ -201,13 +201,14 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 		broadcaster := &testscommon.BroadcasterStub{}
 		finalizer := createSeededFinalizer(t, finalizedBlock)
 		handler := createTestMiniRoundTwoHandler(testMiniRoundTwoHandlerArgs{
-			myID:           "leader",
+			myID:           "validator-1",
 			signer:         signer,
+			answerJudge:    singleCandidateAnswerJudge{},
 			roundState:     roundState,
 			broadcaster:    broadcaster,
 			blockFinalizer: finalizer,
 			validatorRegistry: &testscommon.ValidatorRegistryStub{
-				LeaderID: "leader",
+				LeaderID: "validator-1",
 				RegisteredValidators: map[string]bool{
 					"validator-1": true,
 				},
@@ -217,7 +218,9 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 				PublicKeysByValidatorID: map[string][]byte{
 					"validator-1": publicKey,
 				},
-				ValidatorsIDs: []string{"leader", "validator-1", "validator-2"},
+				ConsensusGroupSizeValue: 1,
+				ConsensusGroupValue:     []string{"validator-1"},
+				ValidatorsIDs:           []string{"validator-1"},
 			},
 		})
 
@@ -229,8 +232,8 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 		require.Equal(t, []*data.AnswersBlockMessage{message}, storedMessages)
 		require.NotNil(t, broadcaster.BroadcastAggregatedExecutionResultsMessage)
 		require.Equal(t, data.AggregatedExecutionResultsConsensusMessage, broadcaster.BroadcastAggregatedExecutionResultsMessage.ConsensusMessageType)
-		require.Equal(t, "leader", broadcaster.BroadcastAggregatedExecutionResultsMyID)
-		require.Equal(t, []string{"leader", "validator-1", "validator-2"}, broadcaster.BroadcastAggregatedExecutionResultsTargets)
+		require.Equal(t, "validator-1", broadcaster.BroadcastAggregatedExecutionResultsMyID)
+		require.Equal(t, []string{"validator-1"}, broadcaster.BroadcastAggregatedExecutionResultsTargets)
 
 		aggregatedExecutionResults := broadcaster.BroadcastAggregatedExecutionResultsMessage.AggregatedExecutionResults
 		require.NotNil(t, aggregatedExecutionResults)
@@ -257,6 +260,8 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 				},
 			},
 		}, finalizedBlockInMRTwo.AggregatedExecutionResults)
+		require.Same(t, aggregatedExecutionResults, finalizedBlockInMRTwo.AnswerEvidence)
+		require.Len(t, finalizedBlockInMRTwo.AnswerClassifications, 2)
 	})
 
 	t.Run("should not finalize aggregated execution results when broadcast fails", func(t *testing.T) {
@@ -302,6 +307,12 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 		require.Nil(t, finalizedBlockInMRTwo)
 		require.Equal(t, blockFinalizer.ErrFinalizedBlockNotFound, err)
 	})
+}
+
+type singleCandidateAnswerJudge struct{}
+
+func (singleCandidateAnswerJudge) JudgeAnswers(agent.AnswerJudgeRequest) (string, error) {
+	return `{"classifications":[{"candidateId":"candidate-1","category":"CORRECT"}]}`, nil
 }
 
 func TestMiniRoundTwoHandler_HandleAggregatedExecutionResults(t *testing.T) {

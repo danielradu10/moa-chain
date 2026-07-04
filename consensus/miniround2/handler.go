@@ -3,6 +3,7 @@ package miniround2
 import (
 	"bytes"
 	"log/slog"
+	"reflect"
 	"sort"
 
 	"moa-chain/agent"
@@ -280,15 +281,9 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 		return err
 	}
 
-	err = handler.finalizeAggregatedExecutionResultsBlock(roundKey, aggregatedExecutionResults)
-	if err != nil {
-		handler.logger.Error("miniround2.HandleExecutedPromptsMessage leader failed to finalize aggregated execution results block", "roundKey", roundKey, "error", err)
-		return err
-	}
-
-	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader finalized aggregated execution results block", "roundKey", roundKey)
-
-	return nil
+	// The evidence broadcast no longer finalizes mini-round two. The leader judges
+	// the same verified evidence locally and enters classification vote collection.
+	return handler.HandleAnswerEvidenceForClassification(roundKey, aggregatedExecutionResults)
 }
 
 func (handler *miniRoundTwoHandler) finalizeAggregatedExecutionResultsBlock(
@@ -414,9 +409,13 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidenceForClassification(
 	if err := handler.verifyAggregatedExecutionResultsMessage(roundKey, message); err != nil {
 		return err
 	}
+	if err := handler.roundState.SetAnswerEvidence(roundKey, message); err != nil {
+		handler.logger.Error("miniround2.HandleAnswerEvidenceForClassification failed to store verified evidence", "roundKey", roundKey, "error", err)
+		return err
+	}
 	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
-		handler.logger.Error("miniround2.HandleAnswerEvidenceForClassification local judge is outside consensus group", "roundKey", roundKey, "judgeID", handler.myID)
-		return ErrValidatorNotPartOfConsensusGroup
+		handler.logger.Info("miniround2.HandleAnswerEvidenceForClassification observer stored evidence without voting", "roundKey", roundKey, "validatorID", handler.myID)
+		return nil
 	}
 
 	finalizedBlock, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
@@ -734,24 +733,21 @@ func (handler *miniRoundTwoHandler) broadcastClassificationCertificateAtQuorum(
 		Transactions:       transactions,
 	}
 
-	consensusGroup, err := handler.validatorRegistry.ConsensusGroup()
-	if err != nil {
-		return err
-	}
+	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
 	err = handler.broadcaster.BroadcastAnswerClassificationCertificate(&data.ConsensusMessage{
 		ConsensusMessageType:            data.AnswerClassificationCertificateConsensusMessage,
 		AnswerClassificationCertificate: certificate,
-	}, handler.myID, consensusGroup)
+	}, handler.myID, validatorsIDs)
 	if err != nil {
 		handler.logger.Error("miniround2.broadcastClassificationCertificateAtQuorum failed to broadcast certificate", "roundKey", roundKey, "error", err)
 		return err
 	}
 
-	return handler.roundState.SetAnswerClassificationCertificate(roundKey, certificate)
+	return handler.HandleAnswerClassificationCertificate(roundKey, certificate)
 }
 
-// HandleAnswerClassificationCertificate performs structural alignment checks
-// and stores the leader certificate without activating finalization.
+// HandleAnswerClassificationCertificate verifies every signed vote, recomputes
+// the canonical result, and finalizes mini-round two only when both match.
 func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 	roundKey data.RoundKey,
 	certificate *data.AnswerClassificationCertificate,
@@ -770,27 +766,148 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 		)
 		return ErrAnswerClassificationCertificateMismatch
 	}
-
-	handler.logger.Info(
-		"miniround2.HandleAnswerClassificationCertificate storing certificate",
-		"roundKey", roundKey,
-		"senderID", certificate.SenderID,
-		"answerEvidenceHash", certificate.AnswerEvidenceHash,
-		"promptVersion", certificate.PromptVersion,
-		"numVotes", len(certificate.Votes),
-	)
-
-	err := handler.roundState.SetAnswerClassificationCertificate(roundKey, certificate)
-	if err != nil {
-		handler.logger.Error(
-			"miniround2.HandleAnswerClassificationCertificate failed to store certificate",
-			"roundKey", roundKey,
-			"senderID", certificate.SenderID,
-			"error", err,
-		)
+	if handler.roundState.IsAnswerClassificationCertificateSet(roundKey) {
+		return state.ErrAnswerClassificationCertificateAlreadyExists
 	}
 
-	return err
+	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+	if certificate.SenderID != expectedLeader {
+		return ErrMessageNotFromLeader
+	}
+
+	evidence, expectedCandidates, err := handler.classificationCertificateEvidence(roundKey, certificate)
+	if err != nil {
+		return err
+	}
+	if err = ValidateCanonicalClassificationVotes(certificate.Votes); err != nil {
+		return err
+	}
+	for index := range certificate.Votes {
+		if err = handler.verifyCertificateVote(&certificate.Votes[index], certificate, expectedCandidates); err != nil {
+			handler.logger.Error("miniround2.HandleAnswerClassificationCertificate rejected vote", "roundKey", roundKey, "judgeID", certificate.Votes[index].JudgeID, "error", err)
+			return err
+		}
+	}
+
+	committeeSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		return err
+	}
+	expectedTransactions, err := AggregateClassificationVotes(expectedCandidates, certificate.Votes, committeeSize)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(expectedTransactions, certificate.Transactions) {
+		return ErrClassificationCertificateResultMismatch
+	}
+
+	if err = handler.finalizeClassifiedAnswers(roundKey, evidence, expectedTransactions); err != nil {
+		return err
+	}
+	if err = handler.roundState.SetAnswerClassificationCertificate(roundKey, certificate); err != nil {
+		return err
+	}
+
+	handler.logger.Info("miniround2.HandleAnswerClassificationCertificate finalized classifications", "roundKey", roundKey, "numVotes", len(certificate.Votes), "numTransactions", len(certificate.Transactions))
+	return nil
+}
+
+// HasVerifiedAnswerEvidence tells the round state machine that the leader has
+// broadcast evidence and moved from execution-result collection to judging.
+func (handler *miniRoundTwoHandler) HasVerifiedAnswerEvidence(roundKey data.RoundKey) bool {
+	_, err := handler.roundState.GetAnswerEvidence(roundKey)
+
+	return err == nil
+}
+
+// classificationCertificateEvidence binds the certificate to the locally
+// verified evidence and reconstructs its complete candidate set.
+func (handler *miniRoundTwoHandler) classificationCertificateEvidence(
+	roundKey data.RoundKey,
+	certificate *data.AnswerClassificationCertificate,
+) (*data.AggregatedExecutionResultsMessage, []data.AnswerCandidateID, error) {
+	evidence, err := handler.roundState.GetAnswerEvidence(roundKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	evidenceHash, err := hashing.ComputeAnswerEvidenceHash(evidence)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !bytes.Equal(evidenceHash, certificate.AnswerEvidenceHash) ||
+		!bytes.Equal(evidence.CanonicalBlockHash, certificate.CanonicalBlockHash) {
+		return nil, nil, ErrClassificationVoteEvidenceMismatch
+	}
+	if certificate.PromptVersion != AnswerJudgePromptVersion ||
+		!bytes.Equal(certificate.PromptHash, AnswerJudgePromptHash()) {
+		return nil, nil, ErrClassificationVotePromptMismatch
+	}
+
+	finalizedBlock, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
+		Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound - 1,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	requests, err := BuildAnswerJudgeRequests(&finalizedBlock.Block, evidence)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return evidence, judgeRequestCandidateIDs(requests), nil
+}
+
+// verifyCertificateVote authenticates one vote and checks exact agreement with
+// the certificate context and locally reconstructed candidates.
+func (handler *miniRoundTwoHandler) verifyCertificateVote(
+	vote *data.AnswerClassificationVote,
+	certificate *data.AnswerClassificationCertificate,
+	expectedCandidates []data.AnswerCandidateID,
+) error {
+	if !handler.validatorRegistry.IsValidatorInConsensusGroup(vote.JudgeID) {
+		return ErrValidatorNotPartOfConsensusGroup
+	}
+	if !bytes.Equal(vote.CanonicalBlockHash, certificate.CanonicalBlockHash) ||
+		!bytes.Equal(vote.AnswerEvidenceHash, certificate.AnswerEvidenceHash) ||
+		vote.PromptVersion != certificate.PromptVersion ||
+		!bytes.Equal(vote.PromptHash, certificate.PromptHash) {
+		return ErrClassificationVoteContextMismatch
+	}
+	if err := ValidateClassificationAssignments(expectedCandidates, vote.Assignments); err != nil {
+		return err
+	}
+
+	return handler.verifyAnswerClassificationVoteSignature(vote)
+}
+
+// finalizeClassifiedAnswers stores the complete answer evidence together with
+// the counts, groups, and transaction status consumed by mini-round three.
+func (handler *miniRoundTwoHandler) finalizeClassifiedAnswers(
+	roundKey data.RoundKey,
+	evidence *data.AggregatedExecutionResultsMessage,
+	transactions []data.TransactionAnswerClassification,
+) error {
+	finalizedBlock, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
+		Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound - 1,
+	})
+	if err != nil {
+		return err
+	}
+	aggregatedResults, err := handler.createFinalizedAggregatedExecutionResults(evidence)
+	if err != nil {
+		return err
+	}
+
+	return handler.blockFinalizer.FinalizeBlockMRTwo(roundKey, &data.BlockOnChain{
+		Block:                      finalizedBlock.Block,
+		SubdomainsFrequencies:      finalizedBlock.SubdomainsFrequencies,
+		AggregatedExecutionResults: aggregatedResults,
+		AnswerEvidence:             evidence,
+		AnswerClassifications:      transactions,
+	})
 }
 
 // classificationVoteMatchesRound validates fields shared by every classification vote envelope.

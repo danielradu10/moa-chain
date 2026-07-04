@@ -49,6 +49,7 @@ func TestRoundHandler_RoutesAnswerClassificationCertificate(t *testing.T) {
 	require.True(t, miniRoundTwoHandler.HandleAnswerClassificationCertificateCalled)
 	require.Equal(t, roundKey, miniRoundTwoHandler.HandleAnswerClassificationCertificateKey)
 	require.Same(t, certificate, miniRoundTwoHandler.HandleAnswerClassificationCertificateValue)
+	require.Equal(t, data.StepFinished, handler.currentStep)
 }
 
 func TestRoundHandler_RoutesAnswerEvidenceToInactiveClassificationPath(t *testing.T) {

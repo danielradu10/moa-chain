@@ -107,7 +107,7 @@ func (rh *roundHandler) startMiniRoundTwo(roundKey data.RoundKey) error {
 	if leaderID == rh.selfID {
 		rh.currentStep = data.StepCollectExecutionResults
 	} else {
-		rh.currentStep = data.StepAwaitAggregatedExecutionResults
+		rh.currentStep = data.StepAwaitAnswerEvidence
 	}
 
 	rh.logger.Info("consensus.StartRound mini-round two step changed", "roundKey", roundKey, "step", rh.currentStep)
@@ -354,6 +354,10 @@ func (rh *roundHandler) handleExecutedPrompts(message data.ConsensusMessage) err
 		rh.logger.Info("ignoring executed prompts for finalized mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
 		return nil
 	}
+	if rh.currentStep == data.StepCollectClassificationVotes && roundKey == rh.currentRoundKey {
+		rh.logger.Info("ignoring late execution result after classification started", "roundKey", roundKey, "senderID", executedPrompts.SenderID)
+		return nil
+	}
 
 	if rh.currentStep != data.StepCollectExecutionResults {
 		rh.logger.Error("unexpected executed prompts message for step", "currentStep", rh.currentStep)
@@ -383,6 +387,10 @@ func (rh *roundHandler) handleExecutedPrompts(message data.ConsensusMessage) err
 		rh.currentStep = data.StepFailed
 		rh.logger.Error("failed to check mini-round two finalization", "roundKey", roundKey, "error", err)
 		return err
+	}
+	if rh.miniRoundTwoHandler.HasVerifiedAnswerEvidence(roundKey) {
+		rh.currentStep = data.StepCollectClassificationVotes
+		rh.logger.Info("mini-round two leader collecting classification votes", "roundKey", roundKey)
 	}
 
 	return nil
@@ -457,6 +465,9 @@ func (rh *roundHandler) handleAnswerEvidenceForClassification(
 	} else {
 		rh.currentStep = data.StepAwaitClassificationCertificate
 	}
+	if rh.isFinalizedRoundKey(roundKey) {
+		rh.currentStep = data.StepFinished
+	}
 
 	rh.logger.Info("answer classification vote produced", "roundKey", roundKey, "step", rh.currentStep)
 	return nil
@@ -490,7 +501,14 @@ func (rh *roundHandler) handleAnswerClassificationVote(message data.ConsensusMes
 		"answerEvidenceHash", vote.AnswerEvidenceHash,
 		"promptVersion", vote.PromptVersion,
 	)
-	return rh.miniRoundTwoHandler.HandleAnswerClassificationVote(roundKey, vote)
+	if err := rh.miniRoundTwoHandler.HandleAnswerClassificationVote(roundKey, vote); err != nil {
+		return err
+	}
+	if rh.isFinalizedRoundKey(roundKey) {
+		rh.currentStep = data.StepFinished
+	}
+
+	return nil
 }
 
 func (rh *roundHandler) handleAnswerClassificationCertificate(message data.ConsensusMessage) error {
@@ -523,7 +541,13 @@ func (rh *roundHandler) handleAnswerClassificationCertificate(message data.Conse
 		"answerEvidenceHash", certificate.AnswerEvidenceHash,
 		"promptVersion", certificate.PromptVersion,
 	)
-	return rh.miniRoundTwoHandler.HandleAnswerClassificationCertificate(roundKey, certificate)
+	if err := rh.miniRoundTwoHandler.HandleAnswerClassificationCertificate(roundKey, certificate); err != nil {
+		rh.currentStep = data.StepFailed
+		return err
+	}
+
+	rh.currentStep = data.StepFinished
+	return nil
 }
 
 func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error {

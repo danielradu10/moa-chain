@@ -13,4 +13,5 @@ type MiniRoundTwoHandler interface {
 	HandleAnswerEvidenceForClassification(roundKey data.RoundKey, message *data.AggregatedExecutionResultsMessage) error
 	HandleAnswerClassificationVote(roundKey data.RoundKey, vote *data.AnswerClassificationVote) error
 	HandleAnswerClassificationCertificate(roundKey data.RoundKey, certificate *data.AnswerClassificationCertificate) error
+	HasVerifiedAnswerEvidence(roundKey data.RoundKey) bool
 }
