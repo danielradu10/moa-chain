@@ -12,28 +12,24 @@ import (
 func TestMiniRoundTwoHandler_HandleAnswerClassificationVote(t *testing.T) {
 	t.Parallel()
 
-	roundKey := createTestRoundKey()
-	roundState := state.NewRoundState()
-	handler := createTestMiniRoundTwoHandler(testMiniRoundTwoHandlerArgs{roundState: roundState})
-	vote := plumbingClassificationVote(roundKey, "judge-a")
-
-	err := handler.HandleAnswerClassificationVote(roundKey, vote)
+	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
+	err := context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence)
 	require.NoError(t, err)
-	votes, err := roundState.GetAnswerClassificationVotes(roundKey)
+	votes, err := context.roundState.GetAnswerClassificationVotes(context.roundKey)
 	require.NoError(t, err)
-	require.Equal(t, []*data.AnswerClassificationVote{vote}, votes)
+	require.Len(t, votes, 1)
 
-	err = handler.HandleAnswerClassificationVote(roundKey, vote)
+	err = context.handler.HandleAnswerClassificationVote(context.roundKey, votes[0])
 	require.ErrorIs(t, err, state.ErrAnswerClassificationVoteAlreadyExistsForJudge)
 	require.ErrorIs(t,
-		handler.HandleAnswerClassificationVote(roundKey, nil),
+		context.handler.HandleAnswerClassificationVote(context.roundKey, nil),
 		ErrNilAnswerClassificationVote,
 	)
 
-	wrongRoundVote := plumbingClassificationVote(roundKey, "judge-b")
+	wrongRoundVote := *votes[0]
 	wrongRoundVote.Round++
 	require.ErrorIs(t,
-		handler.HandleAnswerClassificationVote(roundKey, wrongRoundVote),
+		context.handler.HandleAnswerClassificationVote(context.roundKey, &wrongRoundVote),
 		ErrAnswerClassificationVoteMismatch,
 	)
 }

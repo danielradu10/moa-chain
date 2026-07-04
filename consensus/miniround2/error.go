@@ -99,3 +99,9 @@ var ErrClassificationVoteEvidenceMismatch = errors.New("classification vote evid
 
 // ErrClassificationVotePromptMismatch prevents signing a vote with an unexpected protocol prompt.
 var ErrClassificationVotePromptMismatch = errors.New("classification vote prompt mismatch")
+
+// ErrClassificationVoteHashMismatch signals that a vote hash does not commit to its payload.
+var ErrClassificationVoteHashMismatch = errors.New("classification vote hash mismatch")
+
+// ErrMissingClassificationCollectionContext signals that the leader's trusted local vote is unavailable.
+var ErrMissingClassificationCollectionContext = errors.New("missing classification collection context")

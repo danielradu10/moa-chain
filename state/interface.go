@@ -63,6 +63,7 @@ type RoundState interface {
 	GetAnswerClassificationVotes(roundKey data.RoundKey) ([]*data.AnswerClassificationVote, error)
 	SetAnswerClassificationCertificate(roundKey data.RoundKey, certificate *data.AnswerClassificationCertificate) error
 	GetAnswerClassificationCertificate(roundKey data.RoundKey) (*data.AnswerClassificationCertificate, error)
+	IsAnswerClassificationCertificateSet(roundKey data.RoundKey) bool
 
 	ClearRoundState(roundKey data.RoundKey)
 }

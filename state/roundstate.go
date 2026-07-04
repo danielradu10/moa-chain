@@ -227,6 +227,14 @@ func (state *roundState) GetAnswerClassificationCertificate(
 	return certificate, nil
 }
 
+// IsAnswerClassificationCertificateSet reports whether classification vote
+// collection already produced a certificate for the round.
+func (state *roundState) IsAnswerClassificationCertificateSet(roundKey data.RoundKey) bool {
+	_, exists := state.classificationCertificates[roundKey]
+
+	return exists
+}
+
 // ClearRoundState clears the state of a round.
 func (state *roundState) ClearRoundState(roundKey data.RoundKey) {
 	delete(state.proposedBlocks, roundKey)
