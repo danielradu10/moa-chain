@@ -135,6 +135,7 @@ type classificationProductionContext struct {
 	signer        *recordingMessageSigner
 	publicKeys    map[string][]byte
 	memberSigners map[string]signing.MessageSigner
+	registry      *testscommon.ValidatorRegistryStub
 	broadcaster   *testscommon.BroadcasterStub
 	roundState    state.RoundState
 }
@@ -171,6 +172,7 @@ func newClassificationProductionContext(
 		LeaderID:                leaderID,
 		ConsensusGroupSizeValue: 3,
 		ConsensusGroupValue:     producerIDs,
+		ValidatorsIDs:           producerIDs,
 	}
 	handler := createTestMiniRoundTwoHandler(testMiniRoundTwoHandlerArgs{
 		myID:               myID,
@@ -190,6 +192,7 @@ func newClassificationProductionContext(
 		signer:        recordingSigner,
 		publicKeys:    publicKeys,
 		memberSigners: producerSigners,
+		registry:      registry,
 		broadcaster:   broadcaster,
 		roundState:    roundState,
 	}

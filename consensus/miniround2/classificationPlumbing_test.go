@@ -7,6 +7,7 @@ import (
 
 	"moa-chain/data"
 	"moa-chain/state"
+	"moa-chain/testscommon"
 )
 
 func TestMiniRoundTwoHandler_HandleAnswerClassificationVote(t *testing.T) {
@@ -39,14 +40,16 @@ func TestMiniRoundTwoHandler_HandleAnswerClassificationCertificate(t *testing.T)
 
 	roundKey := createTestRoundKey()
 	roundState := state.NewRoundState()
-	handler := createTestMiniRoundTwoHandler(testMiniRoundTwoHandlerArgs{roundState: roundState})
+	handler := createTestMiniRoundTwoHandler(testMiniRoundTwoHandlerArgs{
+		roundState: roundState,
+		validatorRegistry: &testscommon.ValidatorRegistryStub{
+			LeaderID: "leader",
+		},
+	})
 	certificate := plumbingClassificationCertificate(roundKey)
 
 	err := handler.HandleAnswerClassificationCertificate(roundKey, certificate)
-	require.NoError(t, err)
-	stored, err := roundState.GetAnswerClassificationCertificate(roundKey)
-	require.NoError(t, err)
-	require.Same(t, certificate, stored)
+	require.ErrorIs(t, err, state.ErrNoAnswerEvidenceForCurrentRoundKey)
 
 	require.ErrorIs(t,
 		handler.HandleAnswerClassificationCertificate(roundKey, nil),

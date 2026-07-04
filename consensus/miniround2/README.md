@@ -363,7 +363,7 @@ Tests:
 - deterministic result under different arrival orders;
 - leader-provided groups match the pure aggregator.
 
-### PR 7: Certificate verification and mini-round-two finalization
+### PR 7: Certificate verification and mini-round-two finalization — Done
 
 Scope:
 

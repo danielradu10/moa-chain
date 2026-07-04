@@ -31,6 +31,15 @@ var ErrExecutedPromptsAlreadyExistsForSender = errors.New("executed prompts alre
 // ErrNoExecutedPromptsForCurrentRoundKey signals that there are no executed prompts for the current round.
 var ErrNoExecutedPromptsForCurrentRoundKey = errors.New("no executed prompts for current round")
 
+// ErrNilAnswerEvidence signals missing aggregated answer evidence.
+var ErrNilAnswerEvidence = errors.New("nil answer evidence")
+
+// ErrAnswerEvidenceAlreadyExists signals duplicate answer evidence for one round.
+var ErrAnswerEvidenceAlreadyExists = errors.New("answer evidence already exists for round")
+
+// ErrNoAnswerEvidenceForCurrentRoundKey signals that classification started without verified evidence.
+var ErrNoAnswerEvidenceForCurrentRoundKey = errors.New("no answer evidence for current round")
+
 // ErrNilAnswerClassificationVote signals a nil classification vote.
 var ErrNilAnswerClassificationVote = errors.New("nil answer classification vote")
 

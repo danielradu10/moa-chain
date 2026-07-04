@@ -36,6 +36,11 @@ type MiniRoundTwoHandlerStub struct {
 	HandleAnswerClassificationCertificateKey    data.RoundKey
 	HandleAnswerClassificationCertificateValue  *data.AnswerClassificationCertificate
 	HandleAnswerClassificationCertificateErr    error
+	HasVerifiedAnswerEvidenceValue              bool
+}
+
+func (stub *MiniRoundTwoHandlerStub) HasVerifiedAnswerEvidence(_ data.RoundKey) bool {
+	return stub.HasVerifiedAnswerEvidenceValue
 }
 
 func (stub *MiniRoundTwoHandlerStub) HandleAnswerEvidenceForClassification(

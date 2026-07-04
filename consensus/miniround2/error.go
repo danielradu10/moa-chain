@@ -105,3 +105,6 @@ var ErrClassificationVoteHashMismatch = errors.New("classification vote hash mis
 
 // ErrMissingClassificationCollectionContext signals that the leader's trusted local vote is unavailable.
 var ErrMissingClassificationCollectionContext = errors.New("missing classification collection context")
+
+// ErrClassificationCertificateResultMismatch signals leader-provided groups that differ from deterministic aggregation.
+var ErrClassificationCertificateResultMismatch = errors.New("classification certificate result mismatch")

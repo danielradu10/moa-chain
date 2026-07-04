@@ -11,6 +11,12 @@ type BlockOnChain struct {
 	Block                      Block
 	SubdomainsFrequencies      SubdomainsFrequency
 	AggregatedExecutionResults AggregatedExecutionResults
+	// AnswerEvidence is verified in mini-round two and retained so later rounds
+	// can audit the producer answers behind every classification.
+	AnswerEvidence *AggregatedExecutionResultsMessage
+	// AnswerClassifications is finalized after certificate verification and is
+	// consumed by mini-round three when selecting canonical correct answers.
+	AnswerClassifications []TransactionAnswerClassification
 }
 
 // BlockHeader defines the header of a block

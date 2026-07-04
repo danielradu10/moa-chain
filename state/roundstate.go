@@ -19,6 +19,7 @@ type roundState struct {
 	votes                      map[data.RoundKey]map[string]*data.BlockVote
 	certificates               map[data.RoundKey]*data.AggregatedVotes
 	executedPrompts            map[data.RoundKey]map[string]*data.AnswersBlockMessage
+	answerEvidence             map[data.RoundKey]*data.AggregatedExecutionResultsMessage
 	classificationVotes        map[data.RoundKey]map[string]*data.AnswerClassificationVote
 	classificationCertificates map[data.RoundKey]*data.AnswerClassificationCertificate
 }
@@ -30,9 +31,35 @@ func NewRoundState() *roundState {
 		votes:                      make(map[data.RoundKey]map[string]*data.BlockVote),
 		certificates:               make(map[data.RoundKey]*data.AggregatedVotes),
 		executedPrompts:            make(map[data.RoundKey]map[string]*data.AnswersBlockMessage),
+		answerEvidence:             make(map[data.RoundKey]*data.AggregatedExecutionResultsMessage),
 		classificationVotes:        make(map[data.RoundKey]map[string]*data.AnswerClassificationVote),
 		classificationCertificates: make(map[data.RoundKey]*data.AnswerClassificationCertificate),
 	}
+}
+
+// SetAnswerEvidence stores the leader evidence after signature verification and
+// before the local validator invokes its answer judge.
+func (state *roundState) SetAnswerEvidence(roundKey data.RoundKey, evidence *data.AggregatedExecutionResultsMessage) error {
+	if evidence == nil {
+		return ErrNilAnswerEvidence
+	}
+	if _, exists := state.answerEvidence[roundKey]; exists {
+		return ErrAnswerEvidenceAlreadyExists
+	}
+
+	state.answerEvidence[roundKey] = evidence
+	return nil
+}
+
+// GetAnswerEvidence returns the verified evidence used by certificate
+// verification and mini-round-two finalization.
+func (state *roundState) GetAnswerEvidence(roundKey data.RoundKey) (*data.AggregatedExecutionResultsMessage, error) {
+	evidence, exists := state.answerEvidence[roundKey]
+	if !exists {
+		return nil, ErrNoAnswerEvidenceForCurrentRoundKey
+	}
+
+	return evidence, nil
 }
 
 // SetProposedBlock sets the current proposed Block of the RoundKey.
@@ -241,6 +268,7 @@ func (state *roundState) ClearRoundState(roundKey data.RoundKey) {
 	delete(state.votes, roundKey)
 	delete(state.certificates, roundKey)
 	delete(state.executedPrompts, roundKey)
+	delete(state.answerEvidence, roundKey)
 	delete(state.classificationVotes, roundKey)
 	delete(state.classificationCertificates, roundKey)
 }

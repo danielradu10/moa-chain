@@ -3,6 +3,7 @@ package integrationtests
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -166,7 +167,8 @@ func createRoundLoop(
 		CurrentEpochValue:       currentHeader.Epoch,
 	}
 
-	base := createBlockBase(txPool, blockchainStateStub, labeler, logger)
+	protocolAgent := integrationProtocolAgent{delegate: labeler}
+	base := createBlockBase(txPool, blockchainStateStub, protocolAgent, logger)
 	roundState := state.NewRoundState()
 
 	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
@@ -186,15 +188,17 @@ func createRoundLoop(
 	miniRoundOneHandler := miniround1.NewMiniRoundOneHandler(miniRoundOneHandlerArgs)
 
 	miniRoundTwoHandlerArgs := miniround2.MiniRoundTwoHandlerArgs{
-		MyID:              nodeID,
-		BlockProcessor:    validation.NewBlockProcessor(base),
-		RoundState:        roundState,
-		Broadcaster:       broadcast.NewBroadcaster(peerRegistry, logger),
-		Signer:            signing.NewSigner(nodeID, privateKey),
-		ValidatorRegistry: validatorRegistry,
-		BlockchainState:   blockchainStateStub,
-		BlockFinalizer:    blockFinalizer,
-		Logger:            logger,
+		MyID:               nodeID,
+		BlockProcessor:     validation.NewBlockProcessor(base),
+		RoundState:         roundState,
+		Broadcaster:        broadcast.NewBroadcaster(peerRegistry, logger),
+		Signer:             signing.NewSigner(nodeID, privateKey),
+		ValidatorRegistry:  validatorRegistry,
+		BlockchainState:    blockchainStateStub,
+		BlockFinalizer:     blockFinalizer,
+		AnswerJudge:        protocolAgent,
+		JudgeModelMetadata: "integration-deterministic-judge",
+		Logger:             logger,
 	}
 
 	miniRoundTwoHandler := miniround2.NewMiniRoundTwoHandler(miniRoundTwoHandlerArgs)
@@ -212,6 +216,53 @@ func createRoundLoop(
 	roundHandler := consensus.NewRoundHandler(roundHandlerArgs)
 
 	return consensus.NewRoundLoop(roundHandler, inbox, logger)
+}
+
+// integrationProtocolAgent supplies deterministic non-empty answers and judge
+// output so integration tests exercise the complete classification protocol.
+type integrationProtocolAgent struct {
+	delegate agent.Agent
+}
+
+func (testAgent integrationProtocolAgent) Label(tx data.Transaction) ([]string, error) {
+	return testAgent.delegate.Label(tx)
+}
+
+func (testAgent integrationProtocolAgent) Answer(tx data.Transaction) (string, error) {
+	answer, err := testAgent.delegate.Answer(tx)
+	if err != nil || answer != "" {
+		return answer, err
+	}
+
+	return "integration answer for " + string(tx.GetTxHash()), nil
+}
+
+func (testAgent integrationProtocolAgent) JudgeAnswers(request agent.AnswerJudgeRequest) (string, error) {
+	var input struct {
+		Candidates []struct {
+			CandidateID string `json:"candidateId"`
+		} `json:"candidates"`
+	}
+	if err := json.Unmarshal([]byte(request.UserPrompt), &input); err != nil {
+		return "", err
+	}
+
+	output := struct {
+		Classifications []struct {
+			CandidateID string `json:"candidateId"`
+			Category    string `json:"category"`
+		} `json:"classifications"`
+	}{Classifications: make([]struct {
+		CandidateID string `json:"candidateId"`
+		Category    string `json:"category"`
+	}, len(input.Candidates))}
+	for index, candidate := range input.Candidates {
+		output.Classifications[index].CandidateID = candidate.CandidateID
+		output.Classifications[index].Category = string(data.AnswerCategoryCorrect)
+	}
+
+	encoded, err := json.Marshal(output)
+	return string(encoded), err
 }
 
 func createBlockBase(

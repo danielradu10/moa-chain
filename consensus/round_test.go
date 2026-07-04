@@ -46,7 +46,7 @@ func TestRoundHandler_StartRoundMiniRoundTwo(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, miniRoundTwoHandler.HandleConsensusSelectionCalled)
 		require.True(t, miniRoundTwoHandler.HandleBlockExecutionCalled)
-		require.Equal(t, data.StepAwaitAggregatedExecutionResults, handler.currentStep)
+		require.Equal(t, data.StepAwaitAnswerEvidence, handler.currentStep)
 	})
 }
 
@@ -152,7 +152,7 @@ func TestRoundHandler_MiniRoundOneToMiniRoundTwoTransition(t *testing.T) {
 		require.True(t, miniRoundTwoHandler.HandleBlockExecutionCalled)
 		require.Equal(t, miniRoundTwoRoundKey, miniRoundTwoHandler.HandleBlockExecutionKey)
 		require.Equal(t, miniRoundTwoRoundKey, handler.currentRoundKey)
-		require.Equal(t, data.StepAwaitAggregatedExecutionResults, handler.currentStep)
+		require.Equal(t, data.StepAwaitAnswerEvidence, handler.currentStep)
 	})
 
 	t.Run("should start mini-round two for leader only after mini-round one block vote finalizes", func(t *testing.T) {
