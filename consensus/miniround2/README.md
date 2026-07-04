@@ -264,7 +264,7 @@ Tests:
 
 This PR adds types and pure helpers only; it does not change the round flow.
 
-### PR 2: Deterministic classification aggregation
+### PR 2: Deterministic classification aggregation — Done
 
 Scope:
 
