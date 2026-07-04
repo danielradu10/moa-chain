@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"moa-chain/agent"
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/blockprocessing/hashing"
 	"moa-chain/crypto/signing"
@@ -551,23 +552,27 @@ func TestMiniRoundTwoHandler_createAggregatedExecutionResultsMessage(t *testing.
 }
 
 type testMiniRoundTwoHandlerArgs struct {
-	myID              string
-	signer            signing.MessageSigner
-	roundState        state.RoundState
-	broadcaster       *testscommon.BroadcasterStub
-	blockFinalizer    blockFinalizer.BlockFinalizer
-	validatorRegistry validators.ValidatorRegistry
+	myID               string
+	signer             signing.MessageSigner
+	answerJudge        agent.AnswerJudge
+	judgeModelMetadata string
+	roundState         state.RoundState
+	broadcaster        *testscommon.BroadcasterStub
+	blockFinalizer     blockFinalizer.BlockFinalizer
+	validatorRegistry  validators.ValidatorRegistry
 }
 
 func createTestMiniRoundTwoHandler(args testMiniRoundTwoHandlerArgs) *miniRoundTwoHandler {
 	return &miniRoundTwoHandler{
-		myID:              args.myID,
-		signer:            args.signer,
-		roundState:        args.roundState,
-		broadcaster:       args.broadcaster,
-		blockFinalizer:    args.blockFinalizer,
-		validatorRegistry: args.validatorRegistry,
-		logger:            slog.Default(),
+		myID:               args.myID,
+		signer:             args.signer,
+		answerJudge:        args.answerJudge,
+		judgeModelMetadata: args.judgeModelMetadata,
+		roundState:         args.roundState,
+		broadcaster:        args.broadcaster,
+		blockFinalizer:     args.blockFinalizer,
+		validatorRegistry:  args.validatorRegistry,
+		logger:             slog.Default(),
 	}
 }
 
@@ -601,8 +606,10 @@ func createSeededFinalizer(t *testing.T, finalizedBlock *data.BlockOnChain) *blo
 func createTestFinalizedBlock() *data.BlockOnChain {
 	tx1 := &testscommon.TransactionStub{}
 	tx1.SetTxHash([]byte("txHash1"))
+	tx1.SetPrompt([]byte("prompt one"))
 	tx2 := &testscommon.TransactionStub{}
 	tx2.SetTxHash([]byte("txHash2"))
+	tx2.SetPrompt([]byte("prompt two"))
 
 	return &data.BlockOnChain{
 		Block: data.Block{

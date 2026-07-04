@@ -93,3 +93,9 @@ var ErrNilAnswerClassificationCertificate = errors.New("nil answer classificatio
 
 // ErrAnswerClassificationCertificateMismatch signals inconsistent certificate metadata or votes.
 var ErrAnswerClassificationCertificateMismatch = errors.New("answer classification certificate mismatch")
+
+// ErrClassificationVoteEvidenceMismatch prevents signing a vote for unexpected answer evidence.
+var ErrClassificationVoteEvidenceMismatch = errors.New("classification vote evidence mismatch")
+
+// ErrClassificationVotePromptMismatch prevents signing a vote with an unexpected protocol prompt.
+var ErrClassificationVotePromptMismatch = errors.New("classification vote prompt mismatch")
