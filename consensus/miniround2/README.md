@@ -40,15 +40,15 @@ Every judge must assign exactly one category to every candidate answer:
 
 1. `Correct`: answers the transaction prompt accurately and sufficiently.
 2. `Hallucination`: relies on fabricated, unsupported, or nonexistent facts.
-3. `Adversarial`: contains observable manipulation such as prompt injection or
+3. `Malicious`: contains observable adversarial manipulation such as prompt injection or
    instructions intended to influence later protocol stages. This category does
    not claim that the producer's private intent is known.
 4. `Wrong`: incorrect, irrelevant, contradictory, or materially incomplete,
-   without satisfying the narrower Hallucination or Adversarial definitions.
+   without satisfying the narrower Hallucination or Malicious definitions.
 
 These definitions and their precedence must be part of the versioned protocol
-prompt. The Go protocol may retain `Malicious` as the wire value if required,
-but the prompt should use the observable `Adversarial` definition.
+prompt. Malicious must be judged from observable answer content; the protocol
+does not claim that a producer's private intent is known.
 
 ## Protocol Flow
 
@@ -135,7 +135,7 @@ For each candidate answer, count how many accepted judges assigned each category
 candidateID -> {
     Correct:       count,
     Hallucination: count,
-    Adversarial:   count,
+    Malicious:     count,
     Wrong:         count,
 }
 ```
@@ -146,10 +146,10 @@ The initial PoC policy is:
   committee of `3f+1`;
 - a candidate enters the canonical correct group only when its Correct count is
   at least `quorum`;
-- otherwise it enters whichever of Hallucination, Adversarial, or Wrong has the
+- otherwise it enters whichever of Hallucination, Malicious, or Wrong has the
   highest count;
 - ties among non-correct categories resolve conservatively in this order:
-  `Wrong`, `Hallucination`, `Adversarial`;
+  `Wrong`, `Hallucination`, `Malicious`;
 - a transaction is eligible for mini-round three only when its canonical correct
   group contains at least `quorum` independently produced candidate answers.
 
@@ -224,7 +224,7 @@ The following items must remain explicit rather than being hidden in code:
 - **Strict Correct threshold:** LLM variation may make unanimous Correct votes
   uncommon and reduce liveness at the transaction level. This fails closed but
   may reject useful answers.
-- **Category ambiguity:** Hallucination, Adversarial, and Wrong overlap without a
+- **Category ambiguity:** Hallucination, Malicious, and Wrong overlap without a
   precise decision tree and test cases.
 - **Prompt injection:** quoting and instructions reduce risk but cannot prove
   that an LLM judge ignored hostile answer content.
@@ -244,7 +244,7 @@ Each PR should compile independently, preserve existing behavior until the
 activation PR, and include focused tests. Protocol types should not depend on a
 specific LLM provider.
 
-### PR 1: Protocol types and canonical identities
+### PR 1: Protocol types and canonical identities — Done
 
 Scope:
 
