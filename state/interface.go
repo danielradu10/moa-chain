@@ -59,5 +59,10 @@ type RoundState interface {
 	AddExecutedPromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error
 	GetExecutedPromptsMessages(roundKey data.RoundKey) ([]*data.AnswersBlockMessage, error)
 
+	AddAnswerClassificationVote(roundKey data.RoundKey, vote *data.AnswerClassificationVote) error
+	GetAnswerClassificationVotes(roundKey data.RoundKey) ([]*data.AnswerClassificationVote, error)
+	SetAnswerClassificationCertificate(roundKey data.RoundKey, certificate *data.AnswerClassificationCertificate) error
+	GetAnswerClassificationCertificate(roundKey data.RoundKey) (*data.AnswerClassificationCertificate, error)
+
 	ClearRoundState(roundKey data.RoundKey)
 }

@@ -307,7 +307,7 @@ Tests:
 
 This PR can use a fake judge and must not alter consensus behavior.
 
-### PR 4: Classification message and round-state plumbing
+### PR 4: Classification message and round-state plumbing — Done
 
 Scope:
 

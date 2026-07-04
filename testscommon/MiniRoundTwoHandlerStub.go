@@ -21,6 +21,38 @@ type MiniRoundTwoHandlerStub struct {
 	HandleAggregatedExecutionResultsKey     data.RoundKey
 	HandleAggregatedExecutionResultsMessage *data.AggregatedExecutionResultsMessage
 	HandleAggregatedExecutionResultsErr     error
+
+	HandleAnswerClassificationVoteCalled bool
+	HandleAnswerClassificationVoteKey    data.RoundKey
+	HandleAnswerClassificationVoteValue  *data.AnswerClassificationVote
+	HandleAnswerClassificationVoteErr    error
+
+	HandleAnswerClassificationCertificateCalled bool
+	HandleAnswerClassificationCertificateKey    data.RoundKey
+	HandleAnswerClassificationCertificateValue  *data.AnswerClassificationCertificate
+	HandleAnswerClassificationCertificateErr    error
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleAnswerClassificationVote(
+	roundKey data.RoundKey,
+	vote *data.AnswerClassificationVote,
+) error {
+	stub.HandleAnswerClassificationVoteCalled = true
+	stub.HandleAnswerClassificationVoteKey = roundKey
+	stub.HandleAnswerClassificationVoteValue = vote
+
+	return stub.HandleAnswerClassificationVoteErr
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleAnswerClassificationCertificate(
+	roundKey data.RoundKey,
+	certificate *data.AnswerClassificationCertificate,
+) error {
+	stub.HandleAnswerClassificationCertificateCalled = true
+	stub.HandleAnswerClassificationCertificateKey = roundKey
+	stub.HandleAnswerClassificationCertificateValue = certificate
+
+	return stub.HandleAnswerClassificationCertificateErr
 }
 
 func (stub *MiniRoundTwoHandlerStub) HandleConsensusSelection(key data.RoundKey) (string, error) {

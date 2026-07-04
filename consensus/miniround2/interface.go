@@ -10,4 +10,6 @@ type MiniRoundTwoHandler interface {
 	HandleBlockExecution(roundKey data.RoundKey) error
 	HandleExecutedPromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error
 	HandleAggregatedExecutionResults(roundKey data.RoundKey, message *data.AggregatedExecutionResultsMessage) error
+	HandleAnswerClassificationVote(roundKey data.RoundKey, vote *data.AnswerClassificationVote) error
+	HandleAnswerClassificationCertificate(roundKey data.RoundKey, certificate *data.AnswerClassificationCertificate) error
 }
