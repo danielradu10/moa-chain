@@ -244,7 +244,7 @@ Each PR should compile independently, preserve existing behavior until the
 activation PR, and include focused tests. Protocol types should not depend on a
 specific LLM provider.
 
-### PR 1: Protocol types and canonical identities
+### PR 1: Protocol types and canonical identities — Done
 
 Scope:
 
