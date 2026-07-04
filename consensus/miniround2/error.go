@@ -60,3 +60,12 @@ var ErrDuplicatedClassificationJudge = errors.New("duplicated classification jud
 
 // ErrInvalidClassificationVote signals a malformed classification vote.
 var ErrInvalidClassificationVote = errors.New("invalid classification vote")
+
+// ErrInvalidClassificationCommitteeSize signals a zero committee size.
+var ErrInvalidClassificationCommitteeSize = errors.New("invalid classification committee size")
+
+// ErrInvalidClassificationVoteCount signals a vote count outside the quorum and committee bounds.
+var ErrInvalidClassificationVoteCount = errors.New("invalid classification vote count")
+
+// ErrClassificationVoteContextMismatch signals votes for different rounds, evidence, or prompts.
+var ErrClassificationVoteContextMismatch = errors.New("classification vote context mismatch")
