@@ -14,7 +14,7 @@ else:
     from cluster import cluster_transactions
 
 
-TEST_DATA_DIRECTORY = Path(__file__).parent / "testdata"
+TEST_DATA_DIRECTORY = Path(__file__).parent.parent / "testdata"
 TEST_SEED = 0
 
 

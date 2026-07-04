@@ -16,10 +16,10 @@ else:
 
 
 TEST_DATA_PATH = (
-    Path(__file__).parent / "testdata" / "obvious_dominant_cluster.json"
+    Path(__file__).parent.parent / "testdata" / "obvious_dominant_cluster.json"
 )
 TOPICAL_WRONG_ANSWERS_PATH = (
-    Path(__file__).parent / "testdata" / "topical_but_wrong_answers.json"
+    Path(__file__).parent.parent / "testdata" / "topical_but_wrong_answers.json"
 )
 TEST_SEED = 0
 

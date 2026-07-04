@@ -67,7 +67,7 @@ weighted
 The linkage method and threshold can be changed without changing source code:
 
 ```bash
-.venv/bin/python clustering/cluster.py answers.json clusters.json \
+.venv/bin/python clustering/python-clustering/cluster.py answers.json clusters.json \
   --linkage complete \
   --distance-threshold 0.3
 ```
@@ -117,20 +117,21 @@ yet been evaluated by the current test analysis.
 ## Tests
 
 All tests use the real pinned embedding model. There are no mocked embeddings.
-Fixtures are stored in [`testdata`](testdata).
+Fixtures are shared with the Go implementation and stored in
+[`../testdata`](../testdata).
 
 Run the suite with a cached model:
 
 ```bash
-HF_HUB_OFFLINE=1 .venv/bin/python -m unittest \
-  clustering.test_cluster \
-  clustering.test_research_scenarios \
+HF_HUB_OFFLINE=1 .venv/bin/python -m unittest discover \
+  -s clustering/python-clustering \
+  -p 'test_*.py' \
   -v
 ```
 
 ### 1. Obvious dominant cluster
 
-Fixture: [`obvious_dominant_cluster.json`](testdata/obvious_dominant_cluster.json)
+Fixture: [`obvious_dominant_cluster.json`](../testdata/obvious_dominant_cluster.json)
 
 Eight agents give compatible answers about signature authenticity and message
 integrity. Two agents answer unrelated questions about photosynthesis and
@@ -146,7 +147,7 @@ This is the baseline case and passes.
 
 ### 2. Topical but factually wrong answers
 
-Fixture: [`topical_but_wrong_answers.json`](testdata/topical_but_wrong_answers.json)
+Fixture: [`topical_but_wrong_answers.json`](../testdata/topical_but_wrong_answers.json)
 
 Eight answers are correct. Agent 09 incorrectly claims that signatures encrypt
 the full message. Agent 10 incorrectly claims that a signature proves factual
@@ -164,7 +165,7 @@ that semantic proximity does not imply factual correctness.
 
 ### 3. Direct contradiction
 
-Fixture: [`direct_contradiction.json`](testdata/direct_contradiction.json)
+Fixture: [`direct_contradiction.json`](../testdata/direct_contradiction.json)
 
 Agents 01-08 support signature verification. Agents 09-10 use similar vocabulary
 but recommend accepting unsigned or invalidly signed messages.
@@ -187,7 +188,7 @@ This research test is marked as an expected failure.
 ### 4. Competing authentication approaches
 
 Fixture:
-[`competing_authentication_approaches.json`](testdata/competing_authentication_approaches.json)
+[`competing_authentication_approaches.json`](../testdata/competing_authentication_approaches.json)
 
 Five agents recommend stateless JWT authentication. Five recommend stateful
 server-side sessions. Both groups are topically related but propose different
@@ -210,7 +211,7 @@ expected failure.
 
 ### 5. Semantic bridge
 
-Fixture: [`semantic_bridge.json`](testdata/semantic_bridge.json)
+Fixture: [`semantic_bridge.json`](../testdata/semantic_bridge.json)
 
 Four agents explicitly select PostgreSQL, four explicitly select MongoDB, and
 two give generic database-selection advice. The generic answers should not chain
@@ -235,7 +236,7 @@ failure.
 ### 6. Subtle key-role reversal
 
 Fixture:
-[`subtle_key_role_reversal.json`](testdata/subtle_key_role_reversal.json)
+[`subtle_key_role_reversal.json`](../testdata/subtle_key_role_reversal.json)
 
 Seven agents correctly say that private keys sign and public keys verify. Three
 agents reverse the roles while retaining almost identical terminology.
@@ -258,7 +259,7 @@ proxy for logical compatibility.
 
 ### 7. Presentation styles
 
-Fixture: [`presentation_styles.json`](testdata/presentation_styles.json)
+Fixture: [`presentation_styles.json`](../testdata/presentation_styles.json)
 
 Eight answers describe payment idempotency using short prose, detailed prose,
 numbered steps, and pseudocode. Two answers are unrelated.
@@ -281,7 +282,7 @@ This is an expected failure.
 ### 8. Unrelated-word injection
 
 Fixture:
-[`unrelated_word_injection.json`](testdata/unrelated_word_injection.json)
+[`unrelated_word_injection.json`](../testdata/unrelated_word_injection.json)
 
 Agents 01-07 give compatible correct answers. Agent 08 gives a complete correct
 answer and appends:
@@ -315,7 +316,7 @@ an expected failure.
 statistics, cluster memberships, and merge distances:
 
 ```bash
-HF_HUB_OFFLINE=1 .venv/bin/python -m clustering.diagnose \
+HF_HUB_OFFLINE=1 .venv/bin/python clustering/python-clustering/diagnose.py \
   clustering/testdata/obvious_dominant_cluster.json \
   clustering/testdata/topical_but_wrong_answers.json
 ```
