@@ -104,7 +104,9 @@ candidate.
 The protocol-level input is the complete transaction set. The implementation
 may execute one LLM request per transaction to limit context contamination and
 context-window growth, provided the same prompt version, ordering rules, and
-output schema are used.
+output schema are used. If any per-transaction request fails or returns invalid
+output, the validator discards all classifications and does not produce a
+partial vote.
 
 The judge prompt version and prompt hash are included in the signed vote. Model
 and inference metadata should also be recorded for auditability, although exact
@@ -229,7 +231,8 @@ The following items must remain explicit rather than being hidden in code:
 - **Prompt injection:** quoting and instructions reduce risk but cannot prove
   that an LLM judge ignored hostile answer content.
 - **Context size:** judging every transaction in one request may exceed model
-  limits. Per-transaction requests need a defined partial-failure policy.
+  limits. The initial implementation uses per-transaction requests and discards
+  the complete validator vote if any request fails.
 - **Timeouts:** the protocol needs an explicit deadline and behavior when fewer
   than the classification quorum respond.
 - **Prompt upgrades:** activation of a new prompt version must be coordinated so
@@ -284,7 +287,7 @@ Tests:
 
 No networking, state, signatures, or LLM calls belong in this PR.
 
-### PR 3: Judge interface and versioned protocol prompt
+### PR 3: Judge interface and versioned protocol prompt — Done
 
 Scope:
 

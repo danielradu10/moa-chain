@@ -13,6 +13,7 @@ const (
 	answerEvidenceHashDomain       = "answer-evidence-v1"
 	answerClassificationHashDomain = "answer-classification-v1"
 	answerTextHashDomain           = "answer-text-v1"
+	protocolPromptHashDomain       = "protocol-prompt-v1"
 )
 
 // ComputeAnswerHash computes the answer-text commitment used in a candidate ID.
@@ -20,6 +21,15 @@ func ComputeAnswerHash(answer string) []byte {
 	hasher := sha256.New()
 	writeClassificationString(hasher, answerTextHashDomain)
 	writeClassificationString(hasher, answer)
+
+	return hasher.Sum(nil)
+}
+
+// ComputeProtocolPromptHash computes a domain-separated prompt commitment.
+func ComputeProtocolPromptHash(prompt string) []byte {
+	hasher := sha256.New()
+	writeClassificationString(hasher, protocolPromptHashDomain)
+	writeClassificationString(hasher, prompt)
 
 	return hasher.Sum(nil)
 }

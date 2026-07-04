@@ -69,3 +69,15 @@ var ErrInvalidClassificationVoteCount = errors.New("invalid classification vote 
 
 // ErrClassificationVoteContextMismatch signals votes for different rounds, evidence, or prompts.
 var ErrClassificationVoteContextMismatch = errors.New("classification vote context mismatch")
+
+// ErrNilAnswerJudge signals a missing answer judge.
+var ErrNilAnswerJudge = errors.New("nil answer judge")
+
+// ErrInvalidAnswerJudgeInput signals malformed answer evidence or transaction input.
+var ErrInvalidAnswerJudgeInput = errors.New("invalid answer judge input")
+
+// ErrAnswerJudgeExecutionFailed signals a local agent failure while classifying a transaction.
+var ErrAnswerJudgeExecutionFailed = errors.New("answer judge execution failed")
+
+// ErrInvalidAnswerJudgeResponse signals malformed structured judge output.
+var ErrInvalidAnswerJudgeResponse = errors.New("invalid answer judge response")
