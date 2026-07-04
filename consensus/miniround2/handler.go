@@ -389,6 +389,137 @@ func (handler *miniRoundTwoHandler) HandleAggregatedExecutionResults(
 	return nil
 }
 
+// HandleAnswerClassificationVote performs envelope validation and stores a judge
+// vote. Signature and committee verification are added by the collection PR.
+func (handler *miniRoundTwoHandler) HandleAnswerClassificationVote(
+	roundKey data.RoundKey,
+	vote *data.AnswerClassificationVote,
+) error {
+	if vote == nil {
+		handler.logger.Error("miniround2.HandleAnswerClassificationVote received nil vote", "roundKey", roundKey)
+		return ErrNilAnswerClassificationVote
+	}
+	if !classificationVoteMatchesRound(roundKey, vote) {
+		handler.logger.Error(
+			"miniround2.HandleAnswerClassificationVote vote envelope mismatch",
+			"roundKey", roundKey,
+			"judgeID", vote.JudgeID,
+			"answerEvidenceHash", vote.AnswerEvidenceHash,
+			"promptVersion", vote.PromptVersion,
+		)
+		return ErrAnswerClassificationVoteMismatch
+	}
+
+	handler.logger.Info(
+		"miniround2.HandleAnswerClassificationVote storing judge vote",
+		"roundKey", roundKey,
+		"judgeID", vote.JudgeID,
+		"answerEvidenceHash", vote.AnswerEvidenceHash,
+		"promptVersion", vote.PromptVersion,
+	)
+
+	err := handler.roundState.AddAnswerClassificationVote(roundKey, vote)
+	if err != nil {
+		handler.logger.Error(
+			"miniround2.HandleAnswerClassificationVote failed to store vote",
+			"roundKey", roundKey,
+			"judgeID", vote.JudgeID,
+			"error", err,
+		)
+	}
+
+	return err
+}
+
+// HandleAnswerClassificationCertificate performs structural alignment checks
+// and stores the leader certificate without activating finalization.
+func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
+	roundKey data.RoundKey,
+	certificate *data.AnswerClassificationCertificate,
+) error {
+	if certificate == nil {
+		handler.logger.Error("miniround2.HandleAnswerClassificationCertificate received nil certificate", "roundKey", roundKey)
+		return ErrNilAnswerClassificationCertificate
+	}
+	if !classificationCertificateMatchesRound(roundKey, certificate) {
+		handler.logger.Error(
+			"miniround2.HandleAnswerClassificationCertificate certificate envelope mismatch",
+			"roundKey", roundKey,
+			"senderID", certificate.SenderID,
+			"answerEvidenceHash", certificate.AnswerEvidenceHash,
+			"promptVersion", certificate.PromptVersion,
+		)
+		return ErrAnswerClassificationCertificateMismatch
+	}
+
+	handler.logger.Info(
+		"miniround2.HandleAnswerClassificationCertificate storing certificate",
+		"roundKey", roundKey,
+		"senderID", certificate.SenderID,
+		"answerEvidenceHash", certificate.AnswerEvidenceHash,
+		"promptVersion", certificate.PromptVersion,
+		"numVotes", len(certificate.Votes),
+	)
+
+	err := handler.roundState.SetAnswerClassificationCertificate(roundKey, certificate)
+	if err != nil {
+		handler.logger.Error(
+			"miniround2.HandleAnswerClassificationCertificate failed to store certificate",
+			"roundKey", roundKey,
+			"senderID", certificate.SenderID,
+			"error", err,
+		)
+	}
+
+	return err
+}
+
+// classificationVoteMatchesRound validates fields shared by every classification vote envelope.
+func classificationVoteMatchesRound(roundKey data.RoundKey, vote *data.AnswerClassificationVote) bool {
+	return vote.Epoch == roundKey.Epoch &&
+		vote.Round == roundKey.Round &&
+		vote.MiniRound == roundKey.MiniRound &&
+		vote.JudgeID != "" &&
+		len(vote.CanonicalBlockHash) > 0 &&
+		len(vote.AnswerEvidenceHash) > 0 &&
+		vote.PromptVersion != "" &&
+		len(vote.PromptHash) > 0 &&
+		len(vote.Assignments) > 0
+}
+
+// classificationCertificateMatchesRound verifies that every embedded vote is
+// aligned with the certificate's round, answer evidence, and prompt identity.
+func classificationCertificateMatchesRound(
+	roundKey data.RoundKey,
+	certificate *data.AnswerClassificationCertificate,
+) bool {
+	if certificate.Epoch != roundKey.Epoch ||
+		certificate.Round != roundKey.Round ||
+		certificate.MiniRound != roundKey.MiniRound ||
+		certificate.SenderID == "" ||
+		len(certificate.CanonicalBlockHash) == 0 ||
+		len(certificate.AnswerEvidenceHash) == 0 ||
+		certificate.PromptVersion == "" ||
+		len(certificate.PromptHash) == 0 ||
+		len(certificate.Votes) == 0 ||
+		len(certificate.Transactions) == 0 {
+		return false
+	}
+
+	for index := range certificate.Votes {
+		vote := &certificate.Votes[index]
+		if !classificationVoteMatchesRound(roundKey, vote) ||
+			!bytes.Equal(vote.CanonicalBlockHash, certificate.CanonicalBlockHash) ||
+			!bytes.Equal(vote.AnswerEvidenceHash, certificate.AnswerEvidenceHash) ||
+			vote.PromptVersion != certificate.PromptVersion ||
+			!bytes.Equal(vote.PromptHash, certificate.PromptHash) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (handler *miniRoundTwoHandler) createFinalizedAggregatedExecutionResults(
 	message *data.AggregatedExecutionResultsMessage,
 ) (data.AggregatedExecutionResults, error) {

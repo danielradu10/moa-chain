@@ -46,6 +46,11 @@ func (b *broadcaster) SendVoteToLeader(voteMessage *data.ConsensusMessage, leade
 	return nil
 }
 
+// SendAnswerClassificationVoteToLeader sends a judge vote to the mini-round-two leader.
+func (b *broadcaster) SendAnswerClassificationVoteToLeader(voteMessage *data.ConsensusMessage, leaderID string) error {
+	return b.SendVoteToLeader(voteMessage, leaderID)
+}
+
 func (b *broadcaster) BroadcastProposedBlock(blockMessage *data.ConsensusMessage, myID string, receivers []string) error {
 	return b.broadcast(blockMessage, myID, receivers)
 }
@@ -56,6 +61,11 @@ func (b *broadcaster) BroadcastAggregatedVotes(aggregatedVotesMessage *data.Cons
 
 func (b *broadcaster) BroadcastAggregatedExecutionResults(aggregatedExecutionResultsMessage *data.ConsensusMessage, myID string, receivers []string) error {
 	return b.broadcast(aggregatedExecutionResultsMessage, myID, receivers)
+}
+
+// BroadcastAnswerClassificationCertificate sends the classification evidence and derived groups to validators.
+func (b *broadcaster) BroadcastAnswerClassificationCertificate(certificateMessage *data.ConsensusMessage, myID string, receivers []string) error {
+	return b.broadcast(certificateMessage, myID, receivers)
 }
 
 func (b *broadcaster) broadcast(message *data.ConsensusMessage, myID string, receivers []string) error {

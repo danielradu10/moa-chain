@@ -10,6 +10,10 @@ const (
 	StepAwaitAggregatedVotes
 	StepCollectExecutionResults
 	StepAwaitAggregatedExecutionResults
+	StepAwaitAnswerEvidence
+	StepJudgeAnswers
+	StepCollectClassificationVotes
+	StepAwaitClassificationCertificate
 	StepFinished
 	StepFailed
 )

@@ -30,3 +30,21 @@ var ErrExecutedPromptsAlreadyExistsForSender = errors.New("executed prompts alre
 
 // ErrNoExecutedPromptsForCurrentRoundKey signals that there are no executed prompts for the current round.
 var ErrNoExecutedPromptsForCurrentRoundKey = errors.New("no executed prompts for current round")
+
+// ErrNilAnswerClassificationVote signals a nil classification vote.
+var ErrNilAnswerClassificationVote = errors.New("nil answer classification vote")
+
+// ErrAnswerClassificationVoteAlreadyExistsForJudge signals a duplicate judge vote.
+var ErrAnswerClassificationVoteAlreadyExistsForJudge = errors.New("answer classification vote already exists for judge")
+
+// ErrNoAnswerClassificationVotesForCurrentRoundKey signals missing classification votes.
+var ErrNoAnswerClassificationVotesForCurrentRoundKey = errors.New("no answer classification votes for current round")
+
+// ErrNilAnswerClassificationCertificate signals a nil classification certificate.
+var ErrNilAnswerClassificationCertificate = errors.New("nil answer classification certificate")
+
+// ErrAnswerClassificationCertificateAlreadyExists signals a duplicate classification certificate.
+var ErrAnswerClassificationCertificateAlreadyExists = errors.New("answer classification certificate already exists")
+
+// ErrNoAnswerClassificationCertificateForCurrentRoundKey signals a missing certificate.
+var ErrNoAnswerClassificationCertificateForCurrentRoundKey = errors.New("no answer classification certificate for current round")

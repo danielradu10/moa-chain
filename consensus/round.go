@@ -132,6 +132,12 @@ func (rh *roundHandler) HandleMessage(message data.ConsensusMessage) error {
 	case data.AggregatedExecutionResultsConsensusMessage:
 		return rh.handleAggregatedExecutionResults(message)
 
+	case data.AnswerClassificationVoteConsensusMessage:
+		return rh.handleAnswerClassificationVote(message)
+
+	case data.AnswerClassificationCertificateConsensusMessage:
+		return rh.handleAnswerClassificationCertificate(message)
+
 	default:
 		return ErrUnknownConsensusMessage
 	}
@@ -423,6 +429,70 @@ func (rh *roundHandler) handleAggregatedExecutionResults(message data.ConsensusM
 	return nil
 }
 
+func (rh *roundHandler) handleAnswerClassificationVote(message data.ConsensusMessage) error {
+	vote := message.AnswerClassificationVote
+	if vote == nil {
+		rh.logger.Error("answer classification vote is nil")
+		return ErrNilAnswerClassificationVote
+	}
+
+	roundKey := data.RoundKey{Epoch: vote.Epoch, Round: vote.Round, MiniRound: vote.MiniRound}
+	if rh.shouldIgnoreFinalizedMiniRoundMessage(roundKey) {
+		rh.logger.Info("ignoring classification vote for finalized mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
+		return nil
+	}
+	if rh.currentStep != data.StepCollectClassificationVotes {
+		rh.logger.Error("unexpected classification vote for step", "currentStep", rh.currentStep, "judgeID", vote.JudgeID)
+		return ErrUnexpectedMessageForStep
+	}
+	if roundKey != rh.currentRoundKey {
+		rh.logger.Error("classification vote for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey, "judgeID", vote.JudgeID)
+		return ErrMessageForDifferentRound
+	}
+
+	rh.logger.Info(
+		"handling answer classification vote",
+		"roundKey", roundKey,
+		"judgeID", vote.JudgeID,
+		"answerEvidenceHash", vote.AnswerEvidenceHash,
+		"promptVersion", vote.PromptVersion,
+	)
+	return rh.miniRoundTwoHandler.HandleAnswerClassificationVote(roundKey, vote)
+}
+
+func (rh *roundHandler) handleAnswerClassificationCertificate(message data.ConsensusMessage) error {
+	certificate := message.AnswerClassificationCertificate
+	if certificate == nil {
+		rh.logger.Error("answer classification certificate is nil")
+		return ErrNilAnswerClassificationCertificate
+	}
+
+	roundKey := data.RoundKey{
+		Epoch: certificate.Epoch, Round: certificate.Round, MiniRound: certificate.MiniRound,
+	}
+	if rh.shouldIgnoreFinalizedMiniRoundMessage(roundKey) {
+		rh.logger.Info("ignoring classification certificate for finalized mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
+		return nil
+	}
+	if rh.currentStep != data.StepAwaitClassificationCertificate {
+		rh.logger.Error("unexpected classification certificate for step", "currentStep", rh.currentStep)
+		return ErrUnexpectedMessageForStep
+	}
+	if roundKey != rh.currentRoundKey {
+		rh.logger.Error("classification certificate for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey)
+		return ErrMessageForDifferentRound
+	}
+
+	rh.logger.Info(
+		"handling answer classification certificate",
+		"roundKey", roundKey,
+		"senderID", certificate.SenderID,
+		"answerEvidenceHash", certificate.AnswerEvidenceHash,
+		"promptVersion", certificate.PromptVersion,
+	)
+	return rh.miniRoundTwoHandler.HandleAnswerClassificationCertificate(roundKey, certificate)
+}
+
 func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error {
 	if roundKey != rh.currentRoundKey {
 		rh.logger.Error("stale timeout for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey, "timeoutStep", step)
@@ -455,6 +525,22 @@ func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error 
 	case data.StepAwaitAggregatedExecutionResults:
 		rh.currentStep = data.StepFailed
 		return ErrAggregatedExecutionResultsTimeout
+
+	case data.StepAwaitAnswerEvidence:
+		rh.currentStep = data.StepFailed
+		return ErrAnswerEvidenceTimeout
+
+	case data.StepJudgeAnswers:
+		rh.currentStep = data.StepFailed
+		return ErrAnswerJudgingTimeout
+
+	case data.StepCollectClassificationVotes:
+		rh.currentStep = data.StepFailed
+		return ErrNotEnoughAnswerClassificationVotes
+
+	case data.StepAwaitClassificationCertificate:
+		rh.currentStep = data.StepFailed
+		return ErrAnswerClassificationCertificateTimeout
 
 	default:
 		return nil

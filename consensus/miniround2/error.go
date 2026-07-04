@@ -81,3 +81,15 @@ var ErrAnswerJudgeExecutionFailed = errors.New("answer judge execution failed")
 
 // ErrInvalidAnswerJudgeResponse signals malformed structured judge output.
 var ErrInvalidAnswerJudgeResponse = errors.New("invalid answer judge response")
+
+// ErrNilAnswerClassificationVote signals a missing classification vote message.
+var ErrNilAnswerClassificationVote = errors.New("nil answer classification vote")
+
+// ErrAnswerClassificationVoteMismatch signals vote metadata inconsistent with the current round.
+var ErrAnswerClassificationVoteMismatch = errors.New("answer classification vote mismatch")
+
+// ErrNilAnswerClassificationCertificate signals a missing classification certificate message.
+var ErrNilAnswerClassificationCertificate = errors.New("nil answer classification certificate")
+
+// ErrAnswerClassificationCertificateMismatch signals inconsistent certificate metadata or votes.
+var ErrAnswerClassificationCertificateMismatch = errors.New("answer classification certificate mismatch")
