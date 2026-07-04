@@ -22,6 +22,11 @@ type MiniRoundTwoHandlerStub struct {
 	HandleAggregatedExecutionResultsMessage *data.AggregatedExecutionResultsMessage
 	HandleAggregatedExecutionResultsErr     error
 
+	HandleAnswerEvidenceForClassificationCalled  bool
+	HandleAnswerEvidenceForClassificationKey     data.RoundKey
+	HandleAnswerEvidenceForClassificationMessage *data.AggregatedExecutionResultsMessage
+	HandleAnswerEvidenceForClassificationErr     error
+
 	HandleAnswerClassificationVoteCalled bool
 	HandleAnswerClassificationVoteKey    data.RoundKey
 	HandleAnswerClassificationVoteValue  *data.AnswerClassificationVote
@@ -31,6 +36,17 @@ type MiniRoundTwoHandlerStub struct {
 	HandleAnswerClassificationCertificateKey    data.RoundKey
 	HandleAnswerClassificationCertificateValue  *data.AnswerClassificationCertificate
 	HandleAnswerClassificationCertificateErr    error
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleAnswerEvidenceForClassification(
+	roundKey data.RoundKey,
+	message *data.AggregatedExecutionResultsMessage,
+) error {
+	stub.HandleAnswerEvidenceForClassificationCalled = true
+	stub.HandleAnswerEvidenceForClassificationKey = roundKey
+	stub.HandleAnswerEvidenceForClassificationMessage = message
+
+	return stub.HandleAnswerEvidenceForClassificationErr
 }
 
 func (stub *MiniRoundTwoHandlerStub) HandleAnswerClassificationVote(

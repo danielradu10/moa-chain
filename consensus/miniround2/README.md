@@ -325,7 +325,7 @@ Tests:
 - nil and misaligned certificate fields;
 - round-state cleanup.
 
-### PR 5: Validator judging and signed vote production
+### PR 5: Validator judging and signed vote production — Done
 
 Scope:
 

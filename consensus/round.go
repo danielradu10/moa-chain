@@ -406,6 +406,10 @@ func (rh *roundHandler) handleAggregatedExecutionResults(message data.ConsensusM
 		return nil
 	}
 
+	if rh.currentStep == data.StepAwaitAnswerEvidence {
+		return rh.handleAnswerEvidenceForClassification(roundKey, aggregatedExecutionResults)
+	}
+
 	if rh.currentStep != data.StepAwaitAggregatedExecutionResults {
 		rh.logger.Error("unexpected aggregated execution results message for step", "currentStep", rh.currentStep)
 		return ErrUnexpectedMessageForStep
@@ -426,6 +430,35 @@ func (rh *roundHandler) handleAggregatedExecutionResults(message data.ConsensusM
 
 	rh.currentStep = data.StepFinished
 	rh.logger.Info("mini-round two finished", "roundKey", roundKey)
+	return nil
+}
+
+// handleAnswerEvidenceForClassification activates judging only for the new,
+// explicitly selected answer-evidence step; the legacy finalization path remains separate.
+func (rh *roundHandler) handleAnswerEvidenceForClassification(
+	roundKey data.RoundKey,
+	evidence *data.AggregatedExecutionResultsMessage,
+) error {
+	if roundKey != rh.currentRoundKey {
+		rh.logger.Error("answer evidence for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey)
+		return ErrMessageForDifferentRound
+	}
+
+	rh.currentStep = data.StepJudgeAnswers
+	rh.logger.Info("judging verified answer evidence", "roundKey", roundKey, "senderID", evidence.SenderID)
+	if err := rh.miniRoundTwoHandler.HandleAnswerEvidenceForClassification(roundKey, evidence); err != nil {
+		rh.currentStep = data.StepFailed
+		rh.logger.Error("answer evidence judging failed", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	if evidence.SenderID == rh.selfID {
+		rh.currentStep = data.StepCollectClassificationVotes
+	} else {
+		rh.currentStep = data.StepAwaitClassificationCertificate
+	}
+
+	rh.logger.Info("answer classification vote produced", "roundKey", roundKey, "step", rh.currentStep)
 	return nil
 }
 

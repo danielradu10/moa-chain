@@ -51,6 +51,70 @@ func TestRoundHandler_RoutesAnswerClassificationCertificate(t *testing.T) {
 	require.Same(t, certificate, miniRoundTwoHandler.HandleAnswerClassificationCertificateValue)
 }
 
+func TestRoundHandler_RoutesAnswerEvidenceToInactiveClassificationPath(t *testing.T) {
+	t.Parallel()
+
+	roundKey := createMiniRoundTwoRoundKey()
+	tests := []struct {
+		name         string
+		selfID       string
+		leaderID     string
+		handlerError error
+		expectedStep data.Step
+	}{
+		{
+			name:         "non-leader waits for classification certificate",
+			selfID:       "validator",
+			leaderID:     "leader",
+			expectedStep: data.StepAwaitClassificationCertificate,
+		},
+		{
+			name:         "leader collects classification votes",
+			selfID:       "leader",
+			leaderID:     "leader",
+			expectedStep: data.StepCollectClassificationVotes,
+		},
+		{
+			name:         "judging failure fails step",
+			selfID:       "validator",
+			leaderID:     "leader",
+			handlerError: ErrAnswerJudgingTimeout,
+			expectedStep: data.StepFailed,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			miniRoundTwoHandler := &testscommon.MiniRoundTwoHandlerStub{
+				HandleAnswerEvidenceForClassificationErr: test.handlerError,
+			}
+			handler := createTestRoundHandler(
+				test.selfID, data.StepAwaitAnswerEvidence, roundKey, miniRoundTwoHandler,
+			)
+			evidence := &data.AggregatedExecutionResultsMessage{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+				SenderID: test.leaderID,
+			}
+
+			err := handler.HandleMessage(data.ConsensusMessage{
+				ConsensusMessageType:       data.AggregatedExecutionResultsConsensusMessage,
+				AggregatedExecutionResults: evidence,
+			})
+
+			if test.handlerError == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, test.handlerError)
+			}
+			require.True(t, miniRoundTwoHandler.HandleAnswerEvidenceForClassificationCalled)
+			require.Same(t, evidence, miniRoundTwoHandler.HandleAnswerEvidenceForClassificationMessage)
+			require.Equal(t, test.expectedStep, handler.currentStep)
+		})
+	}
+}
+
 func TestRoundHandler_RejectsInvalidClassificationRouting(t *testing.T) {
 	t.Parallel()
 
