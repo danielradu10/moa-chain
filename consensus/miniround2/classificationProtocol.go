@@ -3,7 +3,6 @@ package miniround2
 import (
 	"bytes"
 	"crypto/sha256"
-	"fmt"
 	"sort"
 
 	"moa-chain/data"
@@ -23,28 +22,9 @@ func candidateKey(candidate data.AnswerCandidateID) answerCandidateKey {
 	}
 }
 
-func compareCandidateIDs(left, right data.AnswerCandidateID) int {
-	if comparison := bytes.Compare(left.TxHash, right.TxHash); comparison != 0 {
-		return comparison
-	}
-	if left.ProducerID < right.ProducerID {
-		return -1
-	}
-	if left.ProducerID > right.ProducerID {
-		return 1
-	}
-
-	return bytes.Compare(left.AnswerHash, right.AnswerHash)
-}
-
 func validateCandidateID(candidate data.AnswerCandidateID) error {
 	if candidate.ProducerID == "" || len(candidate.TxHash) == 0 || len(candidate.AnswerHash) != sha256.Size {
-		return fmt.Errorf("%w: producer=%q txHashLength=%d answerHashLength=%d",
-			ErrInvalidAnswerCandidate,
-			candidate.ProducerID,
-			len(candidate.TxHash),
-			len(candidate.AnswerHash),
-		)
+		return ErrInvalidAnswerCandidate
 	}
 
 	return nil
@@ -55,7 +35,7 @@ func validateCandidateID(candidate data.AnswerCandidateID) error {
 func CanonicalizeAnswerCandidateIDs(candidates []data.AnswerCandidateID) []data.AnswerCandidateID {
 	ordered := append([]data.AnswerCandidateID(nil), candidates...)
 	sort.Slice(ordered, func(left, right int) bool {
-		return compareCandidateIDs(ordered[left], ordered[right]) < 0
+		return data.CompareAnswerCandidateIDs(ordered[left], ordered[right]) < 0
 	})
 
 	return ordered
@@ -65,7 +45,7 @@ func CanonicalizeAnswerCandidateIDs(candidates []data.AnswerCandidateID) []data.
 func CanonicalizeClassificationAssignments(assignments []data.AnswerClassificationAssignment) []data.AnswerClassificationAssignment {
 	ordered := append([]data.AnswerClassificationAssignment(nil), assignments...)
 	sort.Slice(ordered, func(left, right int) bool {
-		return compareCandidateIDs(ordered[left].CandidateID, ordered[right].CandidateID) < 0
+		return data.CompareAnswerCandidateIDs(ordered[left].CandidateID, ordered[right].CandidateID) < 0
 	})
 
 	return ordered
@@ -77,47 +57,84 @@ func ValidateClassificationAssignments(
 	expectedCandidates []data.AnswerCandidateID,
 	assignments []data.AnswerClassificationAssignment,
 ) error {
-	expected := make(map[answerCandidateKey]struct{}, len(expectedCandidates))
-	for _, candidate := range expectedCandidates {
-		if err := validateCandidateID(candidate); err != nil {
-			return err
-		}
-
-		key := candidateKey(candidate)
-		if _, exists := expected[key]; exists {
-			return fmt.Errorf("%w: producer=%q", ErrDuplicatedAnswerCandidate, candidate.ProducerID)
-		}
-		expected[key] = struct{}{}
+	expected, err := buildCandidateSet(expectedCandidates)
+	if err != nil {
+		return err
 	}
 
-	seen := make(map[answerCandidateKey]struct{}, len(assignments))
-	for index, assignment := range assignments {
-		if err := validateCandidateID(assignment.CandidateID); err != nil {
-			return err
-		}
-		if !assignment.Category.IsValid() {
-			return fmt.Errorf("%w: %q", ErrInvalidAnswerCategory, assignment.Category)
-		}
-
-		key := candidateKey(assignment.CandidateID)
-		if _, exists := seen[key]; exists {
-			return fmt.Errorf("%w: producer=%q", ErrDuplicatedAnswerCandidate, assignment.CandidateID.ProducerID)
-		}
-		if _, exists := expected[key]; !exists {
-			return fmt.Errorf("%w: producer=%q", ErrUnknownAnswerCandidate, assignment.CandidateID.ProducerID)
-		}
-		seen[key] = struct{}{}
-
-		if index > 0 && compareCandidateIDs(assignments[index-1].CandidateID, assignment.CandidateID) >= 0 {
-			return ErrNonCanonicalClassification
-		}
+	seen, err := validateAssignmentSet(expected, assignments)
+	if err != nil {
+		return err
 	}
-
 	if len(seen) != len(expected) {
-		return fmt.Errorf("%w: expected=%d actual=%d", ErrMissingAnswerCandidate, len(expected), len(seen))
+		return ErrMissingAnswerCandidate
 	}
 
 	return nil
+}
+
+func buildCandidateSet(candidates []data.AnswerCandidateID) (map[answerCandidateKey]struct{}, error) {
+	result := make(map[answerCandidateKey]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		if err := validateCandidateID(candidate); err != nil {
+			return nil, err
+		}
+
+		key := candidateKey(candidate)
+		if _, exists := result[key]; exists {
+			return nil, ErrDuplicatedAnswerCandidate
+		}
+
+		result[key] = struct{}{}
+	}
+
+	return result, nil
+}
+
+func validateAssignmentSet(
+	expected map[answerCandidateKey]struct{},
+	assignments []data.AnswerClassificationAssignment,
+) (map[answerCandidateKey]struct{}, error) {
+	seen := make(map[answerCandidateKey]struct{}, len(assignments))
+	for index := range assignments {
+		key, err := validateAssignment(expected, seen, assignments, index)
+		if err != nil {
+			return nil, err
+		}
+
+		seen[key] = struct{}{}
+	}
+
+	return seen, nil
+}
+
+func validateAssignment(
+	expected map[answerCandidateKey]struct{},
+	seen map[answerCandidateKey]struct{},
+	assignments []data.AnswerClassificationAssignment,
+	index int,
+) (answerCandidateKey, error) {
+	assignment := assignments[index]
+	if err := validateCandidateID(assignment.CandidateID); err != nil {
+		return answerCandidateKey{}, err
+	}
+	if !assignment.Category.IsValid() {
+		return answerCandidateKey{}, ErrInvalidAnswerCategory
+	}
+
+	key := candidateKey(assignment.CandidateID)
+	if _, exists := seen[key]; exists {
+		return answerCandidateKey{}, ErrDuplicatedAnswerCandidate
+	}
+	if _, exists := expected[key]; !exists {
+		return answerCandidateKey{}, ErrUnknownAnswerCandidate
+	}
+
+	if index > 0 && data.CompareAnswerCandidateIDs(assignments[index-1].CandidateID, assignment.CandidateID) >= 0 {
+		return answerCandidateKey{}, ErrNonCanonicalClassification
+	}
+
+	return key, nil
 }
 
 // CanonicalizeClassificationVotes returns a copy sorted by judge ID.
@@ -136,10 +153,10 @@ func ValidateCanonicalClassificationVotes(votes []data.AnswerClassificationVote)
 	seen := make(map[string]struct{}, len(votes))
 	for index, vote := range votes {
 		if vote.JudgeID == "" {
-			return fmt.Errorf("%w: empty judge ID", ErrInvalidClassificationVote)
+			return ErrInvalidClassificationVote
 		}
 		if _, exists := seen[vote.JudgeID]; exists {
-			return fmt.Errorf("%w: %q", ErrDuplicatedClassificationJudge, vote.JudgeID)
+			return ErrDuplicatedClassificationJudge
 		}
 		seen[vote.JudgeID] = struct{}{}
 
@@ -167,61 +184,116 @@ func CanonicalizeTransactionClassifications(
 // the canonical candidate ordering of counts and every group.
 func ValidateCanonicalTransactionClassifications(transactions []data.TransactionAnswerClassification) error {
 	for index, transaction := range transactions {
-		if len(transaction.TxHash) == 0 || !transaction.Status.IsValid() {
-			return ErrNonCanonicalClassification
-		}
-		if index > 0 && bytes.Compare(transactions[index-1].TxHash, transaction.TxHash) >= 0 {
-			return ErrNonCanonicalClassification
-		}
-
-		countCandidates := make([]data.AnswerCandidateID, 0, len(transaction.Counts))
-		for _, count := range transaction.Counts {
-			if !bytes.Equal(count.CandidateID.TxHash, transaction.TxHash) {
-				return fmt.Errorf("%w: candidate transaction hash mismatch", ErrInvalidAnswerCandidate)
-			}
-			countCandidates = append(countCandidates, count.CandidateID)
-		}
-		if err := validateCanonicalCandidateIDs(countCandidates); err != nil {
+		if err := validateTransactionPosition(transactions, index); err != nil {
 			return err
 		}
-		expectedGroupCandidates := make(map[answerCandidateKey]struct{}, len(countCandidates))
-		for _, candidate := range countCandidates {
-			expectedGroupCandidates[candidateKey(candidate)] = struct{}{}
+		if err := validateTransactionClassification(transaction); err != nil {
+			return err
 		}
+	}
 
-		groups := [][]data.AnswerCandidateID{
-			transaction.Groups.Correct,
-			transaction.Groups.Hallucination,
-			transaction.Groups.Malicious,
-			transaction.Groups.Wrong,
-		}
-		groupCandidates := make(map[answerCandidateKey]struct{}, len(countCandidates))
-		for _, group := range groups {
-			if err := validateCanonicalCandidateIDs(group); err != nil {
-				return err
-			}
-			for _, candidate := range group {
-				if !bytes.Equal(candidate.TxHash, transaction.TxHash) {
-					return fmt.Errorf("%w: group candidate transaction hash mismatch", ErrInvalidAnswerCandidate)
-				}
-				key := candidateKey(candidate)
-				if _, exists := expectedGroupCandidates[key]; !exists {
-					return fmt.Errorf("%w: producer=%q", ErrUnknownAnswerCandidate, candidate.ProducerID)
-				}
-				if _, exists := groupCandidates[key]; exists {
-					return fmt.Errorf("%w: producer=%q", ErrDuplicatedAnswerCandidate, candidate.ProducerID)
-				}
-				groupCandidates[key] = struct{}{}
-			}
-		}
+	return nil
+}
 
-		if len(groupCandidates) != len(countCandidates) {
-			return fmt.Errorf("%w: group coverage expected=%d actual=%d",
-				ErrMissingAnswerCandidate,
-				len(countCandidates),
-				len(groupCandidates),
-			)
+func validateTransactionPosition(transactions []data.TransactionAnswerClassification, index int) error {
+	transaction := transactions[index]
+	if len(transaction.TxHash) == 0 || !transaction.Status.IsValid() {
+		return ErrNonCanonicalClassification
+	}
+	if index > 0 && bytes.Compare(transactions[index-1].TxHash, transaction.TxHash) >= 0 {
+		return ErrNonCanonicalClassification
+	}
+
+	return nil
+}
+
+func validateTransactionClassification(transaction data.TransactionAnswerClassification) error {
+	countCandidates, err := extractCountCandidates(transaction)
+	if err != nil {
+		return err
+	}
+	if err = validateCanonicalCandidateIDs(countCandidates); err != nil {
+		return err
+	}
+
+	expectedCandidates := candidateSet(countCandidates)
+	groupCandidates, err := validateAnswerGroups(transaction.TxHash, expectedCandidates, transaction.Groups)
+	if err != nil {
+		return err
+	}
+	if len(groupCandidates) != len(expectedCandidates) {
+		return ErrMissingAnswerCandidate
+	}
+
+	return nil
+}
+
+func extractCountCandidates(transaction data.TransactionAnswerClassification) ([]data.AnswerCandidateID, error) {
+	candidates := make([]data.AnswerCandidateID, 0, len(transaction.Counts))
+	for _, count := range transaction.Counts {
+		if !bytes.Equal(count.CandidateID.TxHash, transaction.TxHash) {
+			return nil, ErrInvalidAnswerCandidate
 		}
+		candidates = append(candidates, count.CandidateID)
+	}
+
+	return candidates, nil
+}
+
+func candidateSet(candidates []data.AnswerCandidateID) map[answerCandidateKey]struct{} {
+	result := make(map[answerCandidateKey]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		result[candidateKey(candidate)] = struct{}{}
+	}
+
+	return result
+}
+
+func validateAnswerGroups(
+	txHash []byte,
+	expected map[answerCandidateKey]struct{},
+	groups data.CanonicalAnswerGroups,
+) (map[answerCandidateKey]struct{}, error) {
+	seen := make(map[answerCandidateKey]struct{}, len(expected))
+	for _, group := range answerGroups(groups) {
+		if err := validateAnswerGroup(txHash, expected, seen, group); err != nil {
+			return nil, err
+		}
+	}
+
+	return seen, nil
+}
+
+func answerGroups(groups data.CanonicalAnswerGroups) [][]data.AnswerCandidateID {
+	return [][]data.AnswerCandidateID{
+		groups.Correct,
+		groups.Hallucination,
+		groups.Malicious,
+		groups.Wrong,
+	}
+}
+
+func validateAnswerGroup(
+	txHash []byte,
+	expected map[answerCandidateKey]struct{},
+	seen map[answerCandidateKey]struct{},
+	group []data.AnswerCandidateID,
+) error {
+	if err := validateCanonicalCandidateIDs(group); err != nil {
+		return err
+	}
+	for _, candidate := range group {
+		if !bytes.Equal(candidate.TxHash, txHash) {
+			return ErrInvalidAnswerCandidate
+		}
+		key := candidateKey(candidate)
+		if _, exists := expected[key]; !exists {
+			return ErrUnknownAnswerCandidate
+		}
+		if _, exists := seen[key]; exists {
+			return ErrDuplicatedAnswerCandidate
+		}
+		seen[key] = struct{}{}
 	}
 
 	return nil
@@ -232,7 +304,7 @@ func validateCanonicalCandidateIDs(candidates []data.AnswerCandidateID) error {
 		if err := validateCandidateID(candidate); err != nil {
 			return err
 		}
-		if index > 0 && compareCandidateIDs(candidates[index-1], candidate) >= 0 {
+		if index > 0 && data.CompareAnswerCandidateIDs(candidates[index-1], candidate) >= 0 {
 			return ErrNonCanonicalClassification
 		}
 	}

@@ -1,9 +1,8 @@
-package miniround2
+package hashing
 
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
 	"hash"
 	"sort"
 
@@ -29,13 +28,13 @@ func ComputeAnswerHash(answer string) []byte {
 // evidence certificate. Signers and answer maps are canonicalized before hashing.
 func ComputeAnswerEvidenceHash(message *data.AggregatedExecutionResultsMessage) ([]byte, error) {
 	if message == nil {
-		return nil, fmt.Errorf("%w: nil message", ErrInvalidAnswerEvidence)
+		return nil, ErrInvalidAnswerEvidence
 	}
 	if len(message.Signers) == 0 ||
 		len(message.Signers) != len(message.BlockHashes) ||
 		len(message.Signers) != len(message.BlockSignatures) ||
 		len(message.Signers) != len(message.Answers) {
-		return nil, fmt.Errorf("%w: misaligned certificate", ErrInvalidAnswerEvidence)
+		return nil, ErrInvalidAnswerEvidence
 	}
 
 	type evidenceEntry struct {
@@ -49,10 +48,10 @@ func ComputeAnswerEvidenceHash(message *data.AggregatedExecutionResultsMessage) 
 	seenSigners := make(map[string]struct{}, len(message.Signers))
 	for index, signer := range message.Signers {
 		if signer == "" {
-			return nil, fmt.Errorf("%w: empty signer", ErrInvalidAnswerEvidence)
+			return nil, ErrInvalidAnswerEvidence
 		}
 		if _, exists := seenSigners[signer]; exists {
-			return nil, fmt.Errorf("%w: duplicated signer %q", ErrInvalidAnswerEvidence, signer)
+			return nil, ErrInvalidAnswerEvidence
 		}
 		seenSigners[signer] = struct{}{}
 		entries = append(entries, evidenceEntry{
@@ -107,16 +106,27 @@ func ComputeClassificationVoteHash(vote *data.AnswerClassificationVote) ([]byte,
 		return nil, ErrInvalidClassificationVote
 	}
 	if len(vote.Assignments) == 0 {
-		return nil, ErrMissingAnswerCandidate
+		return nil, ErrInvalidClassificationVote
 	}
 
-	assignments := CanonicalizeClassificationAssignments(vote.Assignments)
-	expectedCandidates := make([]data.AnswerCandidateID, 0, len(assignments))
+	assignments := canonicalizeClassificationAssignments(vote.Assignments)
+	seenCandidates := make(map[classificationCandidateKey]struct{}, len(assignments))
 	for _, assignment := range assignments {
-		expectedCandidates = append(expectedCandidates, assignment.CandidateID)
-	}
-	if err := ValidateClassificationAssignments(expectedCandidates, assignments); err != nil {
-		return nil, err
+		candidate := assignment.CandidateID
+		if candidate.ProducerID == "" || len(candidate.TxHash) == 0 || len(candidate.AnswerHash) != sha256.Size ||
+			!assignment.Category.IsValid() {
+			return nil, ErrInvalidClassificationVote
+		}
+
+		key := classificationCandidateKey{
+			producerID: candidate.ProducerID,
+			txHash:     string(candidate.TxHash),
+			answerHash: string(candidate.AnswerHash),
+		}
+		if _, exists := seenCandidates[key]; exists {
+			return nil, ErrInvalidClassificationVote
+		}
+		seenCandidates[key] = struct{}{}
 	}
 
 	hasher := sha256.New()
@@ -137,6 +147,23 @@ func ComputeClassificationVoteHash(vote *data.AnswerClassificationVote) ([]byte,
 	}
 
 	return hasher.Sum(nil), nil
+}
+
+type classificationCandidateKey struct {
+	producerID string
+	txHash     string
+	answerHash string
+}
+
+func canonicalizeClassificationAssignments(
+	assignments []data.AnswerClassificationAssignment,
+) []data.AnswerClassificationAssignment {
+	ordered := append([]data.AnswerClassificationAssignment(nil), assignments...)
+	sort.Slice(ordered, func(left, right int) bool {
+		return data.CompareAnswerCandidateIDs(ordered[left].CandidateID, ordered[right].CandidateID) < 0
+	})
+
+	return ordered
 }
 
 func writeCandidateID(hasher hash.Hash, candidate data.AnswerCandidateID) {

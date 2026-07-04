@@ -60,6 +60,3 @@ var ErrDuplicatedClassificationJudge = errors.New("duplicated classification jud
 
 // ErrInvalidClassificationVote signals a malformed classification vote.
 var ErrInvalidClassificationVote = errors.New("invalid classification vote")
-
-// ErrInvalidAnswerEvidence signals a malformed answer evidence certificate.
-var ErrInvalidAnswerEvidence = errors.New("invalid answer evidence")

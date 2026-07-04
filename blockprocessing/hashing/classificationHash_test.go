@@ -1,4 +1,4 @@
-package miniround2
+package hashing
 
 import (
 	"testing"
@@ -91,17 +91,17 @@ func TestComputeClassificationVoteHashRejectsMalformedVote(t *testing.T) {
 	missingAssignment := classificationVote()
 	missingAssignment.Assignments = nil
 	_, err = ComputeClassificationVoteHash(missingAssignment)
-	require.ErrorIs(t, err, ErrMissingAnswerCandidate)
+	require.ErrorIs(t, err, ErrInvalidClassificationVote)
 
 	duplicate := classificationVote()
 	duplicate.Assignments[1].CandidateID = duplicate.Assignments[0].CandidateID
 	_, err = ComputeClassificationVoteHash(duplicate)
-	require.ErrorIs(t, err, ErrDuplicatedAnswerCandidate)
+	require.ErrorIs(t, err, ErrInvalidClassificationVote)
 
 	invalidCategory := classificationVote()
 	invalidCategory.Assignments[0].Category = data.AnswerCategory("UNKNOWN")
 	_, err = ComputeClassificationVoteHash(invalidCategory)
-	require.ErrorIs(t, err, ErrInvalidAnswerCategory)
+	require.ErrorIs(t, err, ErrInvalidClassificationVote)
 }
 
 func classificationAnswerEvidence() *data.AggregatedExecutionResultsMessage {
@@ -140,13 +140,21 @@ func classificationVote() *data.AnswerClassificationVote {
 		ModelMetadata:      "test-model",
 		Assignments: []data.AnswerClassificationAssignment{
 			{
-				CandidateID: classificationCandidate("validator-a", "tx-a", "answer a"),
+				CandidateID: classificationHashCandidate("validator-a", "tx-a", "answer a"),
 				Category:    data.AnswerCategoryCorrect,
 			},
 			{
-				CandidateID: classificationCandidate("validator-b", "tx-a", "answer b"),
+				CandidateID: classificationHashCandidate("validator-b", "tx-a", "answer b"),
 				Category:    data.AnswerCategoryHallucination,
 			},
 		},
+	}
+}
+
+func classificationHashCandidate(producerID, txHash, answer string) data.AnswerCandidateID {
+	return data.AnswerCandidateID{
+		ProducerID: producerID,
+		TxHash:     []byte(txHash),
+		AnswerHash: ComputeAnswerHash(answer),
 	}
 }

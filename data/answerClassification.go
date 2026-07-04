@@ -1,6 +1,9 @@
 package data
 
-// AnswerCategory is the category assigned by a validator's answer judge.
+import "bytes"
+
+// AnswerCategory is the category assigned to a candidate answer. Each
+// validator's judge selects one during the classification step.
 type AnswerCategory string
 
 const (
@@ -23,24 +26,41 @@ func (category AnswerCategory) IsValid() bool {
 	}
 }
 
-// AnswerCandidateID uniquely identifies one answer occurrence. AnswerHash commits
-// to the answer text, while ProducerID keeps identical answers from different
-// validators as separate candidates.
+// AnswerCandidateID uniquely identifies one answer occurrence. AnswerHash
+// commits to the text, while ProducerID keeps identical answers from different
+// validators separate. It is built from verified evidence before judging.
 type AnswerCandidateID struct {
 	ProducerID string
 	TxHash     []byte
 	AnswerHash []byte
 }
 
+// CompareAnswerCandidateIDs defines the canonical order used by validators
+// while hashing, classifying, and finalizing candidates.
+func CompareAnswerCandidateIDs(left, right AnswerCandidateID) int {
+	if comparison := bytes.Compare(left.TxHash, right.TxHash); comparison != 0 {
+		return comparison
+	}
+	if left.ProducerID < right.ProducerID {
+		return -1
+	}
+	if left.ProducerID > right.ProducerID {
+		return 1
+	}
+
+	return bytes.Compare(left.AnswerHash, right.AnswerHash)
+}
+
 // AnswerClassificationAssignment assigns exactly one category to one candidate.
+// It is produced by each validator's judge.
 type AnswerClassificationAssignment struct {
 	CandidateID AnswerCandidateID
 	Category    AnswerCategory
 }
 
-// AnswerClassificationVote is the signed classification produced by one judge.
-// Assignments must be in canonical candidate order. VoteHash and Signature are
-// excluded when computing VoteHash.
+// AnswerClassificationVote contains one judge's canonical assignments. The
+// judge signs it and sends it to the leader during vote collection. VoteHash and
+// Signature are excluded when computing VoteHash.
 type AnswerClassificationVote struct {
 	Epoch     uint64
 	Round     uint64
@@ -60,7 +80,8 @@ type AnswerClassificationVote struct {
 	Signature []byte
 }
 
-// AnswerCategoryCounts contains classification support for one candidate.
+// AnswerCategoryCounts contains classification support for one candidate. The
+// leader derives it and validators recompute it when verifying the certificate.
 type AnswerCategoryCounts struct {
 	CandidateID   AnswerCandidateID
 	Correct       uint64
@@ -69,8 +90,9 @@ type AnswerCategoryCounts struct {
 	Wrong         uint64
 }
 
-// CanonicalAnswerGroups contains candidate IDs assigned to each final group.
-// Every slice must be in canonical candidate order.
+// CanonicalAnswerGroups contains candidates assigned to each final category.
+// It is derived after vote aggregation; mini-round three consumes Correct.
+// Every group uses canonical candidate order.
 type CanonicalAnswerGroups struct {
 	Correct       []AnswerCandidateID
 	Hallucination []AnswerCandidateID
@@ -78,8 +100,8 @@ type CanonicalAnswerGroups struct {
 	Wrong         []AnswerCandidateID
 }
 
-// TransactionAnswerStatus defines whether a transaction can advance to
-// mini-round three.
+// TransactionAnswerStatus defines whether a transaction can advance. It is set
+// during mini-round-two finalization and consumed by mini-round three.
 type TransactionAnswerStatus string
 
 const (
@@ -98,8 +120,9 @@ func (status TransactionAnswerStatus) IsValid() bool {
 	}
 }
 
-// TransactionAnswerClassification is the deterministic result for one
-// transaction. Counts and group members must use canonical candidate order.
+// TransactionAnswerClassification contains counts, groups, and status for one
+// transaction. The leader derives it and validators recompute it before storing
+// the finalized mini-round-two result.
 type TransactionAnswerClassification struct {
 	TxHash []byte
 	Counts []AnswerCategoryCounts
@@ -107,8 +130,9 @@ type TransactionAnswerClassification struct {
 	Status TransactionAnswerStatus
 }
 
-// AnswerClassificationCertificate contains signed judge votes and the result
-// derived from them. Votes must be ordered by judge ID and transactions by hash.
+// AnswerClassificationCertificate contains signed judge votes and their derived
+// transaction results. The leader broadcasts it and validators verify it before
+// finalizing mini-round two.
 type AnswerClassificationCertificate struct {
 	Epoch     uint64
 	Round     uint64

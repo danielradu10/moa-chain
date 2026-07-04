@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"moa-chain/blockprocessing/hashing"
 	"moa-chain/data"
 )
 
@@ -201,6 +202,6 @@ func classificationCandidate(producerID, txHash, answer string) data.AnswerCandi
 	return data.AnswerCandidateID{
 		ProducerID: producerID,
 		TxHash:     []byte(txHash),
-		AnswerHash: ComputeAnswerHash(answer),
+		AnswerHash: hashing.ComputeAnswerHash(answer),
 	}
 }
