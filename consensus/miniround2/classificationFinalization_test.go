@@ -111,7 +111,7 @@ func classificationCertificateFixture(
 	t.Helper()
 
 	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
-	require.NoError(t, context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence))
+	require.NoError(t, context.handler.HandleAnswerEvidence(context.roundKey, context.evidence))
 	leaderVote := classificationLeaderVote(t, context)
 	for _, judgeID := range []string{"validator-a", "validator-b"} {
 		vote := signedClassificationVote(t, leaderVote, judgeID, context.memberSigners[judgeID])
@@ -145,7 +145,7 @@ func classificationCertificateReceiver(
 		blockFinalizer:    finalizer,
 		validatorRegistry: leaderContext.registry,
 	})
-	require.NoError(t, handler.HandleAnswerEvidenceForClassification(leaderContext.roundKey, leaderContext.evidence))
+	require.NoError(t, handler.HandleAnswerEvidence(leaderContext.roundKey, leaderContext.evidence))
 
 	return handler, finalizer
 }

@@ -181,11 +181,12 @@ The leader must not finalize immediately after broadcasting answer evidence.
 Mini-round two is complete only after the classification certificate is
 verified and the canonical correct groups are stored.
 
-## State-Machine Change
+## State Machine
 
-The current flow finalizes inside `HandleAggregatedExecutionResults`. That
-handler must instead verify and store answer evidence, run the judge, and send a
-classification vote. The round needs the following additional logical states:
+`HandleAnswerEvidence` verifies and stores answer evidence, runs the judge, and
+sends a classification vote. Answer evidence never finalizes mini-round two;
+only a verified classification certificate can do so. The round uses the
+following logical states:
 
 ```text
 CollectExecutionResults

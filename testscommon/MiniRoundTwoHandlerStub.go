@@ -17,15 +17,10 @@ type MiniRoundTwoHandlerStub struct {
 	HandleExecutedPromptsMessageMessage *data.AnswersBlockMessage
 	HandleExecutedPromptsMessageErr     error
 
-	HandleAggregatedExecutionResultsCalled  bool
-	HandleAggregatedExecutionResultsKey     data.RoundKey
-	HandleAggregatedExecutionResultsMessage *data.AggregatedExecutionResultsMessage
-	HandleAggregatedExecutionResultsErr     error
-
-	HandleAnswerEvidenceForClassificationCalled  bool
-	HandleAnswerEvidenceForClassificationKey     data.RoundKey
-	HandleAnswerEvidenceForClassificationMessage *data.AggregatedExecutionResultsMessage
-	HandleAnswerEvidenceForClassificationErr     error
+	HandleAnswerEvidenceCalled  bool
+	HandleAnswerEvidenceKey     data.RoundKey
+	HandleAnswerEvidenceMessage *data.AggregatedExecutionResultsMessage
+	HandleAnswerEvidenceErr     error
 
 	HandleAnswerClassificationVoteCalled bool
 	HandleAnswerClassificationVoteKey    data.RoundKey
@@ -43,15 +38,15 @@ func (stub *MiniRoundTwoHandlerStub) HasVerifiedAnswerEvidence(_ data.RoundKey) 
 	return stub.HasVerifiedAnswerEvidenceValue
 }
 
-func (stub *MiniRoundTwoHandlerStub) HandleAnswerEvidenceForClassification(
+func (stub *MiniRoundTwoHandlerStub) HandleAnswerEvidence(
 	roundKey data.RoundKey,
 	message *data.AggregatedExecutionResultsMessage,
 ) error {
-	stub.HandleAnswerEvidenceForClassificationCalled = true
-	stub.HandleAnswerEvidenceForClassificationKey = roundKey
-	stub.HandleAnswerEvidenceForClassificationMessage = message
+	stub.HandleAnswerEvidenceCalled = true
+	stub.HandleAnswerEvidenceKey = roundKey
+	stub.HandleAnswerEvidenceMessage = message
 
-	return stub.HandleAnswerEvidenceForClassificationErr
+	return stub.HandleAnswerEvidenceErr
 }
 
 func (stub *MiniRoundTwoHandlerStub) HandleAnswerClassificationVote(
@@ -96,12 +91,4 @@ func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsMessage(roundKey data.
 	stub.HandleExecutedPromptsMessageMessage = message
 
 	return stub.HandleExecutedPromptsMessageErr
-}
-
-func (stub *MiniRoundTwoHandlerStub) HandleAggregatedExecutionResults(roundKey data.RoundKey, message *data.AggregatedExecutionResultsMessage) error {
-	stub.HandleAggregatedExecutionResultsCalled = true
-	stub.HandleAggregatedExecutionResultsKey = roundKey
-	stub.HandleAggregatedExecutionResultsMessage = message
-
-	return stub.HandleAggregatedExecutionResultsErr
 }

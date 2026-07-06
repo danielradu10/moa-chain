@@ -52,7 +52,7 @@ func TestRoundHandler_RoutesAnswerClassificationCertificate(t *testing.T) {
 	require.Equal(t, data.StepFinished, handler.currentStep)
 }
 
-func TestRoundHandler_RoutesAnswerEvidenceToInactiveClassificationPath(t *testing.T) {
+func TestRoundHandler_RoutesAnswerEvidenceToClassification(t *testing.T) {
 	t.Parallel()
 
 	roundKey := createMiniRoundTwoRoundKey()
@@ -89,7 +89,7 @@ func TestRoundHandler_RoutesAnswerEvidenceToInactiveClassificationPath(t *testin
 			t.Parallel()
 
 			miniRoundTwoHandler := &testscommon.MiniRoundTwoHandlerStub{
-				HandleAnswerEvidenceForClassificationErr: test.handlerError,
+				HandleAnswerEvidenceErr: test.handlerError,
 			}
 			handler := createTestRoundHandler(
 				test.selfID, data.StepAwaitAnswerEvidence, roundKey, miniRoundTwoHandler,
@@ -109,8 +109,8 @@ func TestRoundHandler_RoutesAnswerEvidenceToInactiveClassificationPath(t *testin
 			} else {
 				require.ErrorIs(t, err, test.handlerError)
 			}
-			require.True(t, miniRoundTwoHandler.HandleAnswerEvidenceForClassificationCalled)
-			require.Same(t, evidence, miniRoundTwoHandler.HandleAnswerEvidenceForClassificationMessage)
+			require.True(t, miniRoundTwoHandler.HandleAnswerEvidenceCalled)
+			require.Same(t, evidence, miniRoundTwoHandler.HandleAnswerEvidenceMessage)
 			require.Equal(t, test.expectedStep, handler.currentStep)
 		})
 	}

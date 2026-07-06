@@ -14,7 +14,7 @@ func TestMiniRoundTwoHandler_HandleAnswerClassificationVote(t *testing.T) {
 	t.Parallel()
 
 	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
-	err := context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence)
+	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 	require.NoError(t, err)
 	votes, err := context.roundState.GetAnswerClassificationVotes(context.roundKey)
 	require.NoError(t, err)

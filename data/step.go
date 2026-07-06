@@ -9,7 +9,6 @@ const (
 	StepCollectVotes
 	StepAwaitAggregatedVotes
 	StepCollectExecutionResults
-	StepAwaitAggregatedExecutionResults
 	StepAwaitAnswerEvidence
 	StepJudgeAnswers
 	StepCollectClassificationVotes

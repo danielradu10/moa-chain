@@ -283,59 +283,7 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 
 	// The evidence broadcast no longer finalizes mini-round two. The leader judges
 	// the same verified evidence locally and enters classification vote collection.
-	return handler.HandleAnswerEvidenceForClassification(roundKey, aggregatedExecutionResults)
-}
-
-func (handler *miniRoundTwoHandler) finalizeAggregatedExecutionResultsBlock(
-	roundKey data.RoundKey,
-	aggregatedExecutionResultsMessage *data.AggregatedExecutionResultsMessage,
-) error {
-	finalizedBlockInMROne, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
-		Epoch:     roundKey.Epoch,
-		Round:     roundKey.Round,
-		MiniRound: roundKey.MiniRound - 1,
-	})
-	if err != nil {
-		return err
-	}
-
-	aggregatedExecutionResults, err := handler.createFinalizedAggregatedExecutionResults(aggregatedExecutionResultsMessage)
-	if err != nil {
-		return err
-	}
-
-	// Mini-round two finalization keeps the canonical mini-round one block data and stores only
-	// the deterministic execution-result aggregation. The broadcast certificate remains the proof
-	// used to recompute this finalized view, but it is not itself the finalized artifact.
-	return handler.blockFinalizer.FinalizeBlockMRTwo(roundKey, &data.BlockOnChain{
-		Block:                      finalizedBlockInMROne.Block,
-		SubdomainsFrequencies:      finalizedBlockInMROne.SubdomainsFrequencies,
-		AggregatedExecutionResults: aggregatedExecutionResults,
-	})
-}
-
-// HandleAggregatedExecutionResults verifies and finalizes the execution result certificate broadcast by the mini-round two leader.
-// Each receiver first checks that the message comes from the selected leader and that the certificate arrays are aligned.
-// It then reconstructs every validator execution result from the signer, hash, signature, and answer slices, and verifies it
-// with the same rules used by the leader: signer membership, canonical block hash, execution result hash, and signature validity.
-// After all entries are valid, the receiver locally derives the deterministic txHash -> answers aggregation and finalizes it.
-func (handler *miniRoundTwoHandler) HandleAggregatedExecutionResults(
-	roundKey data.RoundKey,
-	message *data.AggregatedExecutionResultsMessage,
-) error {
-	handler.logger.Info("miniround2.HandleAggregatedExecutionResults received aggregated execution results", "roundKey", roundKey)
-	if err := handler.verifyAggregatedExecutionResultsMessage(roundKey, message); err != nil {
-		return err
-	}
-
-	err := handler.finalizeAggregatedExecutionResultsBlock(roundKey, message)
-	if err != nil {
-		handler.logger.Error("miniround2.HandleAggregatedExecutionResults failed to finalize aggregated execution results block", "roundKey", roundKey, "error", err)
-		return err
-	}
-
-	handler.logger.Info("miniround2.HandleAggregatedExecutionResults finalized aggregated execution results block", "roundKey", roundKey, "numSigners", len(message.Signers))
-	return nil
+	return handler.HandleAnswerEvidence(roundKey, aggregatedExecutionResults)
 }
 
 // verifyAggregatedExecutionResultsMessage validates the leader envelope and
@@ -399,10 +347,10 @@ func (handler *miniRoundTwoHandler) verifyAggregatedExecutionResultsMessage(
 	return nil
 }
 
-// HandleAnswerEvidenceForClassification verifies the leader's complete answer
-// evidence before invoking the local judge and producing a signed vote. This
-// method is intentionally not called by the active round flow until activation.
-func (handler *miniRoundTwoHandler) HandleAnswerEvidenceForClassification(
+// HandleAnswerEvidence verifies and stores the leader's complete answer
+// evidence before invoking the local judge and producing a signed vote. Answer
+// evidence alone never finalizes mini-round two.
+func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 	roundKey data.RoundKey,
 	message *data.AggregatedExecutionResultsMessage,
 ) error {
@@ -410,11 +358,11 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidenceForClassification(
 		return err
 	}
 	if err := handler.roundState.SetAnswerEvidence(roundKey, message); err != nil {
-		handler.logger.Error("miniround2.HandleAnswerEvidenceForClassification failed to store verified evidence", "roundKey", roundKey, "error", err)
+		handler.logger.Error("miniround2.HandleAnswerEvidence failed to store verified evidence", "roundKey", roundKey, "error", err)
 		return err
 	}
 	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
-		handler.logger.Info("miniround2.HandleAnswerEvidenceForClassification observer stored evidence without voting", "roundKey", roundKey, "validatorID", handler.myID)
+		handler.logger.Info("miniround2.HandleAnswerEvidence observer stored evidence without voting", "roundKey", roundKey, "validatorID", handler.myID)
 		return nil
 	}
 
@@ -422,25 +370,25 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidenceForClassification(
 		Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound - 1,
 	})
 	if err != nil {
-		handler.logger.Error("miniround2.HandleAnswerEvidenceForClassification failed to load canonical block", "roundKey", roundKey, "error", err)
+		handler.logger.Error("miniround2.HandleAnswerEvidence failed to load canonical block", "roundKey", roundKey, "error", err)
 		return err
 	}
 
 	requests, err := BuildAnswerJudgeRequests(&finalizedBlock.Block, message)
 	if err != nil {
-		handler.logger.Error("miniround2.HandleAnswerEvidenceForClassification failed to build judge requests", "roundKey", roundKey, "error", err)
+		handler.logger.Error("miniround2.HandleAnswerEvidence failed to build judge requests", "roundKey", roundKey, "error", err)
 		return err
 	}
 
 	assignments, err := JudgeAnswerRequests(handler.answerJudge, requests)
 	if err != nil {
-		handler.logger.Error("miniround2.HandleAnswerEvidenceForClassification judge failed", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
+		handler.logger.Error("miniround2.HandleAnswerEvidence judge failed", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
 		return err
 	}
 
 	vote, err := handler.createSignedAnswerClassificationVote(roundKey, message, requests, assignments)
 	if err != nil {
-		handler.logger.Error("miniround2.HandleAnswerEvidenceForClassification failed to create vote", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
+		handler.logger.Error("miniround2.HandleAnswerEvidence failed to create vote", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
 		return err
 	}
 

@@ -15,7 +15,7 @@ func TestHandleAnswerClassificationVoteBroadcastsCertificateAtQuorum(t *testing.
 	t.Parallel()
 
 	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
-	require.NoError(t, context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence))
+	require.NoError(t, context.handler.HandleAnswerEvidence(context.roundKey, context.evidence))
 
 	leaderVote := classificationLeaderVote(t, context)
 	validatorBVote := signedClassificationVote(t, leaderVote, "validator-b", context.memberSigners["validator-b"])
@@ -94,7 +94,7 @@ func TestHandleAnswerClassificationVoteRejectsInvalidVotes(t *testing.T) {
 			t.Parallel()
 
 			context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
-			require.NoError(t, context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence))
+			require.NoError(t, context.handler.HandleAnswerEvidence(context.roundKey, context.evidence))
 			vote := signedClassificationVote(t, classificationLeaderVote(t, context), "validator-a", context.memberSigners["validator-a"])
 			test.mutate(vote)
 			if test.resign {
@@ -115,7 +115,7 @@ func TestHandleAnswerClassificationVoteRejectsDuplicateJudge(t *testing.T) {
 	t.Parallel()
 
 	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
-	require.NoError(t, context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence))
+	require.NoError(t, context.handler.HandleAnswerEvidence(context.roundKey, context.evidence))
 	vote := signedClassificationVote(t, classificationLeaderVote(t, context), "validator-a", context.memberSigners["validator-a"])
 
 	require.NoError(t, context.handler.HandleAnswerClassificationVote(context.roundKey, vote))
@@ -142,7 +142,7 @@ func classificationCertificateForArrivalOrder(
 	t.Helper()
 
 	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
-	require.NoError(t, context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence))
+	require.NoError(t, context.handler.HandleAnswerEvidence(context.roundKey, context.evidence))
 	leaderVote := classificationLeaderVote(t, context)
 	for _, judgeID := range judgeIDs {
 		vote := signedClassificationVote(t, leaderVote, judgeID, context.memberSigners[judgeID])

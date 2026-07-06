@@ -77,36 +77,11 @@ func TestRoundHandler_HandleMiniRoundTwoMessages(t *testing.T) {
 		require.Same(t, executedPrompts, miniRoundTwoHandler.HandleExecutedPromptsMessageMessage)
 	})
 
-	t.Run("should route aggregated execution results to mini-round two handler and finish round", func(t *testing.T) {
-		t.Parallel()
-
-		roundKey := createMiniRoundTwoRoundKey()
-		aggregatedExecutionResults := &data.AggregatedExecutionResultsMessage{
-			Epoch:     roundKey.Epoch,
-			Round:     roundKey.Round,
-			MiniRound: roundKey.MiniRound,
-			SenderID:  "validator-1",
-		}
-		miniRoundTwoHandler := &testscommon.MiniRoundTwoHandlerStub{}
-		handler := createTestRoundHandler("validator-2", data.StepAwaitAggregatedExecutionResults, roundKey, miniRoundTwoHandler)
-
-		err := handler.HandleMessage(data.ConsensusMessage{
-			ConsensusMessageType:       data.AggregatedExecutionResultsConsensusMessage,
-			AggregatedExecutionResults: aggregatedExecutionResults,
-		})
-
-		require.NoError(t, err)
-		require.True(t, miniRoundTwoHandler.HandleAggregatedExecutionResultsCalled)
-		require.Equal(t, roundKey, miniRoundTwoHandler.HandleAggregatedExecutionResultsKey)
-		require.Same(t, aggregatedExecutionResults, miniRoundTwoHandler.HandleAggregatedExecutionResultsMessage)
-		require.Equal(t, data.StepFinished, handler.currentStep)
-	})
-
 	t.Run("should reject executed prompts when not collecting execution results", func(t *testing.T) {
 		t.Parallel()
 
 		roundKey := createMiniRoundTwoRoundKey()
-		handler := createTestRoundHandler("validator-1", data.StepAwaitAggregatedExecutionResults, roundKey, &testscommon.MiniRoundTwoHandlerStub{})
+		handler := createTestRoundHandler("validator-1", data.StepAwaitAnswerEvidence, roundKey, &testscommon.MiniRoundTwoHandlerStub{})
 
 		err := handler.HandleMessage(data.ConsensusMessage{
 			ConsensusMessageType: data.ExecutedPromptsMessage,
