@@ -46,9 +46,9 @@ func CanonicalizeAnswerCandidateIDs(candidates []data.AnswerCandidateID) []data.
 	return ordered
 }
 
-// CanonicalizeClassificationAssignments returns a copy sorted by candidate ID.
-func CanonicalizeClassificationAssignments(assignments []data.AnswerClassificationAssignment) []data.AnswerClassificationAssignment {
-	ordered := append([]data.AnswerClassificationAssignment(nil), assignments...)
+// CanonicalizeAnswerClassifications returns a copy sorted by candidate ID.
+func CanonicalizeAnswerClassifications(classifications []data.AnswerClassificationPerCandidate) []data.AnswerClassificationPerCandidate {
+	ordered := append([]data.AnswerClassificationPerCandidate(nil), classifications...)
 	sort.Slice(ordered, func(left, right int) bool {
 		return data.CompareAnswerCandidateIDs(ordered[left].CandidateID, ordered[right].CandidateID) < 0
 	})
@@ -56,18 +56,18 @@ func CanonicalizeClassificationAssignments(assignments []data.AnswerClassificati
 	return ordered
 }
 
-// ValidateClassificationAssignments verifies exact candidate coverage, valid
+// ValidateAnswerClassifications verifies exact candidate coverage, valid
 // categories, uniqueness, and canonical ordering.
-func ValidateClassificationAssignments(
+func ValidateAnswerClassifications(
 	expectedCandidates []data.AnswerCandidateID,
-	assignments []data.AnswerClassificationAssignment,
+	classifications []data.AnswerClassificationPerCandidate,
 ) error {
 	expected, err := buildCandidateSet(expectedCandidates)
 	if err != nil {
 		return err
 	}
 
-	seen, err := validateAssignmentSet(expected, assignments)
+	seen, err := validateClassificationSet(expected, classifications)
 	if err != nil {
 		return err
 	}
@@ -96,13 +96,13 @@ func buildCandidateSet(candidates []data.AnswerCandidateID) (map[answerCandidate
 	return result, nil
 }
 
-func validateAssignmentSet(
+func validateClassificationSet(
 	expected map[answerCandidateKey]struct{},
-	assignments []data.AnswerClassificationAssignment,
+	classifications []data.AnswerClassificationPerCandidate,
 ) (map[answerCandidateKey]struct{}, error) {
-	seen := make(map[answerCandidateKey]struct{}, len(assignments))
-	for index := range assignments {
-		key, err := validateAssignment(expected, seen, assignments, index)
+	seen := make(map[answerCandidateKey]struct{}, len(classifications))
+	for index := range classifications {
+		key, err := validateClassification(expected, seen, classifications, index)
 		if err != nil {
 			return nil, err
 		}
@@ -113,21 +113,21 @@ func validateAssignmentSet(
 	return seen, nil
 }
 
-func validateAssignment(
+func validateClassification(
 	expected map[answerCandidateKey]struct{},
 	seen map[answerCandidateKey]struct{},
-	assignments []data.AnswerClassificationAssignment,
+	classifications []data.AnswerClassificationPerCandidate,
 	index int,
 ) (answerCandidateKey, error) {
-	assignment := assignments[index]
-	if err := validateCandidateID(assignment.CandidateID); err != nil {
+	classification := classifications[index]
+	if err := validateCandidateID(classification.CandidateID); err != nil {
 		return answerCandidateKey{}, err
 	}
-	if !assignment.Category.IsValid() {
+	if !classification.Category.IsValid() {
 		return answerCandidateKey{}, ErrInvalidAnswerCategory
 	}
 
-	key := candidateKey(assignment.CandidateID)
+	key := candidateKey(classification.CandidateID)
 	if _, exists := seen[key]; exists {
 		return answerCandidateKey{}, ErrDuplicatedAnswerCandidate
 	}
@@ -135,7 +135,7 @@ func validateAssignment(
 		return answerCandidateKey{}, ErrUnknownAnswerCandidate
 	}
 
-	if index > 0 && data.CompareAnswerCandidateIDs(assignments[index-1].CandidateID, assignment.CandidateID) >= 0 {
+	if index > 0 && data.CompareAnswerCandidateIDs(classifications[index-1].CandidateID, classification.CandidateID) >= 0 {
 		return answerCandidateKey{}, ErrNonCanonicalClassification
 	}
 
@@ -340,6 +340,7 @@ func AggregateClassificationVotes(
 	if len(candidates) == 0 {
 		return nil, ErrMissingAnswerCandidate
 	}
+
 	if _, err := buildCandidateSet(candidates); err != nil {
 		return nil, err
 	}
@@ -354,8 +355,12 @@ func AggregateClassificationVotes(
 	// Counts are keyed by the full candidate identity, not by answer text. Equal
 	// text from different producers therefore remains independent evidence.
 	counts := initializeCategoryCounts(candidates)
+
+	// Count for each candidate (txHash, answerHash, producerID) how many judges classified it in a specific category.
 	countClassificationVotes(counts, orderedVotes)
 
+	// TxHash -> [correct answers, malicious answers, wrong answers, hallucinations]
+	// TxHash -> (eligible for mini-round two or not eligible)
 	return buildTransactionClassifications(candidates, counts, quorum), nil
 }
 
@@ -380,10 +385,12 @@ func validateAggregationVotes(
 		if err := validateClassificationVoteContext(vote); err != nil {
 			return nil, err
 		}
+
 		if !SameVoteContext(firstVote, vote) {
 			return nil, ErrClassificationVoteContextMismatch
 		}
-		if err := ValidateClassificationAssignments(candidates, vote.Assignments); err != nil {
+
+		if err := ValidateAnswerClassifications(candidates, vote.AnswerClassifications); err != nil {
 			return nil, err
 		}
 	}
@@ -434,11 +441,11 @@ func countClassificationVotes(
 	counts map[answerCandidateKey]*data.AnswerCategoryCounts,
 	votes []data.AnswerClassificationVote,
 ) {
-	// Assignment coverage and category validity were checked before this pass, so
+	// Classification coverage and category validity were checked before this pass, so
 	// every map lookup is guaranteed to resolve to an initialized counter.
 	for _, vote := range votes {
-		for _, assignment := range vote.Assignments {
-			incrementCategoryCount(counts[candidateKey(assignment.CandidateID)], assignment.Category)
+		for _, classification := range vote.AnswerClassifications {
+			incrementCategoryCount(counts[candidateKey(classification.CandidateID)], classification.Category)
 		}
 	}
 }
@@ -537,6 +544,7 @@ func classificationStatus(
 	for _, candidate := range correctCandidates {
 		producers[candidate.ProducerID] = struct{}{}
 	}
+
 	if uint64(len(producers)) >= quorum {
 		return data.TransactionAnswerStatusReadyForMiniRoundThree
 	}

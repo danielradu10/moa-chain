@@ -37,7 +37,7 @@ func TestHandleAnswerEvidenceSendsSignedVoteToLeader(t *testing.T) {
 	require.NotNil(t, vote)
 	require.Equal(t, "validator-a", vote.JudgeID)
 	require.Equal(t, "test-model", vote.ModelMetadata)
-	require.Len(t, vote.Assignments, 6)
+	require.Len(t, vote.AnswerClassifications, 6)
 	require.Equal(t, classification.AnswerJudgePromptVersion, vote.PromptVersion)
 	require.Equal(t, classification.AnswerJudgePromptHash(), vote.PromptHash)
 
@@ -53,8 +53,8 @@ func TestHandleAnswerEvidenceSendsSignedVoteToLeader(t *testing.T) {
 	require.Equal(t, 1, context.signer.signCalls)
 
 	localAnswers := 0
-	for _, assignment := range vote.Assignments {
-		if assignment.CandidateID.ProducerID == "validator-a" {
+	for _, classification := range vote.AnswerClassifications {
+		if classification.CandidateID.ProducerID == "validator-a" {
 			localAnswers++
 		}
 	}
@@ -150,7 +150,7 @@ func newClassificationProductionContext(
 	t *testing.T,
 	myID string,
 	leaderID string,
-	judge agent.AnswerJudge,
+	judge agent.AnswersJudge,
 ) classificationProductionContext {
 	t.Helper()
 
@@ -194,7 +194,7 @@ func newClassificationProductionContext(
 	return classificationProductionContext{
 		roundKey:      roundKey,
 		handler:       handler,
-		evidence:      createAggregatedExecutionResultsMessageFromExecutedPrompts(leaderID, roundKey, messages...),
+		evidence:      createAnswerEvidenceFromExecutedPrompts(leaderID, roundKey, messages...),
 		signer:        recordingSigner,
 		publicKeys:    publicKeys,
 		memberSigners: producerSigners,
@@ -209,7 +209,7 @@ type classificationProductionJudge struct {
 	failAtCall int
 }
 
-func (judge *classificationProductionJudge) JudgeAnswers(input agent.AnswerJudgeRequest) (string, error) {
+func (judge *classificationProductionJudge) JudgeTransactionAnswers(input agent.AnswerJudgeRequest) (string, error) {
 	judge.inputs = append(judge.inputs, input)
 	if judge.failAtCall == len(judge.inputs) {
 		return "", errors.New("judge failed")
@@ -267,7 +267,7 @@ func TestHandleAnswerClassificationVoteBroadcastsCertificateAtQuorum(t *testing.
 	require.NotNil(t, certificate)
 	require.Equal(t, []string{"leader", "validator-a", "validator-b"}, classificationJudgeIDs(certificate.Votes))
 	expected, err := classification.AggregateClassificationVotes(
-		assignmentCandidateIDs(leaderVote.Assignments), certificate.Votes, 3,
+		classificationCandidateIDs(leaderVote.AnswerClassifications), certificate.Votes, 3,
 	)
 	require.NoError(t, err)
 	require.Equal(t, expected, certificate.Transactions)
@@ -314,7 +314,7 @@ func TestHandleAnswerClassificationVoteRejectsInvalidVotes(t *testing.T) {
 		{
 			name: "missing candidate",
 			mutate: func(vote *data.AnswerClassificationVote) {
-				vote.Assignments = vote.Assignments[:len(vote.Assignments)-1]
+				vote.AnswerClassifications = vote.AnswerClassifications[:len(vote.AnswerClassifications)-1]
 			},
 			resign:      true,
 			targetError: classification.ErrMissingAnswerCandidate,
@@ -408,7 +408,7 @@ func signedClassificationVote(
 	vote := *template
 	vote.JudgeID = judgeID
 	vote.ModelMetadata = "test-model-" + judgeID
-	vote.Assignments = append([]data.AnswerClassificationAssignment(nil), template.Assignments...)
+	vote.AnswerClassifications = append([]data.AnswerClassificationPerCandidate(nil), template.AnswerClassifications...)
 	signClassificationVote(t, &vote, signer)
 
 	return &vote
@@ -542,8 +542,8 @@ func classificationCertificateFixture(
 	for _, judgeID := range []string{"validator-a", "validator-b"} {
 		vote := signedClassificationVote(t, leaderVote, judgeID, context.memberSigners[judgeID])
 		if classifyExternalVotesAsWrong {
-			for index := range vote.Assignments {
-				vote.Assignments[index].Category = data.AnswerCategoryWrong
+			for index := range vote.AnswerClassifications {
+				vote.AnswerClassifications[index].Category = data.AnswerCategoryWrong
 			}
 			signClassificationVote(t, vote, context.memberSigners[judgeID])
 		}
@@ -645,7 +645,7 @@ func plumbingClassificationVote(roundKey data.RoundKey, judgeID string) *data.An
 		JudgeID:            judgeID,
 		PromptVersion:      "judge-v1",
 		PromptHash:         []byte("prompt-hash"),
-		Assignments: []data.AnswerClassificationAssignment{
+		AnswerClassifications: []data.AnswerClassificationPerCandidate{
 			{Category: data.AnswerCategoryCorrect},
 		},
 	}

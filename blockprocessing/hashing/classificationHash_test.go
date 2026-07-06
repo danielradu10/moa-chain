@@ -63,7 +63,7 @@ func TestComputeClassificationVoteHash(t *testing.T) {
 
 	vote := classificationVote()
 	reversed := classificationVote()
-	reversed.Assignments[0], reversed.Assignments[1] = reversed.Assignments[1], reversed.Assignments[0]
+	reversed.AnswerClassifications[0], reversed.AnswerClassifications[1] = reversed.AnswerClassifications[1], reversed.AnswerClassifications[0]
 	reversed.VoteHash = []byte("ignored vote hash")
 	reversed.Signature = []byte("ignored signature")
 
@@ -76,7 +76,7 @@ func TestComputeClassificationVoteHash(t *testing.T) {
 	require.Len(t, firstHash, 32)
 
 	changed := classificationVote()
-	changed.Assignments[0].Category = data.AnswerCategoryWrong
+	changed.AnswerClassifications[0].Category = data.AnswerCategoryWrong
 	changedHash, err := ComputeClassificationVoteHash(changed)
 	require.NoError(t, err)
 	require.NotEqual(t, firstHash, changedHash)
@@ -88,18 +88,18 @@ func TestComputeClassificationVoteHashRejectsMalformedVote(t *testing.T) {
 	_, err := ComputeClassificationVoteHash(nil)
 	require.ErrorIs(t, err, ErrInvalidClassificationVote)
 
-	missingAssignment := classificationVote()
-	missingAssignment.Assignments = nil
-	_, err = ComputeClassificationVoteHash(missingAssignment)
+	missingClassifications := classificationVote()
+	missingClassifications.AnswerClassifications = nil
+	_, err = ComputeClassificationVoteHash(missingClassifications)
 	require.ErrorIs(t, err, ErrInvalidClassificationVote)
 
 	duplicate := classificationVote()
-	duplicate.Assignments[1].CandidateID = duplicate.Assignments[0].CandidateID
+	duplicate.AnswerClassifications[1].CandidateID = duplicate.AnswerClassifications[0].CandidateID
 	_, err = ComputeClassificationVoteHash(duplicate)
 	require.ErrorIs(t, err, ErrInvalidClassificationVote)
 
 	invalidCategory := classificationVote()
-	invalidCategory.Assignments[0].Category = data.AnswerCategory("UNKNOWN")
+	invalidCategory.AnswerClassifications[0].Category = data.AnswerCategory("UNKNOWN")
 	_, err = ComputeClassificationVoteHash(invalidCategory)
 	require.ErrorIs(t, err, ErrInvalidClassificationVote)
 }
@@ -138,7 +138,7 @@ func classificationVote() *data.AnswerClassificationVote {
 		PromptVersion:      "judge-v1",
 		PromptHash:         []byte("prompt-hash"),
 		ModelMetadata:      "test-model",
-		Assignments: []data.AnswerClassificationAssignment{
+		AnswerClassifications: []data.AnswerClassificationPerCandidate{
 			{
 				CandidateID: classificationHashCandidate("validator-a", "tx-a", "answer a"),
 				Category:    data.AnswerCategoryCorrect,

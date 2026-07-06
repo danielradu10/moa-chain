@@ -51,14 +51,15 @@ func CompareAnswerCandidateIDs(left, right AnswerCandidateID) int {
 	return bytes.Compare(left.AnswerHash, right.AnswerHash)
 }
 
-// AnswerClassificationAssignment assigns exactly one category to one candidate.
-// It is produced by each validator's judge.
-type AnswerClassificationAssignment struct {
+// AnswerClassificationPerCandidate assigns exactly one category to a candidate
+// identified by transaction hash, answer hash, and producer ID. It is produced
+// by each validator's judge.
+type AnswerClassificationPerCandidate struct {
 	CandidateID AnswerCandidateID
 	Category    AnswerCategory
 }
 
-// AnswerClassificationVote contains one judge's canonical assignments. The
+// AnswerClassificationVote contains one judge's canonical classifications. The
 // judge signs it and sends it to the leader during vote collection. VoteHash and
 // Signature are excluded when computing VoteHash.
 type AnswerClassificationVote struct {
@@ -74,7 +75,7 @@ type AnswerClassificationVote struct {
 	PromptHash    []byte
 	ModelMetadata string
 
-	Assignments []AnswerClassificationAssignment
+	AnswerClassifications []AnswerClassificationPerCandidate
 
 	VoteHash  []byte
 	Signature []byte

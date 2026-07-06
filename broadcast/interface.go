@@ -10,7 +10,7 @@ type Broadcaster interface {
 	SendAnswerClassificationVoteToLeader(voteMessage *data.ConsensusMessage, leaderID string) error
 	BroadcastProposedBlock(blockMessage *data.ConsensusMessage, myID string, receivers []string) error
 	BroadcastAggregatedVotes(aggregatedVotesMessage *data.ConsensusMessage, myID string, receivers []string) error
-	BroadcastAggregatedExecutionResults(aggregatedExecutionResultsMessage *data.ConsensusMessage, myID string, receivers []string) error
+	BroadcastAnswerEvidence(answerEvidenceMessage *data.ConsensusMessage, myID string, receivers []string) error
 	BroadcastAnswerClassificationCertificate(certificateMessage *data.ConsensusMessage, myID string, receivers []string) error
 }
 

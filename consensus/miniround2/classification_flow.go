@@ -22,7 +22,7 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 	roundKey data.RoundKey,
 	message *data.AggregatedExecutionResultsMessage,
 ) error {
-	if err := handler.verifyAggregatedExecutionResultsMessage(roundKey, message); err != nil {
+	if err := handler.verifyAnswerEvidence(roundKey, message); err != nil {
 		return err
 	}
 	if err := handler.roundState.SetAnswerEvidence(roundKey, message); err != nil {
@@ -48,13 +48,13 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 		return err
 	}
 
-	assignments, err := classification.JudgeAnswerRequests(handler.answerJudge, requests)
+	answersClassification, err := classification.ExecuteRequests(handler.answerJudge, requests)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleAnswerEvidence judge failed", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
 		return err
 	}
 
-	vote, err := handler.createSignedAnswerClassificationVote(roundKey, message, requests, assignments)
+	vote, err := handler.createSignedAnswerClassificationVote(roundKey, message, requests, answersClassification)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleAnswerEvidence failed to create vote", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
 		return err
@@ -64,33 +64,34 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 }
 
 // createSignedAnswerClassificationVote validates complete candidate coverage,
-// binds assignments to the exact evidence and prompt, and signs the vote.
+// binds the classifications to the exact evidence and prompt, and signs the vote.
 func (handler *miniRoundTwoHandler) createSignedAnswerClassificationVote(
 	roundKey data.RoundKey,
 	evidence *data.AggregatedExecutionResultsMessage,
 	requests []classification.TransactionAnswerJudgeRequest,
-	assignments []data.AnswerClassificationAssignment,
+	classifications []data.AnswerClassificationPerCandidate,
 ) (*data.AnswerClassificationVote, error) {
 	expectedCandidates := judgeRequestCandidateIDs(requests)
-	if err := classification.ValidateClassificationAssignments(expectedCandidates, assignments); err != nil {
+	if err := classification.ValidateAnswerClassifications(expectedCandidates, classifications); err != nil {
 		return nil, err
 	}
+
 	evidenceHash, err := hashing.ComputeAnswerEvidenceHash(evidence)
 	if err != nil {
 		return nil, err
 	}
 
 	vote := &data.AnswerClassificationVote{
-		Epoch:              roundKey.Epoch,
-		Round:              roundKey.Round,
-		MiniRound:          roundKey.MiniRound,
-		CanonicalBlockHash: evidence.CanonicalBlockHash,
-		AnswerEvidenceHash: evidenceHash,
-		JudgeID:            handler.myID,
-		PromptVersion:      classification.AnswerJudgePromptVersion,
-		PromptHash:         classification.AnswerJudgePromptHash(),
-		ModelMetadata:      handler.judgeModelMetadata,
-		Assignments:        assignments,
+		Epoch:                 roundKey.Epoch,
+		Round:                 roundKey.Round,
+		MiniRound:             roundKey.MiniRound,
+		CanonicalBlockHash:    evidence.CanonicalBlockHash,
+		AnswerEvidenceHash:    evidenceHash,
+		JudgeID:               handler.myID,
+		PromptVersion:         classification.AnswerJudgePromptVersion,
+		PromptHash:            classification.AnswerJudgePromptHash(),
+		ModelMetadata:         handler.judgeModelMetadata,
+		AnswerClassifications: classifications,
 	}
 	if err = handler.signAnswerClassificationVote(vote, evidenceHash); err != nil {
 		return nil, err
@@ -184,13 +185,16 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationVote(
 		if vote != nil {
 			judgeID = vote.JudgeID
 		}
+
 		handler.logger.Error("miniround2.HandleAnswerClassificationVote rejected vote", "roundKey", roundKey, "judgeID", judgeID, "error", err)
 		return err
 	}
+
 	if handler.roundState.IsAnswerClassificationCertificateSet(roundKey) {
 		handler.logger.Info("miniround2.HandleAnswerClassificationVote certificate already produced", "roundKey", roundKey, "judgeID", vote.JudgeID)
 		return nil
 	}
+
 	if err = handler.roundState.AddAnswerClassificationVote(roundKey, vote); err != nil {
 		handler.logger.Error("miniround2.HandleAnswerClassificationVote failed to store vote", "roundKey", roundKey, "judgeID", vote.JudgeID, "error", err)
 		return err
@@ -206,6 +210,7 @@ func (handler *miniRoundTwoHandler) verifyClassificationCollectionLeader(roundKe
 	if err != nil {
 		return err
 	}
+
 	if leaderID != handler.myID {
 		handler.logger.Error("miniround2.verifyClassificationCollectionLeader local node is not leader", "roundKey", roundKey, "validatorID", handler.myID, "leaderID", leaderID)
 		return ErrOnlyLeaderCanCollectVotes
@@ -238,9 +243,11 @@ func (handler *miniRoundTwoHandler) verifyAnswerClassificationVote(
 	if err != nil {
 		return nil, err
 	}
-	if err = classification.ValidateClassificationAssignments(expectedCandidates, vote.Assignments); err != nil {
+
+	if err = classification.ValidateAnswerClassifications(expectedCandidates, vote.AnswerClassifications); err != nil {
 		return nil, err
 	}
+
 	if err = handler.verifyAnswerClassificationVoteSignature(vote); err != nil {
 		return nil, err
 	}
@@ -261,7 +268,7 @@ func (handler *miniRoundTwoHandler) classificationCollectionCandidates(
 			return nil, ErrMissingClassificationCollectionContext
 		}
 
-		return assignmentCandidateIDs(vote.Assignments), nil
+		return classificationCandidateIDs(vote.AnswerClassifications), nil
 	}
 
 	for _, storedVote := range votes {
@@ -272,18 +279,18 @@ func (handler *miniRoundTwoHandler) classificationCollectionCandidates(
 			return nil, classification.ErrClassificationVoteContextMismatch
 		}
 
-		return assignmentCandidateIDs(storedVote.Assignments), nil
+		return classificationCandidateIDs(storedVote.AnswerClassifications), nil
 	}
 
 	return nil, ErrMissingClassificationCollectionContext
 }
 
-// assignmentCandidateIDs extracts candidate identities without trusting the
+// classificationCandidateIDs extracts candidate identities without trusting the
 // categories selected by a judge.
-func assignmentCandidateIDs(assignments []data.AnswerClassificationAssignment) []data.AnswerCandidateID {
-	candidates := make([]data.AnswerCandidateID, len(assignments))
-	for index := range assignments {
-		candidates[index] = assignments[index].CandidateID
+func classificationCandidateIDs(classifications []data.AnswerClassificationPerCandidate) []data.AnswerCandidateID {
+	candidates := make([]data.AnswerCandidateID, len(classifications))
+	for index := range classifications {
+		candidates[index] = classifications[index].CandidateID
 	}
 
 	return classification.CanonicalizeAnswerCandidateIDs(candidates)
@@ -320,10 +327,12 @@ func (handler *miniRoundTwoHandler) broadcastClassificationCertificateAtQuorum(
 	if err != nil {
 		return err
 	}
+
 	committeeSize, err := handler.validatorRegistry.ConsensusGroupSize()
 	if err != nil {
 		return err
 	}
+
 	quorum := classification.ClassificationQuorum(committeeSize)
 	if uint64(len(votePointers)) < quorum {
 		handler.logger.Info("miniround2.broadcastClassificationCertificateAtQuorum waiting for votes", "roundKey", roundKey, "numVotes", len(votePointers), "quorum", quorum)
@@ -334,10 +343,12 @@ func (handler *miniRoundTwoHandler) broadcastClassificationCertificateAtQuorum(
 	for index, storedVote := range votePointers {
 		votes[index] = *storedVote
 	}
+
 	transactions, err := classification.AggregateClassificationVotes(expectedCandidates, votes, committeeSize)
 	if err != nil {
 		return err
 	}
+
 	context := votes[0]
 	certificate := &data.AnswerClassificationCertificate{
 		Epoch: context.Epoch, Round: context.Round, MiniRound: context.MiniRound,
@@ -373,6 +384,7 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 		handler.logger.Error("miniround2.HandleAnswerClassificationCertificate received nil certificate", "roundKey", roundKey)
 		return ErrNilAnswerClassificationCertificate
 	}
+
 	if !classificationCertificateMatchesRound(roundKey, certificate) {
 		handler.logger.Error(
 			"miniround2.HandleAnswerClassificationCertificate certificate envelope mismatch",
@@ -383,6 +395,7 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 		)
 		return ErrAnswerClassificationCertificateMismatch
 	}
+
 	if handler.roundState.IsAnswerClassificationCertificateSet(roundKey) {
 		return state.ErrAnswerClassificationCertificateAlreadyExists
 	}
@@ -399,9 +412,11 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 	if err != nil {
 		return err
 	}
+
 	if err = classification.ValidateCanonicalClassificationVotes(certificate.Votes); err != nil {
 		return err
 	}
+
 	// Validate the leader-provided shape before doing signature work. The result
 	// is still untrusted: it must exactly match local aggregation below.
 	if err = classification.ValidateCanonicalTransactionClassifications(certificate.Transactions); err != nil {
@@ -418,10 +433,12 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 	if err != nil {
 		return err
 	}
+
 	expectedTransactions, err := classification.AggregateClassificationVotes(expectedCandidates, certificate.Votes, committeeSize)
 	if err != nil {
 		return err
 	}
+
 	if !reflect.DeepEqual(expectedTransactions, certificate.Transactions) {
 		return ErrClassificationCertificateResultMismatch
 	}
@@ -429,6 +446,7 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 	if err = handler.finalizeClassifiedAnswers(roundKey, evidence, expectedTransactions); err != nil {
 		return err
 	}
+
 	if err = handler.roundState.SetAnswerClassificationCertificate(roundKey, certificate); err != nil {
 		return err
 	}
@@ -455,14 +473,17 @@ func (handler *miniRoundTwoHandler) classificationCertificateEvidence(
 	if err != nil {
 		return nil, nil, err
 	}
+
 	evidenceHash, err := hashing.ComputeAnswerEvidenceHash(evidence)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if !bytes.Equal(evidenceHash, certificate.AnswerEvidenceHash) ||
 		!bytes.Equal(evidence.CanonicalBlockHash, certificate.CanonicalBlockHash) {
 		return nil, nil, ErrClassificationVoteEvidenceMismatch
 	}
+
 	if certificate.PromptVersion != classification.AnswerJudgePromptVersion ||
 		!bytes.Equal(certificate.PromptHash, classification.AnswerJudgePromptHash()) {
 		return nil, nil, ErrClassificationVotePromptMismatch
@@ -474,6 +495,7 @@ func (handler *miniRoundTwoHandler) classificationCertificateEvidence(
 	if err != nil {
 		return nil, nil, err
 	}
+
 	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Block, evidence)
 	if err != nil {
 		return nil, nil, err
@@ -498,7 +520,7 @@ func (handler *miniRoundTwoHandler) verifyCertificateVote(
 		!bytes.Equal(vote.PromptHash, certificate.PromptHash) {
 		return classification.ErrClassificationVoteContextMismatch
 	}
-	if err := classification.ValidateClassificationAssignments(expectedCandidates, vote.Assignments); err != nil {
+	if err := classification.ValidateAnswerClassifications(expectedCandidates, vote.AnswerClassifications); err != nil {
 		return err
 	}
 
@@ -542,7 +564,7 @@ func classificationVoteMatchesRound(roundKey data.RoundKey, vote *data.AnswerCla
 		len(vote.AnswerEvidenceHash) > 0 &&
 		vote.PromptVersion != "" &&
 		len(vote.PromptHash) > 0 &&
-		len(vote.Assignments) > 0
+		len(vote.AnswerClassifications) > 0
 }
 
 // classificationCertificateMatchesRound verifies that every embedded vote is

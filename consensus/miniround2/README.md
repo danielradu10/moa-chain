@@ -24,7 +24,7 @@ independently produced answers are eligible inputs for mini-round three.
 - **Answer evidence certificate**: the signed execution results collected and
   broadcast by the leader. This structure already exists as
   `AggregatedExecutionResultsMessage`.
-- **Classification vote**: one judge's signed assignment of every candidate
+- **Classification vote**: one judge's signed classification of every candidate
   answer to exactly one category.
 - **Classification certificate**: the set of classification votes accepted for
   deterministic aggregation.
@@ -315,7 +315,7 @@ specific LLM provider.
 
 Scope:
 
-- add the category enum, candidate ID, classification assignment, vote,
+- add the category enum, candidate ID, per-candidate classification, vote,
   certificate, category counts, canonical groups, and transaction status types;
 - define validation rules for duplicate, missing, and unknown candidates;
 - define canonical ordering for transactions, producers, candidates, and judges;

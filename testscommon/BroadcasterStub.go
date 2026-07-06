@@ -17,10 +17,10 @@ type BroadcasterStub struct {
 	BroadcastAggregatedVotesTargets []string
 	BroadcastAggregatedVotesErr     error
 
-	BroadcastAggregatedExecutionResultsMessage *data.ConsensusMessage
-	BroadcastAggregatedExecutionResultsMyID    string
-	BroadcastAggregatedExecutionResultsTargets []string
-	BroadcastAggregatedExecutionResultsErr     error
+	BroadcastAnswerEvidenceMessage *data.ConsensusMessage
+	BroadcastAnswerEvidenceMyID    string
+	BroadcastAnswerEvidenceTargets []string
+	BroadcastAnswerEvidenceErr     error
 
 	SentClassificationVoteMessage *data.ConsensusMessage
 	SentClassificationVoteLeader  string
@@ -62,12 +62,12 @@ func (stub *BroadcasterStub) BroadcastAggregatedVotes(aggregatedVotesMessage *da
 	return stub.BroadcastAggregatedVotesErr
 }
 
-func (stub *BroadcasterStub) BroadcastAggregatedExecutionResults(aggregatedExecutionResultsMessage *data.ConsensusMessage, myID string, receivers []string) error {
-	stub.BroadcastAggregatedExecutionResultsMessage = aggregatedExecutionResultsMessage
-	stub.BroadcastAggregatedExecutionResultsMyID = myID
-	stub.BroadcastAggregatedExecutionResultsTargets = receivers
+func (stub *BroadcasterStub) BroadcastAnswerEvidence(answerEvidenceMessage *data.ConsensusMessage, myID string, receivers []string) error {
+	stub.BroadcastAnswerEvidenceMessage = answerEvidenceMessage
+	stub.BroadcastAnswerEvidenceMyID = myID
+	stub.BroadcastAnswerEvidenceTargets = receivers
 
-	return stub.BroadcastAggregatedExecutionResultsErr
+	return stub.BroadcastAnswerEvidenceErr
 }
 
 func (stub *BroadcasterStub) BroadcastAnswerClassificationCertificate(certificateMessage *data.ConsensusMessage, myID string, receivers []string) error {

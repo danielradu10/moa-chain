@@ -18,6 +18,6 @@ func (l *agent) Answer(tx data.Transaction) (string, error) {
 	return "", agent2.ErrNotImplemented
 }
 
-func (l *agent) JudgeAnswers(_ agent2.AnswerJudgeRequest) (string, error) {
+func (l *agent) JudgeTransactionAnswers(_ agent2.AnswerJudgeRequest) (string, error) {
 	return "", agent2.ErrNotImplemented
 }

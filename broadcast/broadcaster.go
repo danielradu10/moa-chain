@@ -59,8 +59,10 @@ func (b *broadcaster) BroadcastAggregatedVotes(aggregatedVotesMessage *data.Cons
 	return b.broadcast(aggregatedVotesMessage, myID, receivers)
 }
 
-func (b *broadcaster) BroadcastAggregatedExecutionResults(aggregatedExecutionResultsMessage *data.ConsensusMessage, myID string, receivers []string) error {
-	return b.broadcast(aggregatedExecutionResultsMessage, myID, receivers)
+// BroadcastAnswerEvidence sends the leader's verified producer-answer
+// certificate to validators so they can independently verify and judge it.
+func (b *broadcaster) BroadcastAnswerEvidence(answerEvidenceMessage *data.ConsensusMessage, myID string, receivers []string) error {
+	return b.broadcast(answerEvidenceMessage, myID, receivers)
 }
 
 // BroadcastAnswerClassificationCertificate sends the classification evidence and derived groups to validators.

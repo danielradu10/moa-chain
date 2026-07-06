@@ -237,7 +237,7 @@ func (testAgent integrationProtocolAgent) Answer(tx data.Transaction) (string, e
 	return "integration answer for " + string(tx.GetTxHash()), nil
 }
 
-func (testAgent integrationProtocolAgent) JudgeAnswers(request agent.AnswerJudgeRequest) (string, error) {
+func (testAgent integrationProtocolAgent) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
 	var input struct {
 		Candidates []struct {
 			CandidateID string `json:"candidateId"`

@@ -2,7 +2,7 @@ package classification
 
 import "errors"
 
-// Candidate and assignment validation errors.
+// Candidate and classification validation errors.
 var (
 	ErrInvalidAnswerCandidate     = errors.New("invalid answer candidate")
 	ErrDuplicatedAnswerCandidate  = errors.New("duplicated answer candidate")

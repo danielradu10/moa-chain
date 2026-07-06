@@ -129,8 +129,8 @@ func (rh *roundHandler) HandleMessage(message data.ConsensusMessage) error {
 	case data.ExecutedPromptsMessage:
 		return rh.handleExecutedPrompts(message)
 
-	case data.AggregatedExecutionResultsConsensusMessage:
-		return rh.handleAggregatedExecutionResults(message)
+	case data.AnswerEvidenceConsensusMessage:
+		return rh.handleAnswerEvidence(message)
 
 	case data.AnswerClassificationVoteConsensusMessage:
 		return rh.handleAnswerClassificationVote(message)
@@ -396,43 +396,43 @@ func (rh *roundHandler) handleExecutedPrompts(message data.ConsensusMessage) err
 	return nil
 }
 
-func (rh *roundHandler) handleAggregatedExecutionResults(message data.ConsensusMessage) error {
-	aggregatedExecutionResults := message.AggregatedExecutionResults
-	if aggregatedExecutionResults == nil {
-		rh.logger.Error("aggregated execution results are nil")
-		return ErrNilAggregatedExecutionResults
+func (rh *roundHandler) handleAnswerEvidence(message data.ConsensusMessage) error {
+	answerEvidence := message.AnswerEvidence
+	if answerEvidence == nil {
+		rh.logger.Error("answer evidence is nil")
+		return ErrNilAnswerEvidence
 	}
 
 	roundKey := data.RoundKey{
-		Epoch:     aggregatedExecutionResults.Epoch,
-		Round:     aggregatedExecutionResults.Round,
-		MiniRound: aggregatedExecutionResults.MiniRound,
+		Epoch:     answerEvidence.Epoch,
+		Round:     answerEvidence.Round,
+		MiniRound: answerEvidence.MiniRound,
 	}
 
 	if rh.shouldIgnoreFinalizedMiniRoundMessage(roundKey) {
-		rh.logger.Info("ignoring aggregated execution results for finalized mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
+		rh.logger.Info("ignoring answer evidence for finalized mini-round", "currentRoundKey", rh.currentRoundKey, "messageRoundKey", roundKey)
 		return nil
 	}
 
 	if rh.currentStep != data.StepAwaitAnswerEvidence {
-		rh.logger.Error("unexpected aggregated execution results message for step", "currentStep", rh.currentStep)
+		rh.logger.Error("unexpected answer evidence message for step", "currentStep", rh.currentStep)
 		return ErrUnexpectedMessageForStep
 	}
 
 	if roundKey != rh.currentRoundKey {
-		rh.logger.Error("aggregated execution results for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey)
+		rh.logger.Error("answer evidence for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey)
 		return ErrMessageForDifferentRound
 	}
 
 	rh.currentStep = data.StepJudgeAnswers
-	rh.logger.Info("judging verified answer evidence", "roundKey", roundKey, "senderID", aggregatedExecutionResults.SenderID)
-	if err := rh.miniRoundTwoHandler.HandleAnswerEvidence(roundKey, aggregatedExecutionResults); err != nil {
+	rh.logger.Info("judging verified answer evidence", "roundKey", roundKey, "senderID", answerEvidence.SenderID)
+	if err := rh.miniRoundTwoHandler.HandleAnswerEvidence(roundKey, answerEvidence); err != nil {
 		rh.currentStep = data.StepFailed
 		rh.logger.Error("answer evidence judging failed", "roundKey", roundKey, "error", err)
 		return err
 	}
 
-	if aggregatedExecutionResults.SenderID == rh.selfID {
+	if answerEvidence.SenderID == rh.selfID {
 		rh.currentStep = data.StepCollectClassificationVotes
 	} else {
 		rh.currentStep = data.StepAwaitClassificationCertificate

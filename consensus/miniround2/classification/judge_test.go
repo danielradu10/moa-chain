@@ -52,17 +52,17 @@ func TestParseAnswerJudgeResponse(t *testing.T) {
 	requests, err := BuildAnswerJudgeRequests(answerJudgeBlock(), answerJudgeEvidence())
 	require.NoError(t, err)
 
-	assignments, err := ParseAnswerJudgeResponse(
+	classifications, err := ParseAnswerJudgeResponse(
 		requests[0],
 		`{"classifications":[{"candidateId":"candidate-2","category":"WRONG"},{"candidateId":"candidate-1","category":"CORRECT"}]}`,
 	)
 
 	require.NoError(t, err)
-	require.Len(t, assignments, 2)
-	require.Equal(t, "producer-a", assignments[0].CandidateID.ProducerID)
-	require.Equal(t, data.AnswerCategoryCorrect, assignments[0].Category)
-	require.Equal(t, "producer-b", assignments[1].CandidateID.ProducerID)
-	require.Equal(t, data.AnswerCategoryWrong, assignments[1].Category)
+	require.Len(t, classifications, 2)
+	require.Equal(t, "producer-a", classifications[0].CandidateID.ProducerID)
+	require.Equal(t, data.AnswerCategoryCorrect, classifications[0].Category)
+	require.Equal(t, "producer-b", classifications[1].CandidateID.ProducerID)
+	require.Equal(t, data.AnswerCategoryWrong, classifications[1].Category)
 }
 
 func TestParseAnswerJudgeResponseRejectsMalformedOutput(t *testing.T) {
@@ -123,9 +123,9 @@ func TestParseAnswerJudgeResponseRejectsMalformedOutput(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			assignments, parseErr := ParseAnswerJudgeResponse(request, test.response)
+			classifications, parseErr := ParseAnswerJudgeResponse(request, test.response)
 
-			require.Nil(t, assignments)
+			require.Nil(t, classifications)
 			require.ErrorIs(t, parseErr, test.targetError)
 		})
 	}
@@ -141,10 +141,10 @@ func TestJudgeAnswerRequests(t *testing.T) {
 		`{"classifications":[{"candidateId":"candidate-1","category":"CORRECT"},{"candidateId":"candidate-2","category":"CORRECT"}]}`,
 	}}
 
-	assignments, err := JudgeAnswerRequests(judge, requests)
+	classifications, err := ExecuteRequests(judge, requests)
 
 	require.NoError(t, err)
-	require.Len(t, assignments, 4)
+	require.Len(t, classifications, 4)
 	require.Len(t, judge.inputs, 2)
 	require.Equal(t, requests[0].AgentInput, judge.inputs[0])
 	require.Equal(t, requests[1].AgentInput, judge.inputs[1])
@@ -162,9 +162,9 @@ func TestJudgeAnswerRequestsDiscardsPartialResult(t *testing.T) {
 		failAtCall: 2,
 	}
 
-	assignments, err := JudgeAnswerRequests(judge, requests)
+	classifications, err := ExecuteRequests(judge, requests)
 
-	require.Nil(t, assignments)
+	require.Nil(t, classifications)
 	require.ErrorIs(t, err, ErrAnswerJudgeExecutionFailed)
 	require.Len(t, judge.inputs, 2)
 }
@@ -176,14 +176,14 @@ func TestJudgeAnswerRequestsRejectsInvalidInputBeforeCallingAgent(t *testing.T) 
 	require.NoError(t, err)
 	judge := &answerJudgeStub{}
 
-	assignments, err := JudgeAnswerRequests(judge, []TransactionAnswerJudgeRequest{requests[1], requests[0]})
+	classifications, err := ExecuteRequests(judge, []TransactionAnswerJudgeRequest{requests[1], requests[0]})
 
-	require.Nil(t, assignments)
+	require.Nil(t, classifications)
 	require.ErrorIs(t, err, ErrInvalidAnswerJudgeInput)
 	require.Empty(t, judge.inputs)
 
-	assignments, err = JudgeAnswerRequests(nil, requests)
-	require.Nil(t, assignments)
+	classifications, err = ExecuteRequests(nil, requests)
+	require.Nil(t, classifications)
 	require.ErrorIs(t, err, ErrNilAnswerJudge)
 }
 
@@ -211,7 +211,7 @@ type answerJudgeStub struct {
 	inputs     []agent.AnswerJudgeRequest
 }
 
-func (stub *answerJudgeStub) JudgeAnswers(request agent.AnswerJudgeRequest) (string, error) {
+func (stub *answerJudgeStub) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
 	stub.inputs = append(stub.inputs, request)
 	if stub.failAtCall == len(stub.inputs) {
 		return "", errors.New("judge failure")

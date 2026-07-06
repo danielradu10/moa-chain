@@ -11,14 +11,14 @@ type AnswerJudgeRequest struct {
 	UserPrompt   string
 }
 
-// AnswerJudge classifies candidate answers and returns structured output.
-type AnswerJudge interface {
-	JudgeAnswers(request AnswerJudgeRequest) (string, error)
+// AnswersJudge classifies candidate answers and returns structured output.
+type AnswersJudge interface {
+	JudgeTransactionAnswers(request AnswerJudgeRequest) (string, error)
 }
 
 // Agent defines what an agent should do
 type Agent interface {
-	AnswerJudge
+	AnswersJudge
 	Label(tx data.Transaction) ([]string, error)
 	Answer(tx data.Transaction) (string, error)
 }

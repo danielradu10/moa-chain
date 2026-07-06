@@ -32,7 +32,7 @@ func TestRoundHandler_StartRoundMiniRoundTwo(t *testing.T) {
 		require.Equal(t, data.StepCollectExecutionResults, handler.currentStep)
 	})
 
-	t.Run("should execute block and await aggregated execution results when local node is not leader", func(t *testing.T) {
+	t.Run("should execute block and await answer evidence when local node is not leader", func(t *testing.T) {
 		t.Parallel()
 
 		roundKey := createMiniRoundTwoRoundKey()
@@ -308,8 +308,8 @@ func TestRoundHandler_RoutesAnswerEvidenceToClassification(t *testing.T) {
 			}
 
 			err := handler.HandleMessage(data.ConsensusMessage{
-				ConsensusMessageType:       data.AggregatedExecutionResultsConsensusMessage,
-				AggregatedExecutionResults: evidence,
+				ConsensusMessageType: data.AnswerEvidenceConsensusMessage,
+				AnswerEvidence:       evidence,
 			})
 
 			if test.handlerError == nil {
