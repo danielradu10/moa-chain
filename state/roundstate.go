@@ -242,18 +242,6 @@ func (state *roundState) SetAnswerClassificationCertificate(
 	return nil
 }
 
-// GetAnswerClassificationCertificate returns the stored leader certificate.
-func (state *roundState) GetAnswerClassificationCertificate(
-	roundKey data.RoundKey,
-) (*data.AnswerClassificationCertificate, error) {
-	certificate, ok := state.classificationCertificates[roundKey]
-	if !ok {
-		return nil, ErrNoAnswerClassificationCertificateForCurrentRoundKey
-	}
-
-	return certificate, nil
-}
-
 // IsAnswerClassificationCertificateSet reports whether classification vote
 // collection already produced a certificate for the round.
 func (state *roundState) IsAnswerClassificationCertificateSet(roundKey data.RoundKey) bool {

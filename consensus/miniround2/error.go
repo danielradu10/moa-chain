@@ -37,51 +37,6 @@ var ErrExecutedPromptsAnswersMismatch = errors.New("executed prompts answers mis
 // ErrExecutionResultHashMismatch signals that the answers hash does not match the signed block hash.
 var ErrExecutionResultHashMismatch = errors.New("execution result hash mismatch")
 
-// ErrInvalidAnswerCandidate signals a candidate with missing or malformed identity fields.
-var ErrInvalidAnswerCandidate = errors.New("invalid answer candidate")
-
-// ErrDuplicatedAnswerCandidate signals that a candidate appears more than once.
-var ErrDuplicatedAnswerCandidate = errors.New("duplicated answer candidate")
-
-// ErrMissingAnswerCandidate signals that a classification does not cover an expected candidate.
-var ErrMissingAnswerCandidate = errors.New("missing answer candidate")
-
-// ErrUnknownAnswerCandidate signals that a classification contains an unexpected candidate.
-var ErrUnknownAnswerCandidate = errors.New("unknown answer candidate")
-
-// ErrInvalidAnswerCategory signals a category not defined by the protocol.
-var ErrInvalidAnswerCategory = errors.New("invalid answer category")
-
-// ErrNonCanonicalClassification signals protocol data that is not canonically ordered.
-var ErrNonCanonicalClassification = errors.New("non-canonical answer classification")
-
-// ErrDuplicatedClassificationJudge signals more than one vote from the same judge.
-var ErrDuplicatedClassificationJudge = errors.New("duplicated classification judge")
-
-// ErrInvalidClassificationVote signals a malformed classification vote.
-var ErrInvalidClassificationVote = errors.New("invalid classification vote")
-
-// ErrInvalidClassificationCommitteeSize signals a zero committee size.
-var ErrInvalidClassificationCommitteeSize = errors.New("invalid classification committee size")
-
-// ErrInvalidClassificationVoteCount signals a vote count outside the quorum and committee bounds.
-var ErrInvalidClassificationVoteCount = errors.New("invalid classification vote count")
-
-// ErrClassificationVoteContextMismatch signals votes for different rounds, evidence, or prompts.
-var ErrClassificationVoteContextMismatch = errors.New("classification vote context mismatch")
-
-// ErrNilAnswerJudge signals a missing answer judge.
-var ErrNilAnswerJudge = errors.New("nil answer judge")
-
-// ErrInvalidAnswerJudgeInput signals malformed answer evidence or transaction input.
-var ErrInvalidAnswerJudgeInput = errors.New("invalid answer judge input")
-
-// ErrAnswerJudgeExecutionFailed signals a local agent failure while classifying a transaction.
-var ErrAnswerJudgeExecutionFailed = errors.New("answer judge execution failed")
-
-// ErrInvalidAnswerJudgeResponse signals malformed structured judge output.
-var ErrInvalidAnswerJudgeResponse = errors.New("invalid answer judge response")
-
 // ErrNilAnswerClassificationVote signals a missing classification vote message.
 var ErrNilAnswerClassificationVote = errors.New("nil answer classification vote")
 

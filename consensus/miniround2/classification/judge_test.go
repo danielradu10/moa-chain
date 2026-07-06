@@ -1,4 +1,4 @@
-package miniround2
+package classification
 
 import (
 	"encoding/hex"
