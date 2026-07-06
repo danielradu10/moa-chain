@@ -159,6 +159,11 @@ override. A valid judge profile may override its default category for a visible
 transaction-hash and answer-text pair. This preserves the same information
 boundary as the real judge: fixture logic cannot classify by hidden producer ID.
 
+Expected transaction counts use `countsPerAnswer` as the default for every
+producer. When a candidate has different vote totals, add a `countOverrides`
+entry keyed by committee `producerRole`. This field affects assertions only;
+the runner still derives the actual counts from signed judge votes.
+
 The runner maps roles to the selected mini-round-two committee and delivers
 producer results and judge votes in the configured order. To enable another
 implemented fixture, add only its directory name to the `scenarios` table in

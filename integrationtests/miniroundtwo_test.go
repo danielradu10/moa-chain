@@ -29,6 +29,7 @@ import (
 func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
 	scenarios := []string{
 		"unanimous_correct",
+		"insufficient_correct_answers",
 	}
 
 	for _, scenarioName := range scenarios {
@@ -94,11 +95,17 @@ type scenarioExpectedFixture struct {
 }
 
 type scenarioExpectedTransaction struct {
-	TxHash          string                         `json:"txHash"`
-	Answers         int                            `json:"answers"`
-	CountsPerAnswer scenarioExpectedCategoryCounts `json:"countsPerAnswer"`
-	Groups          scenarioExpectedGroupSizes     `json:"groups"`
-	Status          data.TransactionAnswerStatus   `json:"status"`
+	TxHash          string                          `json:"txHash"`
+	Answers         int                             `json:"answers"`
+	CountsPerAnswer scenarioExpectedCategoryCounts  `json:"countsPerAnswer"`
+	CountOverrides  []scenarioExpectedCountOverride `json:"countOverrides,omitempty"`
+	Groups          scenarioExpectedGroupSizes      `json:"groups"`
+	Status          data.TransactionAnswerStatus    `json:"status"`
+}
+
+type scenarioExpectedCountOverride struct {
+	ProducerRole string                         `json:"producerRole"`
+	Counts       scenarioExpectedCategoryCounts `json:"counts"`
 }
 
 type scenarioExpectedGroupSizes struct {
@@ -178,6 +185,10 @@ func validateMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 	validateScenarioRoleOrder(t, scenario.Delivery.JudgeOrder, scenario.Network.CommitteeSize)
 
 	expectedTxHashes := make(map[string]struct{}, len(scenario.Expected.Transactions))
+	evidenceRoles := make(map[string]struct{}, len(scenario.Expected.AnswerEvidenceProducers))
+	for _, role := range scenario.Expected.AnswerEvidenceProducers {
+		evidenceRoles[role] = struct{}{}
+	}
 	for _, expected := range scenario.Expected.Transactions {
 		_, exists := txHashes[expected.TxHash]
 		require.Truef(t, exists, "expected result references unknown transaction %s", expected.TxHash)
@@ -191,7 +202,31 @@ func validateMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 			expected.Groups.Correct+expected.Groups.Hallucination+expected.Groups.Malicious+expected.Groups.Wrong,
 		)
 		require.True(t, expected.Status.IsValid())
+		validateExpectedCategoryCounts(t, expected.CountsPerAnswer, scenario.Network.Quorum)
+
+		overriddenRoles := make(map[string]struct{}, len(expected.CountOverrides))
+		for _, override := range expected.CountOverrides {
+			_, isEvidenceProducer := evidenceRoles[override.ProducerRole]
+			require.Truef(t, isEvidenceProducer, "count override references non-producer role %s", override.ProducerRole)
+			_, duplicated = overriddenRoles[override.ProducerRole]
+			require.Falsef(t, duplicated, "duplicated count override for role %s", override.ProducerRole)
+			overriddenRoles[override.ProducerRole] = struct{}{}
+			validateExpectedCategoryCounts(t, override.Counts, scenario.Network.Quorum)
+		}
 	}
+}
+
+func validateExpectedCategoryCounts(
+	t *testing.T,
+	counts scenarioExpectedCategoryCounts,
+	quorum int,
+) {
+	t.Helper()
+	require.Equal(
+		t,
+		uint64(quorum),
+		counts.Correct+counts.Hallucination+counts.Malicious+counts.Wrong,
+	)
 }
 
 func validateScenarioProfiles(t *testing.T, scenario miniRoundTwoScenario, txHashes map[string]struct{}) {
@@ -892,10 +927,14 @@ func requireScenarioTransactions(
 		for _, counts := range transaction.Counts {
 			require.Equal(t, txHash, string(counts.CandidateID.TxHash))
 			require.Contains(t, expectedProducers, counts.CandidateID.ProducerID)
-			require.Equal(t, expected.CountsPerAnswer.Correct, counts.Correct)
-			require.Equal(t, expected.CountsPerAnswer.Hallucination, counts.Hallucination)
-			require.Equal(t, expected.CountsPerAnswer.Malicious, counts.Malicious)
-			require.Equal(t, expected.CountsPerAnswer.Wrong, counts.Wrong)
+			expectedCounts := expectedCountsForProducerRole(
+				expected,
+				rolesByValidator[counts.CandidateID.ProducerID],
+			)
+			require.Equal(t, expectedCounts.Correct, counts.Correct)
+			require.Equal(t, expectedCounts.Hallucination, counts.Hallucination)
+			require.Equal(t, expectedCounts.Malicious, counts.Malicious)
+			require.Equal(t, expectedCounts.Wrong, counts.Wrong)
 		}
 	}
 
@@ -906,6 +945,18 @@ func requireScenarioTransactions(
 			require.Equal(t, executor.Answers[txHash], answer.Answer)
 		}
 	}
+}
+
+func expectedCountsForProducerRole(
+	expected scenarioExpectedTransaction,
+	producerRole string,
+) scenarioExpectedCategoryCounts {
+	for _, override := range expected.CountOverrides {
+		if override.ProducerRole == producerRole {
+			return override.Counts
+		}
+	}
+	return expected.CountsPerAnswer
 }
 
 func expectedScenarioCategory(
