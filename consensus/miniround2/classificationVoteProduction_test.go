@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"moa-chain/agent"
+	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/blockprocessing/hashing"
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
@@ -14,13 +15,13 @@ import (
 	"moa-chain/testscommon"
 )
 
-func TestHandleAnswerEvidenceForClassificationSendsSignedVoteToLeader(t *testing.T) {
+func TestHandleAnswerEvidenceSendsSignedVoteToLeader(t *testing.T) {
 	t.Parallel()
 
 	judge := &classificationProductionJudge{}
 	context := newClassificationProductionContext(t, "validator-a", "leader", judge)
 
-	err := context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence)
+	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 
 	require.NoError(t, err)
 	require.Len(t, judge.inputs, 2)
@@ -57,14 +58,18 @@ func TestHandleAnswerEvidenceForClassificationSendsSignedVoteToLeader(t *testing
 		}
 	}
 	require.Equal(t, 2, localAnswers, "the judge must classify its own answer for each transaction")
+
+	finalizedBlock, finalizationErr := context.handler.blockFinalizer.GetFinalizedBlockInMRTwo(context.roundKey)
+	require.Nil(t, finalizedBlock)
+	require.ErrorIs(t, finalizationErr, blockFinalizer.ErrFinalizedBlockNotFound)
 }
 
-func TestHandleAnswerEvidenceForClassificationStoresLeaderVoteThroughHandler(t *testing.T) {
+func TestHandleAnswerEvidenceStoresLeaderVoteThroughHandler(t *testing.T) {
 	t.Parallel()
 
 	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
 
-	err := context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence)
+	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 
 	require.NoError(t, err)
 	require.Nil(t, context.broadcaster.SentClassificationVoteMessage)
@@ -75,7 +80,7 @@ func TestHandleAnswerEvidenceForClassificationStoresLeaderVoteThroughHandler(t *
 	require.Equal(t, 1, context.signer.signCalls)
 }
 
-func TestHandleAnswerEvidenceForClassificationVerifiesEvidenceBeforeJudgingOrSigning(t *testing.T) {
+func TestHandleAnswerEvidenceVerifiesEvidenceBeforeJudgingOrSigning(t *testing.T) {
 	t.Parallel()
 
 	judge := &classificationProductionJudge{}
@@ -83,7 +88,7 @@ func TestHandleAnswerEvidenceForClassificationVerifiesEvidenceBeforeJudgingOrSig
 	context.evidence.BlockSignatures[0] = append([]byte(nil), context.evidence.BlockSignatures[0]...)
 	context.evidence.BlockSignatures[0][0] ^= 0xff
 
-	err := context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence)
+	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 
 	require.Error(t, err)
 	require.Empty(t, judge.inputs)
@@ -91,13 +96,13 @@ func TestHandleAnswerEvidenceForClassificationVerifiesEvidenceBeforeJudgingOrSig
 	require.Nil(t, context.broadcaster.SentClassificationVoteMessage)
 }
 
-func TestHandleAnswerEvidenceForClassificationDiscardsPartialJudgeResult(t *testing.T) {
+func TestHandleAnswerEvidenceDiscardsPartialJudgeResult(t *testing.T) {
 	t.Parallel()
 
 	judge := &classificationProductionJudge{failAtCall: 2}
 	context := newClassificationProductionContext(t, "validator-a", "leader", judge)
 
-	err := context.handler.HandleAnswerEvidenceForClassification(context.roundKey, context.evidence)
+	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 
 	require.ErrorIs(t, err, ErrAnswerJudgeExecutionFailed)
 	require.Len(t, judge.inputs, 2)

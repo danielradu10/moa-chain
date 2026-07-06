@@ -189,7 +189,7 @@ func TestMiniRoundTwoHandler_verifyExecutePromptsMessage(t *testing.T) {
 func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 	t.Parallel()
 
-	t.Run("should verify and store executed prompts message", func(t *testing.T) {
+	t.Run("should complete classification flow for a single-validator committee", func(t *testing.T) {
 		t.Parallel()
 
 		publicKey, privateKey := createTestKeyPair(t)
@@ -315,56 +315,8 @@ func (singleCandidateAnswerJudge) JudgeAnswers(agent.AnswerJudgeRequest) (string
 	return `{"classifications":[{"candidateId":"candidate-1","category":"CORRECT"}]}`, nil
 }
 
-func TestMiniRoundTwoHandler_HandleAggregatedExecutionResults(t *testing.T) {
+func TestMiniRoundTwoHandler_verifyAggregatedExecutionResultsMessage(t *testing.T) {
 	t.Parallel()
-
-	t.Run("should verify certificate and finalize aggregated execution results", func(t *testing.T) {
-		t.Parallel()
-
-		publicKey, privateKey := createTestKeyPair(t)
-		finalizedBlock := createTestFinalizedBlock()
-		signer := signing.NewSigner("validator-1", privateKey)
-		executedPromptsMessage := createSignedExecutedPromptsMessage(t, signer, finalizedBlock)
-		aggregatedExecutionResultsMessage := createAggregatedExecutionResultsMessageFromExecutedPrompts("leader", createTestRoundKey(), executedPromptsMessage)
-		finalizer := createSeededFinalizer(t, finalizedBlock)
-		handler := createTestMiniRoundTwoHandler(testMiniRoundTwoHandlerArgs{
-			myID:           "validator-2",
-			signer:         signing.NewSigner("validator-2", nil),
-			blockFinalizer: finalizer,
-			validatorRegistry: &testscommon.ValidatorRegistryStub{
-				LeaderID: "leader",
-				RegisteredValidators: map[string]bool{
-					"validator-1": true,
-				},
-				ConsensusValidators: map[string]bool{
-					"validator-1": true,
-				},
-				PublicKeysByValidatorID: map[string][]byte{
-					"validator-1": publicKey,
-				},
-			},
-		})
-
-		err := handler.HandleAggregatedExecutionResults(createTestRoundKey(), aggregatedExecutionResultsMessage)
-
-		require.NoError(t, err)
-		finalizedBlockInMRTwo, err := finalizer.GetFinalizedBlockInMRTwo(createTestRoundKey())
-		require.NoError(t, err)
-		require.Equal(t, data.AggregatedExecutionResults{
-			{
-				TxHash: []byte("txHash1"),
-				Answers: []data.TransactionResult{
-					executedPromptsMessage.Answers["txHash1"],
-				},
-			},
-			{
-				TxHash: []byte("txHash2"),
-				Answers: []data.TransactionResult{
-					executedPromptsMessage.Answers["txHash2"],
-				},
-			},
-		}, finalizedBlockInMRTwo.AggregatedExecutionResults)
-	})
 
 	t.Run("should return ErrMessageNotFromLeader when message sender is not selected leader", func(t *testing.T) {
 		t.Parallel()
@@ -378,7 +330,7 @@ func TestMiniRoundTwoHandler_HandleAggregatedExecutionResults(t *testing.T) {
 			SenderID: "validator-1",
 		}
 
-		err := handler.HandleAggregatedExecutionResults(createTestRoundKey(), message)
+		err := handler.verifyAggregatedExecutionResultsMessage(createTestRoundKey(), message)
 
 		require.Equal(t, ErrMessageNotFromLeader, err)
 	})
@@ -404,7 +356,7 @@ func TestMiniRoundTwoHandler_HandleAggregatedExecutionResults(t *testing.T) {
 			Answers:            []data.AnswersTxMessage{{}},
 		}
 
-		err := handler.HandleAggregatedExecutionResults(roundKey, message)
+		err := handler.verifyAggregatedExecutionResultsMessage(roundKey, message)
 
 		require.Equal(t, ErrAggregatedExecutionResultsMismatch, err)
 	})
@@ -435,7 +387,7 @@ func TestMiniRoundTwoHandler_HandleAggregatedExecutionResults(t *testing.T) {
 			},
 		})
 
-		err := handler.HandleAggregatedExecutionResults(createTestRoundKey(), aggregatedExecutionResultsMessage)
+		err := handler.verifyAggregatedExecutionResultsMessage(createTestRoundKey(), aggregatedExecutionResultsMessage)
 
 		require.Equal(t, signing.ErrWrongSignature, err)
 	})
