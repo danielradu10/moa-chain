@@ -54,6 +54,3 @@ var ErrNilAnswerClassificationCertificate = errors.New("nil answer classificatio
 
 // ErrAnswerClassificationCertificateAlreadyExists signals a duplicate classification certificate.
 var ErrAnswerClassificationCertificateAlreadyExists = errors.New("answer classification certificate already exists")
-
-// ErrNoAnswerClassificationCertificateForCurrentRoundKey signals a missing certificate.
-var ErrNoAnswerClassificationCertificateForCurrentRoundKey = errors.New("no answer classification certificate for current round")

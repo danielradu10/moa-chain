@@ -59,9 +59,7 @@ func TestRoundState_AnswerClassificationCertificate(t *testing.T) {
 	certificate := &data.AnswerClassificationCertificate{SenderID: "leader"}
 
 	require.NoError(t, roundState.SetAnswerClassificationCertificate(roundKey, certificate))
-	stored, err := roundState.GetAnswerClassificationCertificate(roundKey)
-	require.NoError(t, err)
-	require.Same(t, certificate, stored)
+	require.True(t, roundState.IsAnswerClassificationCertificateSet(roundKey))
 	require.ErrorIs(t,
 		roundState.SetAnswerClassificationCertificate(roundKey, certificate),
 		ErrAnswerClassificationCertificateAlreadyExists,
@@ -91,7 +89,5 @@ func TestRoundState_ClearAnswerClassificationState(t *testing.T) {
 	votes, err := roundState.GetAnswerClassificationVotes(roundKey)
 	require.Nil(t, votes)
 	require.ErrorIs(t, err, ErrNoAnswerClassificationVotesForCurrentRoundKey)
-	certificate, err := roundState.GetAnswerClassificationCertificate(roundKey)
-	require.Nil(t, certificate)
-	require.ErrorIs(t, err, ErrNoAnswerClassificationCertificateForCurrentRoundKey)
+	require.False(t, roundState.IsAnswerClassificationCertificateSet(roundKey))
 }

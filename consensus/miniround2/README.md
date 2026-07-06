@@ -34,6 +34,69 @@ independently produced answers are eligible inputs for mini-round three.
 The initial design uses the same mini-round-two committee for producing answers
 and judging them. Only members of this committee contribute to either quorum.
 
+## Current Mini-Round-Two Flow
+
+Every committee member is both an answer producer and an answer judge. Answer
+evidence is verified before it is passed to the local LLM judge, and
+mini-round two is finalized only after the classification certificate is
+verified and its canonical result is reproduced locally.
+
+```mermaid
+sequenceDiagram
+    participant V as Validator
+    participant L as Leader
+    participant LJ as Leader's LLM judge
+    participant VJ as Validator's LLM judge
+
+    V->>V: Execute canonical transactions
+    V->>L: Send signed execution results
+    L->>L: Verify producer membership, hashes, coverage, and signatures
+    L->>L: Collect answer quorum and build answer evidence
+    L-->>V: Broadcast answer evidence certificate
+
+    par Leader judges the evidence
+        L->>L: Verify and store answer evidence
+        L->>LJ: Send canonical anonymized candidates
+        LJ-->>L: Return one category per candidate
+        L->>L: Validate and sign leader classification vote
+    and Validator judges the same evidence
+        V->>V: Verify producer membership, hashes, coverage, and signatures
+        V->>V: Store verified answer evidence
+        V->>VJ: Send canonical anonymized candidates
+        VJ-->>V: Return one category per candidate
+        V->>V: Validate and sign validator classification vote
+        V->>L: Send classification vote
+    end
+
+    L->>L: Verify votes and collect classification quorum
+    L->>L: Derive canonical counts, groups, and statuses
+    L-->>V: Broadcast classification certificate and derived result
+
+    par Leader finalization
+        L->>L: Verify certificate and recompute result
+        L->>L: Finalize mini-round two
+    and Validator finalization
+        V->>V: Verify every vote and recompute result
+        V->>V: Compare recomputed and leader-provided results
+        V->>V: Finalize mini-round two
+    end
+```
+
+There is no separate answer-evidence approval message. A validator responds to
+valid evidence with its signed classification vote. Invalid evidence is
+rejected before the LLM judge is invoked, and no classification vote is
+produced.
+
+### Implementation layout
+
+- `handler.go` handles committee selection, prompt execution, signed answer
+  collection, and answer-evidence verification.
+- `classification_flow.go` coordinates local judging, signed classification
+  votes, certificate broadcast and verification, and finalization.
+- `classification/` contains the provider-independent judge adapter and the
+  pure deterministic validation and aggregation rules. It has no networking or
+  round-state dependencies.
+
 ## Categories
 
 Every judge must assign exactly one category to every candidate answer:
