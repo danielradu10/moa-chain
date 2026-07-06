@@ -20,7 +20,7 @@ var ErrNilAggregatedVotes = errors.New("aggregated votes is nil")
 
 var ErrNilExecutedPrompts = errors.New("executed prompts is nil")
 
-var ErrNilAggregatedExecutionResults = errors.New("aggregated execution results is nil")
+var ErrNilAnswerEvidence = errors.New("answer evidence is nil")
 
 var ErrNilAnswerClassificationVote = errors.New("answer classification vote is nil")
 

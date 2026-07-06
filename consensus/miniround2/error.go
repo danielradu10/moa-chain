@@ -10,11 +10,11 @@ var ErrDuplicatedAnswer = errors.New("duplicated answer")
 // ErrNilAnswers signals nil answers.
 var ErrNilAnswers = errors.New("nil answers")
 
-// ErrNilAggregatedExecutionResults signals a nil aggregated execution results message.
-var ErrNilAggregatedExecutionResults = errors.New("nil aggregated execution results")
+// ErrNilAnswerEvidence signals a missing answer-evidence certificate.
+var ErrNilAnswerEvidence = errors.New("nil answer evidence")
 
-// ErrAggregatedExecutionResultsMismatch signals inconsistent aggregated execution results arrays.
-var ErrAggregatedExecutionResultsMismatch = errors.New("aggregated execution results mismatch")
+// ErrAnswerEvidenceMismatch signals inconsistent answer-evidence certificate arrays.
+var ErrAnswerEvidenceMismatch = errors.New("answer evidence mismatch")
 
 // ErrMessageNotFromLeader signals that the message was not sent by the expected leader.
 var ErrMessageNotFromLeader = errors.New("message not from leader")

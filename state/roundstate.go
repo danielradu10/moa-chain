@@ -197,6 +197,7 @@ func (state *roundState) AddAnswerClassificationVote(roundKey data.RoundKey, vot
 		votes = make(map[string]*data.AnswerClassificationVote)
 		state.classificationVotes[roundKey] = votes
 	}
+
 	if _, exists := votes[vote.JudgeID]; exists {
 		return ErrAnswerClassificationVoteAlreadyExistsForJudge
 	}

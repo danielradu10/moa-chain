@@ -26,34 +26,34 @@ func TestCanonicalizeAnswerCandidateIDs(t *testing.T) {
 	require.Equal(t, "validator-b", candidates[0].ProducerID, "input must not be mutated")
 }
 
-func TestValidateClassificationAssignments(t *testing.T) {
+func TestValidateAnswerClassifications(t *testing.T) {
 	t.Parallel()
 
 	first := classificationCandidate("validator-a", "tx-a", "same answer")
 	second := classificationCandidate("validator-b", "tx-a", "same answer")
 	expected := CanonicalizeAnswerCandidateIDs([]data.AnswerCandidateID{second, first})
-	valid := []data.AnswerClassificationAssignment{
+	valid := []data.AnswerClassificationPerCandidate{
 		{CandidateID: expected[0], Category: data.AnswerCategoryCorrect},
 		{CandidateID: expected[1], Category: data.AnswerCategoryWrong},
 	}
 
 	require.Equal(t, first.AnswerHash, second.AnswerHash)
-	require.NoError(t, ValidateClassificationAssignments(expected, valid),
+	require.NoError(t, ValidateAnswerClassifications(expected, valid),
 		"identical text from different producers must remain separate")
 
 	tests := []struct {
-		name        string
-		assignments []data.AnswerClassificationAssignment
-		targetError error
+		name            string
+		classifications []data.AnswerClassificationPerCandidate
+		targetError     error
 	}{
 		{
-			name:        "missing candidate",
-			assignments: valid[:1],
-			targetError: ErrMissingAnswerCandidate,
+			name:            "missing candidate",
+			classifications: valid[:1],
+			targetError:     ErrMissingAnswerCandidate,
 		},
 		{
 			name: "duplicate candidate",
-			assignments: []data.AnswerClassificationAssignment{
+			classifications: []data.AnswerClassificationPerCandidate{
 				valid[0],
 				valid[0],
 			},
@@ -61,7 +61,7 @@ func TestValidateClassificationAssignments(t *testing.T) {
 		},
 		{
 			name: "unknown candidate",
-			assignments: []data.AnswerClassificationAssignment{
+			classifications: []data.AnswerClassificationPerCandidate{
 				valid[0],
 				{
 					CandidateID: classificationCandidate("validator-c", "tx-a", "answer"),
@@ -72,7 +72,7 @@ func TestValidateClassificationAssignments(t *testing.T) {
 		},
 		{
 			name: "invalid category",
-			assignments: []data.AnswerClassificationAssignment{
+			classifications: []data.AnswerClassificationPerCandidate{
 				valid[0],
 				{CandidateID: valid[1].CandidateID, Category: data.AnswerCategory("OTHER")},
 			},
@@ -80,7 +80,7 @@ func TestValidateClassificationAssignments(t *testing.T) {
 		},
 		{
 			name: "non-canonical ordering",
-			assignments: []data.AnswerClassificationAssignment{
+			classifications: []data.AnswerClassificationPerCandidate{
 				valid[1],
 				valid[0],
 			},
@@ -88,7 +88,7 @@ func TestValidateClassificationAssignments(t *testing.T) {
 		},
 		{
 			name: "invalid candidate hash",
-			assignments: []data.AnswerClassificationAssignment{
+			classifications: []data.AnswerClassificationPerCandidate{
 				valid[0],
 				{
 					CandidateID: data.AnswerCandidateID{
@@ -107,7 +107,7 @@ func TestValidateClassificationAssignments(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateClassificationAssignments(expected, test.assignments)
+			err := ValidateAnswerClassifications(expected, test.classifications)
 
 			require.ErrorIs(t, err, test.targetError)
 		})
@@ -369,19 +369,19 @@ func TestAggregateClassificationVotesRejectsMalformedInput(t *testing.T) {
 			targetError:   ErrDuplicatedClassificationJudge,
 		},
 		{
-			name:       "missing assignment",
+			name:       "missing classification",
 			candidates: candidates,
 			votes: mutateAggregationVotes(validVotes, func(vote *data.AnswerClassificationVote) {
-				vote.Assignments = vote.Assignments[:len(vote.Assignments)-1]
+				vote.AnswerClassifications = vote.AnswerClassifications[:len(vote.AnswerClassifications)-1]
 			}),
 			committeeSize: 4,
 			targetError:   ErrMissingAnswerCandidate,
 		},
 		{
-			name:       "non-canonical assignments",
+			name:       "non-canonical classifications",
 			candidates: candidates,
 			votes: mutateAggregationVotes(validVotes, func(vote *data.AnswerClassificationVote) {
-				vote.Assignments[0], vote.Assignments[1] = vote.Assignments[1], vote.Assignments[0]
+				vote.AnswerClassifications[0], vote.AnswerClassifications[1] = vote.AnswerClassifications[1], vote.AnswerClassifications[0]
 			}),
 			committeeSize: 4,
 			targetError:   ErrNonCanonicalClassification,
@@ -390,7 +390,7 @@ func TestAggregateClassificationVotesRejectsMalformedInput(t *testing.T) {
 			name:       "invalid category",
 			candidates: candidates,
 			votes: mutateAggregationVotes(validVotes, func(vote *data.AnswerClassificationVote) {
-				vote.Assignments[0].Category = data.AnswerCategory("UNKNOWN")
+				vote.AnswerClassifications[0].Category = data.AnswerCategory("UNKNOWN")
 			}),
 			committeeSize: 4,
 			targetError:   ErrInvalidAnswerCategory,
@@ -482,24 +482,24 @@ func aggregationVote(
 	candidates []data.AnswerCandidateID,
 	categories []data.AnswerCategory,
 ) data.AnswerClassificationVote {
-	assignments := make([]data.AnswerClassificationAssignment, len(candidates))
+	classifications := make([]data.AnswerClassificationPerCandidate, len(candidates))
 	for index, candidate := range candidates {
-		assignments[index] = data.AnswerClassificationAssignment{
+		classifications[index] = data.AnswerClassificationPerCandidate{
 			CandidateID: candidate,
 			Category:    categories[index],
 		}
 	}
 
 	return data.AnswerClassificationVote{
-		Epoch:              1,
-		Round:              2,
-		MiniRound:          1,
-		CanonicalBlockHash: []byte("canonical-block"),
-		AnswerEvidenceHash: []byte("answer-evidence"),
-		JudgeID:            judgeID,
-		PromptVersion:      "judge-v1",
-		PromptHash:         []byte("prompt-hash"),
-		Assignments:        assignments,
+		Epoch:                 1,
+		Round:                 2,
+		MiniRound:             1,
+		CanonicalBlockHash:    []byte("canonical-block"),
+		AnswerEvidenceHash:    []byte("answer-evidence"),
+		JudgeID:               judgeID,
+		PromptVersion:         "judge-v1",
+		PromptHash:            []byte("prompt-hash"),
+		AnswerClassifications: classifications,
 	}
 }
 
@@ -508,7 +508,7 @@ func mutateAggregationVotes(
 	mutate func(*data.AnswerClassificationVote),
 ) []data.AnswerClassificationVote {
 	result := append([]data.AnswerClassificationVote(nil), votes...)
-	result[0].Assignments = append([]data.AnswerClassificationAssignment(nil), votes[0].Assignments...)
+	result[0].AnswerClassifications = append([]data.AnswerClassificationPerCandidate(nil), votes[0].AnswerClassifications...)
 	mutate(&result[0])
 
 	return result

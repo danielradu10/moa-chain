@@ -15,7 +15,7 @@ type LabelerStub struct {
 	JudgeAnswersCalled func(request agent.AnswerJudgeRequest) (string, error)
 }
 
-func (tl *LabelerStub) JudgeAnswers(request agent.AnswerJudgeRequest) (string, error) {
+func (tl *LabelerStub) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
 	if tl.JudgeAnswersCalled != nil {
 		return tl.JudgeAnswersCalled(request)
 	}

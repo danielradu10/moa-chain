@@ -67,7 +67,7 @@ type answerJudgeOutput struct {
 	Classifications []answerJudgeClassification `json:"classifications"`
 }
 
-// answerJudgeClassification is one model-returned alias-to-category assignment.
+// answerJudgeClassification is one model-returned alias-to-category classification.
 type answerJudgeClassification struct {
 	CandidateID string              `json:"candidateId"`
 	Category    data.AnswerCategory `json:"category"`
@@ -236,13 +236,13 @@ func buildTransactionJudgeRequest(
 
 // Judge execution
 
-// JudgeAnswerRequests executes requests in canonical transaction order. Any
-// execution or parsing failure discards all prior assignments, preventing a
+// ExecuteRequests executes requests in canonical transaction order. Any
+// execution or parsing failure discards all prior classifications, preventing a
 // validator from signing a partial classification vote.
-func JudgeAnswerRequests(
-	judge agent.AnswerJudge,
+func ExecuteRequests(
+	judge agent.AnswersJudge,
 	requests []TransactionAnswerJudgeRequest,
-) ([]data.AnswerClassificationAssignment, error) {
+) ([]data.AnswerClassificationPerCandidate, error) {
 	if judge == nil {
 		return nil, ErrNilAnswerJudge
 	}
@@ -250,31 +250,36 @@ func JudgeAnswerRequests(
 		return nil, err
 	}
 
-	assignments := make([]data.AnswerClassificationAssignment, 0)
+	classifications := make([]data.AnswerClassificationPerCandidate, 0)
 	seenCandidates := make(map[answerCandidateKey]struct{})
 	for _, request := range requests {
-		response, err := judge.JudgeAnswers(request.AgentInput)
+		// Classify the answers of a specific transaction.
+		response, err := judge.JudgeTransactionAnswers(request.AgentInput)
 		if err != nil {
 			return nil, ErrAnswerJudgeExecutionFailed
 		}
 
-		requestAssignments, err := ParseAnswerJudgeResponse(request, response)
+		// Parse the response of the LLM into the protocol classifications.
+		transactionClassifications, err := ParseAnswerJudgeResponse(request, response)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, assignment := range requestAssignments {
-			key := candidateKey(assignment.CandidateID)
+		// Now, each answer for the current transaction has one protocol label (correct/hallucination/wrong/malicious).
+		// The following loop reject a candidate appearing in more than one transaction request.
+		// However, because we are on a specific transaction here, the candidates differ by producerID and answerHash.
+		for _, classification := range transactionClassifications {
+			key := candidateKey(classification.CandidateID)
 			if _, exists := seenCandidates[key]; exists {
 				return nil, ErrDuplicatedAnswerCandidate
 			}
 			seenCandidates[key] = struct{}{}
 		}
 
-		assignments = append(assignments, requestAssignments...)
+		classifications = append(classifications, transactionClassifications...)
 	}
 
-	return CanonicalizeClassificationAssignments(assignments), nil
+	return CanonicalizeAnswerClassifications(classifications), nil
 }
 
 // validateAnswerJudgeRequests checks prompt identity, transaction ordering, and
@@ -313,12 +318,17 @@ func validateAnswerJudgeRequests(requests []TransactionAnswerJudgeRequest) error
 
 // Response parsing
 
-// ParseAnswerJudgeResponse strictly parses one transaction response and returns
-// canonical protocol assignments. Model output order is ignored.
+// ParseAnswerJudgeResponse parses one judge's LLM response for one transaction.
+// It returns one validated classification for every submitted answer in that
+// transaction, ordered canonically by answer identity. Each returned
+// CandidateID already contains the transaction hash, producer ID, and answer
+// hash. This function does not aggregate multiple judges and therefore does not
+// produce category counts, canonical groups, or a transaction status; those are
+// derived later by AggregateClassificationVotes.
 func ParseAnswerJudgeResponse(
 	request TransactionAnswerJudgeRequest,
 	response string,
-) ([]data.AnswerClassificationAssignment, error) {
+) ([]data.AnswerClassificationPerCandidate, error) {
 	references, err := validateJudgeRequestReferences(request)
 	if err != nil {
 		return nil, err
@@ -334,15 +344,15 @@ func ParseAnswerJudgeResponse(
 		return nil, err
 	}
 
-	assignments := make([]data.AnswerClassificationAssignment, 0, len(request.Candidates))
+	classifications := make([]data.AnswerClassificationPerCandidate, 0, len(request.Candidates))
 	for _, reference := range request.Candidates {
-		assignments = append(assignments, data.AnswerClassificationAssignment{
+		classifications = append(classifications, data.AnswerClassificationPerCandidate{
 			CandidateID: reference.CandidateID,
 			Category:    categories[reference.Alias],
 		})
 	}
 
-	return CanonicalizeClassificationAssignments(assignments), nil
+	return CanonicalizeAnswerClassifications(classifications), nil
 }
 
 // validateJudgeRequestReferences verifies aliases and candidate identities, then

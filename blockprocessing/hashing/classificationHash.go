@@ -108,23 +108,23 @@ func ComputeAnswerEvidenceHash(message *data.AggregatedExecutionResultsMessage) 
 }
 
 // ComputeClassificationVoteHash deterministically commits to a judge vote.
-// Assignment input order does not affect the hash. VoteHash and Signature are
-// intentionally excluded.
+// Per-candidate classification order does not affect the hash. VoteHash and
+// Signature are intentionally excluded.
 func ComputeClassificationVoteHash(vote *data.AnswerClassificationVote) ([]byte, error) {
 	if vote == nil || vote.JudgeID == "" || vote.PromptVersion == "" ||
 		len(vote.CanonicalBlockHash) == 0 || len(vote.AnswerEvidenceHash) == 0 || len(vote.PromptHash) == 0 {
 		return nil, ErrInvalidClassificationVote
 	}
-	if len(vote.Assignments) == 0 {
+	if len(vote.AnswerClassifications) == 0 {
 		return nil, ErrInvalidClassificationVote
 	}
 
-	assignments := canonicalizeClassificationAssignments(vote.Assignments)
-	seenCandidates := make(map[classificationCandidateKey]struct{}, len(assignments))
-	for _, assignment := range assignments {
-		candidate := assignment.CandidateID
+	classifications := canonicalizeAnswerClassifications(vote.AnswerClassifications)
+	seenCandidates := make(map[classificationCandidateKey]struct{}, len(classifications))
+	for _, classification := range classifications {
+		candidate := classification.CandidateID
 		if candidate.ProducerID == "" || len(candidate.TxHash) == 0 || len(candidate.AnswerHash) != sha256.Size ||
-			!assignment.Category.IsValid() {
+			!classification.Category.IsValid() {
 			return nil, ErrInvalidClassificationVote
 		}
 
@@ -150,10 +150,10 @@ func ComputeClassificationVoteHash(vote *data.AnswerClassificationVote) ([]byte,
 	writeClassificationString(hasher, vote.PromptVersion)
 	writeClassificationBytes(hasher, vote.PromptHash)
 	writeClassificationString(hasher, vote.ModelMetadata)
-	writeClassificationUint64(hasher, uint64(len(assignments)))
-	for _, assignment := range assignments {
-		writeCandidateID(hasher, assignment.CandidateID)
-		writeClassificationString(hasher, string(assignment.Category))
+	writeClassificationUint64(hasher, uint64(len(classifications)))
+	for _, classification := range classifications {
+		writeCandidateID(hasher, classification.CandidateID)
+		writeClassificationString(hasher, string(classification.Category))
 	}
 
 	return hasher.Sum(nil), nil
@@ -165,10 +165,10 @@ type classificationCandidateKey struct {
 	answerHash string
 }
 
-func canonicalizeClassificationAssignments(
-	assignments []data.AnswerClassificationAssignment,
-) []data.AnswerClassificationAssignment {
-	ordered := append([]data.AnswerClassificationAssignment(nil), assignments...)
+func canonicalizeAnswerClassifications(
+	classifications []data.AnswerClassificationPerCandidate,
+) []data.AnswerClassificationPerCandidate {
+	ordered := append([]data.AnswerClassificationPerCandidate(nil), classifications...)
 	sort.Slice(ordered, func(left, right int) bool {
 		return data.CompareAnswerCandidateIDs(ordered[left].CandidateID, ordered[right].CandidateID) < 0
 	})
