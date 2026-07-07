@@ -58,6 +58,10 @@ func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
 		// signed vote from the broadcast certificate. Validators must reject the
 		// insufficient evidence instead of trusting derived classifications.
 		"leader_omits_certificate_vote",
+		// Scenario 11 mutates answer evidence at the leader broadcast boundary.
+		// Validators reject the evidence before judging, so no classification vote
+		// should be produced from the invalid artifact.
+		"invalid_answer_evidence",
 	}
 
 	for _, scenarioName := range scenarios {
