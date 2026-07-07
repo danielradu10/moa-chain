@@ -97,7 +97,7 @@ func TestHandleAnswerEvidenceVerifiesEvidenceBeforeJudgingOrSigning(t *testing.T
 	require.Nil(t, context.broadcaster.SentClassificationVoteMessage)
 }
 
-func TestHandleAnswerEvidenceDiscardsPartialJudgeResult(t *testing.T) {
+func TestHandleAnswerEvidenceDiscardsPartialJudgeResultWithoutFailingRound(t *testing.T) {
 	t.Parallel()
 
 	judge := &classificationProductionJudge{failAtCall: 2}
@@ -105,10 +105,13 @@ func TestHandleAnswerEvidenceDiscardsPartialJudgeResult(t *testing.T) {
 
 	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 
-	require.ErrorIs(t, err, classification.ErrAnswerJudgeExecutionFailed)
+	require.NoError(t, err)
 	require.Len(t, judge.inputs, 2)
 	require.Equal(t, 0, context.signer.signCalls)
 	require.Nil(t, context.broadcaster.SentClassificationVoteMessage)
+	storedEvidence, err := context.roundState.GetAnswerEvidence(context.roundKey)
+	require.NoError(t, err)
+	require.Same(t, context.evidence, storedEvidence)
 }
 
 func TestSignAnswerClassificationVoteRejectsUnexpectedEvidenceAndPrompt(t *testing.T) {

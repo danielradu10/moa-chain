@@ -44,6 +44,7 @@ type scenarioExecutorFixture struct {
 type scenarioJudgeFixture struct {
 	Role            string                               `json:"role"`
 	Mode            string                               `json:"mode"`
+	ErrorTxHash     string                               `json:"errorTxHash,omitempty"`
 	DefaultCategory data.AnswerCategory                  `json:"defaultCategory"`
 	Classifications []scenarioJudgeClassificationFixture `json:"classifications,omitempty"`
 }
@@ -277,12 +278,30 @@ func validateJudgeProfiles(
 		_, duplicated := judgeRoles[judge.Role]
 		require.Falsef(t, duplicated, "duplicated judge role %s", judge.Role)
 		judgeRoles[judge.Role] = struct{}{}
-		require.Equal(t, "valid", judge.Mode)
-		require.True(t, judge.DefaultCategory.IsValid())
+		validateJudgeMode(t, judge, txHashes)
 		validateJudgeClassifications(t, judge, txHashes)
 	}
 	_, hasDefaultJudge := judgeRoles["default"]
 	require.True(t, hasDefaultJudge)
+}
+
+func validateJudgeMode(
+	t *testing.T,
+	judge scenarioJudgeFixture,
+	txHashes map[string]struct{},
+) {
+	t.Helper()
+
+	switch judge.Mode {
+	case "valid":
+		require.Empty(t, judge.ErrorTxHash)
+	case "execution_error":
+		_, exists := txHashes[judge.ErrorTxHash]
+		require.Truef(t, exists, "judge %s has unknown errorTxHash %s", judge.Role, judge.ErrorTxHash)
+	default:
+		require.Failf(t, "unsupported judge mode", "judge %s uses unsupported mode %s", judge.Role, judge.Mode)
+	}
+	require.True(t, judge.DefaultCategory.IsValid())
 }
 
 func validateJudgeClassifications(
@@ -303,14 +322,20 @@ func validateJudgeClassifications(
 func validateScenarioRoleOrder(t *testing.T, roles []string, committeeSize int) {
 	t.Helper()
 	require.Len(t, roles, committeeSize)
+	require.Equal(t, "leader", roles[0])
 
+	// Delivery order is a full committee-role permutation. Fault scenarios can
+	// move failing validators after the first valid quorum without removing them
+	// from the explicit transport plan.
 	seen := make(map[string]struct{}, len(roles))
-	for index, role := range roles {
-		expectedRole := scenarioCommitteeRole(index)
-		require.Equal(t, expectedRole, role)
+	for _, role := range roles {
 		_, duplicated := seen[role]
 		require.False(t, duplicated)
 		seen[role] = struct{}{}
+	}
+	for index := 0; index < committeeSize; index++ {
+		_, exists := seen[scenarioCommitteeRole(index)]
+		require.True(t, exists)
 	}
 }
 

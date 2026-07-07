@@ -51,7 +51,10 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 	answersClassification, err := classification.ExecuteRequests(handler.answerJudge, requests)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleAnswerEvidence judge failed", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
-		return err
+		// A local judge failure means this validator cannot contribute a signed
+		// vote. The verified evidence remains stored so the node can still verify
+		// and finalize a certificate built from other valid judges.
+		return nil
 	}
 
 	vote, err := handler.createSignedAnswerClassificationVote(roundKey, message, requests, answersClassification)

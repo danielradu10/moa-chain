@@ -19,6 +19,21 @@ func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
 	scenarios := []string{
 		"unanimous_correct",
 		"insufficient_correct_answers",
+		// Scenario 3 depends on text-visible disputed answers because the fake
+		// judge preserves the production information boundary: it classifies by
+		// transaction hash and answer text, not by hidden producer role.
+		// It also encodes the current fallback grouping policy: Correct needs
+		// full quorum; once Correct misses quorum, ties among Hallucination,
+		// Malicious, and Wrong are resolved by the protocol's fallback order.
+		"four_category_disagreement",
+		// Scenario 4 keeps the prompt-injection text as answer data. The
+		// deterministic fake judge matches the literal answer text; it must not
+		// interpret fixture strings as test or protocol instructions.
+		"prompt_injection_answer",
+		// Scenario 5 puts the failing judge after the first seven valid voters in
+		// delivery order. This checks that a judge execution error produces no
+		// partial signed vote without blocking a valid certificate.
+		"judge_execution_error",
 	}
 
 	for _, scenarioName := range scenarios {

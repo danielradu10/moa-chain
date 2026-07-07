@@ -38,6 +38,9 @@ func newMiniRoundTwoScenarioNetwork(
 			},
 			{
 				MessageType: data.AnswerClassificationVoteConsensusMessage,
+				// Fault scenarios can place a failing judge after the first seven
+				// valid voters. The full role list remains explicit, but the first
+				// quorum is not blocked by a validator that correctly sends no vote.
 				SenderOrder: scenarioIDsForRoles(
 					t,
 					committees.miniRoundTwo,

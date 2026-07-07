@@ -3,6 +3,7 @@ package integrationtests
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,8 @@ import (
 	"moa-chain/data"
 	"moa-chain/testscommon"
 )
+
+var errScenarioJudgeExecution = errors.New("scenario judge execution failed")
 
 func createScenarioAgent(t *testing.T, scenario miniRoundTwoScenario, role string) agent.Agent {
 	t.Helper()
@@ -79,12 +82,17 @@ func executeScenarioJudge(request agent.AnswerJudgeRequest, judge scenarioJudgeF
 	if err != nil {
 		return "", err
 	}
+	txHash := string(txHashBytes)
+
+	if judge.Mode == "execution_error" && judge.ErrorTxHash == txHash {
+		return "", errScenarioJudgeExecution
+	}
 
 	output := scenarioJudgeOutput{Classifications: make([]scenarioJudgeClassification, 0, len(input.Candidates))}
 	for _, candidate := range input.Candidates {
 		output.Classifications = append(output.Classifications, scenarioJudgeClassification{
 			CandidateID: candidate.CandidateID,
-			Category:    scenarioCategoryForCandidate(string(txHashBytes), candidate.Answer, judge),
+			Category:    scenarioCategoryForCandidate(txHash, candidate.Answer, judge),
 		})
 	}
 
