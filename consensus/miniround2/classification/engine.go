@@ -538,6 +538,11 @@ func classificationStatus(
 	correctCandidates []data.AnswerCandidateID,
 	quorum uint64,
 ) data.TransactionAnswerStatus {
+	// TODO: Add quorum-order invariance tests for this status decision. A
+	// transaction should not become READY_FOR_MINI_ROUND_THREE or
+	// INSUFFICIENT_CORRECT_ANSWERS solely because a different valid first quorum
+	// reached the leader, unless that variability is accepted and documented as
+	// part of the mini-round-two protocol.
 	// Eligibility counts distinct producers rather than candidate records. This
 	// prevents multiple answers attributed to one producer from satisfying 2f+1.
 	producers := make(map[string]struct{}, len(correctCandidates))

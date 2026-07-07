@@ -339,6 +339,11 @@ func (handler *miniRoundTwoHandler) broadcastClassificationCertificateAtQuorum(
 		return nil
 	}
 
+	// TODO: Decide whether transaction statuses must be invariant across all
+	// valid judge-vote quorums for the same answer evidence. Today the first
+	// quorum collected by the leader determines the certificate; if different
+	// valid quorums can produce different READY/INSUFFICIENT statuses, the
+	// protocol needs a canonical vote-selection rule or a stronger threshold.
 	votes := make([]data.AnswerClassificationVote, len(votePointers))
 	for index, storedVote := range votePointers {
 		votes[index] = *storedVote
