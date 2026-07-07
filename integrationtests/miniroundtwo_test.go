@@ -42,6 +42,10 @@ func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
 		// creates a valid vote first; the transport fault corrupts its signature
 		// so the leader rejects Byzantine input and continues collecting votes.
 		"byzantine_signed_classification_vote",
+		// Scenario 8 changes only transport arrival order. Message contents stay
+		// valid so the expected result should match the unanimous-correct baseline
+		// after evidence and certificate canonicalization.
+		"shuffled_valid_message_arrival",
 	}
 
 	for _, scenarioName := range scenarios {
