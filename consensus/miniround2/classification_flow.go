@@ -51,7 +51,10 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 	answersClassification, err := classification.ExecuteRequests(handler.answerJudge, requests)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleAnswerEvidence judge failed", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
-		return err
+		// A local judge failure means this validator cannot contribute a signed
+		// vote. The verified evidence remains stored so the node can still verify
+		// and finalize a certificate built from other valid judges.
+		return nil
 	}
 
 	vote, err := handler.createSignedAnswerClassificationVote(roundKey, message, requests, answersClassification)
@@ -187,6 +190,11 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationVote(
 		}
 
 		handler.logger.Error("miniround2.HandleAnswerClassificationVote rejected vote", "roundKey", roundKey, "judgeID", judgeID, "error", err)
+		if vote != nil && vote.JudgeID != handler.myID {
+			// Invalid external votes are Byzantine input. Reject and ignore them
+			// so one bad validator cannot fail the leader's collection round.
+			return nil
+		}
 		return err
 	}
 
@@ -339,6 +347,11 @@ func (handler *miniRoundTwoHandler) broadcastClassificationCertificateAtQuorum(
 		return nil
 	}
 
+	// TODO: Decide whether transaction statuses must be invariant across all
+	// valid judge-vote quorums for the same answer evidence. Today the first
+	// quorum collected by the leader determines the certificate; if different
+	// valid quorums can produce different READY/INSUFFICIENT statuses, the
+	// protocol needs a canonical vote-selection rule or a stronger threshold.
 	votes := make([]data.AnswerClassificationVote, len(votePointers))
 	for index, storedVote := range votePointers {
 		votes[index] = *storedVote

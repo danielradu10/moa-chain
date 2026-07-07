@@ -253,6 +253,11 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 	// From this point the leader has enough independently verified execution results to build
 	// the mini-round two certificate. The certificate is evidence only; the finalized
 	// txHash -> answers view is derived locally after the certificate is broadcast.
+	// TODO: Define whether any valid execution-result quorum must lead to the
+	// same mini-round-two transaction eligibility decisions, or whether the
+	// protocol explicitly accepts leader/network timing as choosing the evidence
+	// quorum. If eligibility must be invariant, replace first-quorum finalization
+	// with a canonical or threshold-stable evidence selection rule.
 	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader reached quorum", "roundKey", roundKey, "numNodesWhichSentExecutionResults", len(answers), "consensusGroupSize", consensusGroupSize)
 
 	answerEvidence, err := handler.createAnswerEvidence(roundKey, answers)

@@ -450,6 +450,10 @@ This is the behavior-activation PR.
 
 ### PR 8: End-to-end and Byzantine-behavior tests
 
+The detailed fixture contract, shared network configuration, fault-injection
+requirements, and acceptance criteria are documented in the
+[MR2 integration-test scenarios](../../integrationtests/testData/miniround2/scenarios/README.md).
+
 Scope:
 
 - add integration fixtures with deterministic fake judges that intentionally
