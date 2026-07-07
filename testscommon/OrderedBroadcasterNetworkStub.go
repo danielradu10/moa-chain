@@ -13,7 +13,11 @@ type OrderedDeliveryRule struct {
 	MessageType data.ConsensusMessageType
 	SenderOrder []string
 	StartIndex  int
+	Mutate      OrderedMessageMutator
 }
+
+// OrderedMessageMutator can alter a leader-bound message before delivery.
+type OrderedMessageMutator func(senderID string, message data.ConsensusMessage) data.ConsensusMessage
 
 // OrderedBroadcasterNetworkStub delivers consensus messages through validator inboxes.
 // Optional ordering rules pin the first quorum in fixture-based scenario tests,
@@ -28,6 +32,7 @@ type orderedDeliveryState struct {
 	order   []string
 	next    int
 	pending map[string]data.RoundEvent
+	mutate  OrderedMessageMutator
 }
 
 // NewOrderedBroadcasterNetworkStub creates a network stub with optional ordered delivery rules.
@@ -41,6 +46,7 @@ func NewOrderedBroadcasterNetworkStub(
 			order:   append([]string(nil), rule.SenderOrder...),
 			next:    rule.StartIndex,
 			pending: make(map[string]data.RoundEvent),
+			mutate:  rule.Mutate,
 		}
 	}
 
@@ -63,16 +69,20 @@ func (network *OrderedBroadcasterNetworkStub) sendToLeader(
 	if message == nil {
 		return broadcast.ErrNilConsensusMessage
 	}
-	event := data.RoundEvent{Type: data.ConsensusMessageEvent, Message: *message}
 
 	network.mutex.Lock()
 	defer network.mutex.Unlock()
 
 	delivery, hasOrderedDelivery := network.delivery[message.ConsensusMessageType]
 	if hasOrderedDelivery {
+		event := data.RoundEvent{Type: data.ConsensusMessageEvent, Message: *message}
+		if delivery.mutate != nil {
+			event.Message = delivery.mutate(senderID, event.Message)
+		}
 		return network.enqueueOrdered(senderID, leaderID, event, delivery)
 	}
 
+	event := data.RoundEvent{Type: data.ConsensusMessageEvent, Message: *message}
 	return network.deliver(leaderID, event)
 }
 

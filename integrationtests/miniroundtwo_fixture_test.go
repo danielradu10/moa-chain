@@ -56,8 +56,14 @@ type scenarioJudgeClassificationFixture struct {
 }
 
 type scenarioDeliveryFixture struct {
-	ProducerOrder []string `json:"producerOrder"`
-	JudgeOrder    []string `json:"judgeOrder"`
+	ProducerOrder            []string                 `json:"producerOrder"`
+	JudgeOrder               []string                 `json:"judgeOrder"`
+	ClassificationVoteFaults []scenarioTransportFault `json:"classificationVoteFaults,omitempty"`
+}
+
+type scenarioTransportFault struct {
+	SenderRole string `json:"senderRole"`
+	Type       string `json:"type"`
 }
 
 type scenarioExpectedFixture struct {
@@ -138,6 +144,7 @@ func validateMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 	validateScenarioProfiles(t, scenario, txHashes)
 	validateScenarioRoleOrder(t, scenario.Delivery.ProducerOrder, scenario.Network.CommitteeSize)
 	validateScenarioRoleOrder(t, scenario.Delivery.JudgeOrder, scenario.Network.CommitteeSize)
+	validateScenarioTransportFaults(t, scenario.Delivery.ClassificationVoteFaults)
 	validateScenarioExpectations(t, scenario, txHashes)
 }
 
@@ -340,6 +347,24 @@ func validateScenarioRoleOrder(t *testing.T, roles []string, committeeSize int) 
 	for index := 0; index < committeeSize; index++ {
 		_, exists := seen[scenarioCommitteeRole(index)]
 		require.True(t, exists)
+	}
+}
+
+func validateScenarioTransportFaults(t *testing.T, faults []scenarioTransportFault) {
+	t.Helper()
+
+	seen := make(map[string]struct{}, len(faults))
+	for _, fault := range faults {
+		require.NotEmpty(t, fault.SenderRole)
+		_, duplicated := seen[fault.SenderRole]
+		require.False(t, duplicated)
+		seen[fault.SenderRole] = struct{}{}
+
+		switch fault.Type {
+		case "invalid_signature":
+		default:
+			require.Failf(t, "unsupported transport fault", "sender %s uses unsupported fault %s", fault.SenderRole, fault.Type)
+		}
 	}
 }
 

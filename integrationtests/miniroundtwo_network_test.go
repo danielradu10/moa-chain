@@ -49,9 +49,59 @@ func newMiniRoundTwoScenarioNetwork(
 				// The leader handles its own classification vote directly instead of
 				// sending it through the broadcaster, so delivery starts at member-1.
 				StartIndex: 1,
+				Mutate: classificationVoteFaultMutator(
+					t,
+					committees.miniRoundTwo,
+					scenario.Delivery.ClassificationVoteFaults,
+				),
 			},
 		},
 	)
+}
+
+func classificationVoteFaultMutator(
+	t *testing.T,
+	committee []string,
+	faults []scenarioTransportFault,
+) testscommon.OrderedMessageMutator {
+	t.Helper()
+	if len(faults) == 0 {
+		return nil
+	}
+
+	faultsBySenderID := make(map[string]scenarioTransportFault, len(faults))
+	for _, fault := range faults {
+		senderID := scenarioIDsForRoles(t, committee, []string{fault.SenderRole})[0]
+		faultsBySenderID[senderID] = fault
+	}
+
+	return func(senderID string, message data.ConsensusMessage) data.ConsensusMessage {
+		fault, exists := faultsBySenderID[senderID]
+		if !exists {
+			return message
+		}
+		return mutateClassificationVoteMessage(message, fault)
+	}
+}
+
+func mutateClassificationVoteMessage(
+	message data.ConsensusMessage,
+	fault scenarioTransportFault,
+) data.ConsensusMessage {
+	if fault.Type != "invalid_signature" || message.AnswerClassificationVote == nil {
+		return message
+	}
+
+	mutated := message
+	vote := *message.AnswerClassificationVote
+	vote.Signature = append([]byte(nil), vote.Signature...)
+	if len(vote.Signature) == 0 {
+		vote.Signature = []byte("invalid-signature")
+	} else {
+		vote.Signature[0] ^= 0xff
+	}
+	mutated.AnswerClassificationVote = &vote
+	return mutated
 }
 
 func scenarioInboxesByValidator(inboxes []chan data.RoundEvent) map[string]chan data.RoundEvent {

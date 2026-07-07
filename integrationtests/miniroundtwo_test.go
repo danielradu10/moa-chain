@@ -38,6 +38,10 @@ func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
 		// malformed judge is delayed after seven valid voters so the test can
 		// assert that malformed output is absent from the certificate.
 		"malformed_judge_response",
+		// Scenario 7 mutates a signed vote at the network boundary. The judge
+		// creates a valid vote first; the transport fault corrupts its signature
+		// so the leader rejects Byzantine input and continues collecting votes.
+		"byzantine_signed_classification_vote",
 	}
 
 	for _, scenarioName := range scenarios {

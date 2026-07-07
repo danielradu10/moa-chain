@@ -190,6 +190,11 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationVote(
 		}
 
 		handler.logger.Error("miniround2.HandleAnswerClassificationVote rejected vote", "roundKey", roundKey, "judgeID", judgeID, "error", err)
+		if vote != nil && vote.JudgeID != handler.myID {
+			// Invalid external votes are Byzantine input. Reject and ignore them
+			// so one bad validator cannot fail the leader's collection round.
+			return nil
+		}
 		return err
 	}
 
