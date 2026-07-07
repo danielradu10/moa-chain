@@ -33,3 +33,10 @@ class LLMProvider(Protocol):
         Raises AgentServiceError on timeout or provider error.
         """
         ...
+
+    async def ping(self) -> bool:
+        """Return True if the provider is reachable, False otherwise.
+
+        Must never raise — used by the health endpoint.
+        """
+        ...

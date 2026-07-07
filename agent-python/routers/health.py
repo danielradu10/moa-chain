@@ -15,9 +15,11 @@ class HealthResponse(BaseModel):
 @router.get("/health", response_model=HealthResponse)
 async def health(request: Request) -> HealthResponse:
     cfg = request.app.state.config
+    provider = request.app.state.provider
+    reachable = await provider.ping()
     return HealthResponse(
         status="ok",
         provider=cfg.llm_provider,
         model=cfg.ollama_model,
-        reachable=True,  # PR 2 replaces this with a live Ollama ping
+        reachable=reachable,
     )

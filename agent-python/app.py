@@ -5,15 +5,20 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import Settings, settings
+from config import settings
 from errors import AgentServiceError, ErrorCode, ErrorResponse
+from providers.ollama_provider import OllamaProvider
 from routers import health
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.config = settings
-    # PR 2: initialize and store OllamaProvider here
+    app.state.provider = OllamaProvider(
+        base_url=settings.ollama_base_url,
+        model=settings.ollama_model,
+        temperature=settings.llm_temperature,
+    )
     # PR 3: load and hash protocol prompt files here
     yield
 
