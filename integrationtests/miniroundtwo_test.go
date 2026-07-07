@@ -62,6 +62,11 @@ func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
 		// Validators reject the evidence before judging, so no classification vote
 		// should be produced from the invalid artifact.
 		"invalid_answer_evidence",
+		// Scenario 12 drops enough classification votes to leave the leader with
+		// six valid votes, then injects the collection timeout for that step. The
+		// timeout is sent only after those six votes are stored to avoid racing the
+		// protocol state machine.
+		"classification_quorum_timeout",
 	}
 
 	for _, scenarioName := range scenarios {
