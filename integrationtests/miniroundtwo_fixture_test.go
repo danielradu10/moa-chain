@@ -295,7 +295,11 @@ func validateJudgeMode(
 	switch judge.Mode {
 	case "valid":
 		require.Empty(t, judge.ErrorTxHash)
-	case "execution_error":
+	case "execution_error",
+		"malformed_json",
+		"missing_classification",
+		"unknown_answer",
+		"invalid_category":
 		_, exists := txHashes[judge.ErrorTxHash]
 		require.Truef(t, exists, "judge %s has unknown errorTxHash %s", judge.Role, judge.ErrorTxHash)
 	default:

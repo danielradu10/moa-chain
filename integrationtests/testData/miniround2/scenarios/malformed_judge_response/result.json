@@ -1,0 +1,530 @@
+{
+  "scenario": "malformed_judge_response",
+  "passed": true,
+  "network": {
+    "registeredNodes": 20,
+    "committeeSize": 10,
+    "quorum": 7
+  },
+  "committees": {
+    "miniRoundOne": [
+      {
+        "role": "leader",
+        "validatorId": "validator-10"
+      },
+      {
+        "role": "member-1",
+        "validatorId": "validator-16"
+      },
+      {
+        "role": "member-2",
+        "validatorId": "validator-12"
+      },
+      {
+        "role": "member-3",
+        "validatorId": "validator-17"
+      },
+      {
+        "role": "member-4",
+        "validatorId": "validator-18"
+      },
+      {
+        "role": "member-5",
+        "validatorId": "validator-6"
+      },
+      {
+        "role": "member-6",
+        "validatorId": "validator-2"
+      },
+      {
+        "role": "member-7",
+        "validatorId": "validator-20"
+      },
+      {
+        "role": "member-8",
+        "validatorId": "validator-3"
+      },
+      {
+        "role": "member-9",
+        "validatorId": "validator-19"
+      }
+    ],
+    "miniRoundTwo": [
+      {
+        "role": "leader",
+        "validatorId": "validator-17"
+      },
+      {
+        "role": "member-1",
+        "validatorId": "validator-3"
+      },
+      {
+        "role": "member-2",
+        "validatorId": "validator-2"
+      },
+      {
+        "role": "member-3",
+        "validatorId": "validator-6"
+      },
+      {
+        "role": "member-4",
+        "validatorId": "validator-13"
+      },
+      {
+        "role": "member-5",
+        "validatorId": "validator-18"
+      },
+      {
+        "role": "member-6",
+        "validatorId": "validator-16"
+      },
+      {
+        "role": "member-7",
+        "validatorId": "validator-5"
+      },
+      {
+        "role": "member-8",
+        "validatorId": "validator-14"
+      },
+      {
+        "role": "member-9",
+        "validatorId": "validator-4"
+      }
+    ]
+  },
+  "miniRoundOne": {
+    "finalizedNodes": 20,
+    "subdomainFrequencies": {
+      "back_end_with_apis": 21,
+      "blockchain_engineering": 14,
+      "databases": 21,
+      "dev_ops": 14,
+      "security": 21,
+      "systems_programming": 21,
+      "test_engineering_and_qa_automation": 14
+    }
+  },
+  "miniRoundTwo": {
+    "finalizedNodes": 20,
+    "answerEvidence": {
+      "leaderId": "validator-17",
+      "producers": [
+        {
+          "role": "member-4",
+          "validatorId": "validator-13"
+        },
+        {
+          "role": "member-6",
+          "validatorId": "validator-16"
+        },
+        {
+          "role": "leader",
+          "validatorId": "validator-17"
+        },
+        {
+          "role": "member-5",
+          "validatorId": "validator-18"
+        },
+        {
+          "role": "member-2",
+          "validatorId": "validator-2"
+        },
+        {
+          "role": "member-1",
+          "validatorId": "validator-3"
+        },
+        {
+          "role": "member-3",
+          "validatorId": "validator-6"
+        }
+      ],
+      "signaturesVerified": true
+    },
+    "classificationVotes": [
+      {
+        "judge": {
+          "role": "member-4",
+          "validatorId": "validator-13"
+        },
+        "classificationCount": 21,
+        "categoryTotals": {
+          "correct": 21,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        }
+      },
+      {
+        "judge": {
+          "role": "member-6",
+          "validatorId": "validator-16"
+        },
+        "classificationCount": 21,
+        "categoryTotals": {
+          "correct": 21,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        }
+      },
+      {
+        "judge": {
+          "role": "leader",
+          "validatorId": "validator-17"
+        },
+        "classificationCount": 21,
+        "categoryTotals": {
+          "correct": 21,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        }
+      },
+      {
+        "judge": {
+          "role": "member-5",
+          "validatorId": "validator-18"
+        },
+        "classificationCount": 21,
+        "categoryTotals": {
+          "correct": 21,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        }
+      },
+      {
+        "judge": {
+          "role": "member-2",
+          "validatorId": "validator-2"
+        },
+        "classificationCount": 21,
+        "categoryTotals": {
+          "correct": 21,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        }
+      },
+      {
+        "judge": {
+          "role": "member-7",
+          "validatorId": "validator-5"
+        },
+        "classificationCount": 21,
+        "categoryTotals": {
+          "correct": 21,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        }
+      },
+      {
+        "judge": {
+          "role": "member-3",
+          "validatorId": "validator-6"
+        },
+        "classificationCount": 21,
+        "categoryTotals": {
+          "correct": 21,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        }
+      }
+    ],
+    "transactions": [
+      {
+        "txHash": "scenario-06-control-after",
+        "status": "READY_FOR_MINI_ROUND_THREE",
+        "candidates": [
+          {
+            "producerRole": "member-4",
+            "producerId": "validator-13",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-6",
+            "producerId": "validator-16",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "leader",
+            "producerId": "validator-17",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-5",
+            "producerId": "validator-18",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-2",
+            "producerId": "validator-2",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-1",
+            "producerId": "validator-3",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-3",
+            "producerId": "validator-6",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          }
+        ],
+        "groups": {
+          "correct": [
+            "member-4",
+            "member-6",
+            "leader",
+            "member-5",
+            "member-2",
+            "member-1",
+            "member-3"
+          ],
+          "hallucination": [],
+          "malicious": [],
+          "wrong": []
+        }
+      },
+      {
+        "txHash": "scenario-06-control-before",
+        "status": "READY_FOR_MINI_ROUND_THREE",
+        "candidates": [
+          {
+            "producerRole": "member-4",
+            "producerId": "validator-13",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-6",
+            "producerId": "validator-16",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "leader",
+            "producerId": "validator-17",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-5",
+            "producerId": "validator-18",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-2",
+            "producerId": "validator-2",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-1",
+            "producerId": "validator-3",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-3",
+            "producerId": "validator-6",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          }
+        ],
+        "groups": {
+          "correct": [
+            "member-4",
+            "member-6",
+            "leader",
+            "member-5",
+            "member-2",
+            "member-1",
+            "member-3"
+          ],
+          "hallucination": [],
+          "malicious": [],
+          "wrong": []
+        }
+      },
+      {
+        "txHash": "scenario-06-target",
+        "status": "READY_FOR_MINI_ROUND_THREE",
+        "candidates": [
+          {
+            "producerRole": "member-4",
+            "producerId": "validator-13",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-6",
+            "producerId": "validator-16",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "leader",
+            "producerId": "validator-17",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-5",
+            "producerId": "validator-18",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-2",
+            "producerId": "validator-2",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-1",
+            "producerId": "validator-3",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-3",
+            "producerId": "validator-6",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          }
+        ],
+        "groups": {
+          "correct": [
+            "member-4",
+            "member-6",
+            "leader",
+            "member-5",
+            "member-2",
+            "member-1",
+            "member-3"
+          ],
+          "hallucination": [],
+          "malicious": [],
+          "wrong": []
+        }
+      }
+    ]
+  }
+}

@@ -34,6 +34,10 @@ func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
 		// delivery order. This checks that a judge execution error produces no
 		// partial signed vote without blocking a valid certificate.
 		"judge_execution_error",
+		// Scenario 6 models malformed judge responses as no-vote failures. The
+		// malformed judge is delayed after seven valid voters so the test can
+		// assert that malformed output is absent from the certificate.
+		"malformed_judge_response",
 	}
 
 	for _, scenarioName := range scenarios {

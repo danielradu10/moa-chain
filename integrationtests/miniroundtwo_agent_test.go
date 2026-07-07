@@ -87,6 +87,11 @@ func executeScenarioJudge(request agent.AnswerJudgeRequest, judge scenarioJudgeF
 	if judge.Mode == "execution_error" && judge.ErrorTxHash == txHash {
 		return "", errScenarioJudgeExecution
 	}
+	if judge.ErrorTxHash == txHash {
+		if response, handled := malformedScenarioJudgeResponse(input, judge.Mode); handled {
+			return response, nil
+		}
+	}
 
 	output := scenarioJudgeOutput{Classifications: make([]scenarioJudgeClassification, 0, len(input.Candidates))}
 	for _, candidate := range input.Candidates {
@@ -98,6 +103,49 @@ func executeScenarioJudge(request agent.AnswerJudgeRequest, judge scenarioJudgeF
 
 	encoded, err := json.Marshal(output)
 	return string(encoded), err
+}
+
+func malformedScenarioJudgeResponse(input scenarioJudgeInput, mode string) (string, bool) {
+	switch mode {
+	case "malformed_json":
+		return `{"classifications":[`, true
+	case "missing_classification":
+		output := scenarioJudgeOutput{Classifications: make([]scenarioJudgeClassification, 0, len(input.Candidates)-1)}
+		for index := 0; index < len(input.Candidates)-1; index++ {
+			output.Classifications = append(output.Classifications, scenarioJudgeClassification{
+				CandidateID: input.Candidates[index].CandidateID,
+				Category:    data.AnswerCategoryCorrect,
+			})
+		}
+		encoded, err := json.Marshal(output)
+		return string(encoded), err == nil
+	case "unknown_answer":
+		output := scenarioJudgeOutput{Classifications: make([]scenarioJudgeClassification, 0, len(input.Candidates)+1)}
+		for _, candidate := range input.Candidates {
+			output.Classifications = append(output.Classifications, scenarioJudgeClassification{
+				CandidateID: candidate.CandidateID,
+				Category:    data.AnswerCategoryCorrect,
+			})
+		}
+		output.Classifications = append(output.Classifications, scenarioJudgeClassification{
+			CandidateID: "unknown-candidate",
+			Category:    data.AnswerCategoryCorrect,
+		})
+		encoded, err := json.Marshal(output)
+		return string(encoded), err == nil
+	case "invalid_category":
+		output := scenarioJudgeOutput{Classifications: make([]scenarioJudgeClassification, 0, len(input.Candidates))}
+		for _, candidate := range input.Candidates {
+			output.Classifications = append(output.Classifications, scenarioJudgeClassification{
+				CandidateID: candidate.CandidateID,
+				Category:    data.AnswerCategory("INVALID_CATEGORY"),
+			})
+		}
+		encoded, err := json.Marshal(output)
+		return string(encoded), err == nil
+	default:
+		return "", false
+	}
 }
 
 type scenarioJudgeInput struct {
