@@ -15,20 +15,51 @@ import (
 // this component must be protected by synchronization or replaced by an
 // event-loop-owned command API.
 type roundState struct {
-	proposedBlocks  map[data.RoundKey]*data.Block
-	votes           map[data.RoundKey]map[string]*data.BlockVote
-	certificates    map[data.RoundKey]*data.AggregatedVotes
-	executedPrompts map[data.RoundKey]map[string]*data.AnswersBlockMessage
+	proposedBlocks             map[data.RoundKey]*data.Block
+	votes                      map[data.RoundKey]map[string]*data.BlockVote
+	certificates               map[data.RoundKey]*data.AggregatedVotes
+	executedPrompts            map[data.RoundKey]map[string]*data.AnswersBlockMessage
+	answerEvidence             map[data.RoundKey]*data.AggregatedExecutionResultsMessage
+	classificationVotes        map[data.RoundKey]map[string]*data.AnswerClassificationVote
+	classificationCertificates map[data.RoundKey]*data.AnswerClassificationCertificate
 }
 
 // NewRoundState creates a new round state which caches blocks and votes.
 func NewRoundState() *roundState {
 	return &roundState{
-		proposedBlocks:  make(map[data.RoundKey]*data.Block),
-		votes:           make(map[data.RoundKey]map[string]*data.BlockVote),
-		certificates:    make(map[data.RoundKey]*data.AggregatedVotes),
-		executedPrompts: make(map[data.RoundKey]map[string]*data.AnswersBlockMessage),
+		proposedBlocks:             make(map[data.RoundKey]*data.Block),
+		votes:                      make(map[data.RoundKey]map[string]*data.BlockVote),
+		certificates:               make(map[data.RoundKey]*data.AggregatedVotes),
+		executedPrompts:            make(map[data.RoundKey]map[string]*data.AnswersBlockMessage),
+		answerEvidence:             make(map[data.RoundKey]*data.AggregatedExecutionResultsMessage),
+		classificationVotes:        make(map[data.RoundKey]map[string]*data.AnswerClassificationVote),
+		classificationCertificates: make(map[data.RoundKey]*data.AnswerClassificationCertificate),
 	}
+}
+
+// SetAnswerEvidence stores the leader evidence after signature verification and
+// before the local validator invokes its answer judge.
+func (state *roundState) SetAnswerEvidence(roundKey data.RoundKey, evidence *data.AggregatedExecutionResultsMessage) error {
+	if evidence == nil {
+		return ErrNilAnswerEvidence
+	}
+	if _, exists := state.answerEvidence[roundKey]; exists {
+		return ErrAnswerEvidenceAlreadyExists
+	}
+
+	state.answerEvidence[roundKey] = evidence
+	return nil
+}
+
+// GetAnswerEvidence returns the verified evidence used by certificate
+// verification and mini-round-two finalization.
+func (state *roundState) GetAnswerEvidence(roundKey data.RoundKey) (*data.AggregatedExecutionResultsMessage, error) {
+	evidence, exists := state.answerEvidence[roundKey]
+	if !exists {
+		return nil, ErrNoAnswerEvidenceForCurrentRoundKey
+	}
+
+	return evidence, nil
 }
 
 // SetProposedBlock sets the current proposed Block of the RoundKey.
@@ -155,10 +186,78 @@ func (state *roundState) GetExecutedPromptsMessages(roundKey data.RoundKey) ([]*
 	return extractedMessages, nil
 }
 
+// AddAnswerClassificationVote stores one classification vote per judge and round.
+func (state *roundState) AddAnswerClassificationVote(roundKey data.RoundKey, vote *data.AnswerClassificationVote) error {
+	if vote == nil {
+		return ErrNilAnswerClassificationVote
+	}
+
+	votes, ok := state.classificationVotes[roundKey]
+	if !ok {
+		votes = make(map[string]*data.AnswerClassificationVote)
+		state.classificationVotes[roundKey] = votes
+	}
+
+	if _, exists := votes[vote.JudgeID]; exists {
+		return ErrAnswerClassificationVoteAlreadyExistsForJudge
+	}
+
+	votes[vote.JudgeID] = vote
+	return nil
+}
+
+// GetAnswerClassificationVotes returns votes in canonical judge-ID order.
+func (state *roundState) GetAnswerClassificationVotes(roundKey data.RoundKey) ([]*data.AnswerClassificationVote, error) {
+	votes, ok := state.classificationVotes[roundKey]
+	if !ok {
+		return nil, ErrNoAnswerClassificationVotesForCurrentRoundKey
+	}
+
+	judgeIDs := make([]string, 0, len(votes))
+	for judgeID := range votes {
+		judgeIDs = append(judgeIDs, judgeID)
+	}
+	sort.Strings(judgeIDs)
+
+	orderedVotes := make([]*data.AnswerClassificationVote, 0, len(judgeIDs))
+	for _, judgeID := range judgeIDs {
+		orderedVotes = append(orderedVotes, votes[judgeID])
+	}
+
+	return orderedVotes, nil
+}
+
+// SetAnswerClassificationCertificate stores the leader certificate once per round.
+func (state *roundState) SetAnswerClassificationCertificate(
+	roundKey data.RoundKey,
+	certificate *data.AnswerClassificationCertificate,
+) error {
+	if certificate == nil {
+		return ErrNilAnswerClassificationCertificate
+	}
+	if _, exists := state.classificationCertificates[roundKey]; exists {
+		return ErrAnswerClassificationCertificateAlreadyExists
+	}
+
+	state.classificationCertificates[roundKey] = certificate
+	return nil
+}
+
+// IsAnswerClassificationCertificateSet reports whether classification vote
+// collection already produced a certificate for the round.
+func (state *roundState) IsAnswerClassificationCertificateSet(roundKey data.RoundKey) bool {
+	_, exists := state.classificationCertificates[roundKey]
+
+	return exists
+}
+
 // ClearRoundState clears the state of a round.
 func (state *roundState) ClearRoundState(roundKey data.RoundKey) {
 	delete(state.proposedBlocks, roundKey)
 	delete(state.votes, roundKey)
 	delete(state.certificates, roundKey)
 	delete(state.executedPrompts, roundKey)
+	delete(state.answerEvidence, roundKey)
+	delete(state.classificationVotes, roundKey)
+	delete(state.classificationCertificates, roundKey)
 }

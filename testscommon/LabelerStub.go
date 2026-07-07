@@ -1,16 +1,26 @@
 package testscommon
 
 import (
+	"moa-chain/agent"
 	"moa-chain/data"
 )
 
 type LabelerStub struct {
-	Err             error
-	AnswerErr       error
-	LabelsByTxHash  map[string][]string
-	AnswersByTxHash map[string]string
-	LabelCalled     func(tx data.Transaction) ([]string, error)
-	AnswerCalled    func(tx data.Transaction) (string, error)
+	Err                error
+	AnswerErr          error
+	LabelsByTxHash     map[string][]string
+	AnswersByTxHash    map[string]string
+	LabelCalled        func(tx data.Transaction) ([]string, error)
+	AnswerCalled       func(tx data.Transaction) (string, error)
+	JudgeAnswersCalled func(request agent.AnswerJudgeRequest) (string, error)
+}
+
+func (tl *LabelerStub) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
+	if tl.JudgeAnswersCalled != nil {
+		return tl.JudgeAnswersCalled(request)
+	}
+
+	return "", agent.ErrNotImplemented
 }
 
 func (tl *LabelerStub) Label(tx data.Transaction) ([]string, error) {

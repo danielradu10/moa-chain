@@ -13,6 +13,7 @@ type ValidatorRegistryStub struct {
 	GetPublicKeyErr         error
 	LeaderID                string
 	ConsensusGroupSizeValue uint64
+	ConsensusGroupValue     []string
 	ValidatorsIDs           []string
 }
 
@@ -53,7 +54,7 @@ func (stub *ValidatorRegistryStub) GenerateConsensusGroupMiniRoundTwo(blockchain
 }
 
 func (stub *ValidatorRegistryStub) ConsensusGroup() ([]string, error) {
-	return nil, nil
+	return stub.ConsensusGroupValue, nil
 }
 
 func (stub *ValidatorRegistryStub) ConsensusGroupSize() (uint64, error) {

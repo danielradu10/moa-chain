@@ -1,391 +1,356 @@
 package integrationtests
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"moa-chain/agent"
 	"moa-chain/data"
 	"moa-chain/testscommon"
 )
 
-func TestMiniRoundOneToMiniRoundTwo_AllNodesFinalizeSameExecutionResults(t *testing.T) {
-	const numValidators = 10
-
-	publicKeys := make([][]byte, 0, numValidators)
-	privateKeys := make([][]byte, 0, numValidators)
-
-	for i := 0; i < numValidators; i++ {
-		pubKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		publicKeys = append(publicKeys, pubKey)
-		privateKeys = append(privateKeys, privateKey)
+// Add a scenario name here to run another fixture through the same MR1 -> MR2
+// protocol runner. Scenario-specific behavior belongs in its fixture, not in
+// this test function.
+func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
+	scenarios := []string{
+		"unanimous_correct",
+		"insufficient_correct_answers",
+		// Scenario 3 depends on text-visible disputed answers because the fake
+		// judge preserves the production information boundary: it classifies by
+		// transaction hash and answer text, not by hidden producer role.
+		// It also encodes the current fallback grouping policy: Correct needs
+		// full quorum; once Correct misses quorum, ties among Hallucination,
+		// Malicious, and Wrong are resolved by the protocol's fallback order.
+		"four_category_disagreement",
+		// Scenario 4 keeps the prompt-injection text as answer data. The
+		// deterministic fake judge matches the literal answer text; it must not
+		// interpret fixture strings as test or protocol instructions.
+		"prompt_injection_answer",
+		// Scenario 5 puts the failing judge after the first seven valid voters in
+		// delivery order. This checks that a judge execution error produces no
+		// partial signed vote without blocking a valid certificate.
+		"judge_execution_error",
+		// Scenario 6 models malformed judge responses as no-vote failures. The
+		// malformed judge is delayed after seven valid voters so the test can
+		// assert that malformed output is absent from the certificate.
+		"malformed_judge_response",
+		// Scenario 7 mutates a signed vote at the network boundary. The judge
+		// creates a valid vote first; the transport fault corrupts its signature
+		// so the leader rejects Byzantine input and continues collecting votes.
+		"byzantine_signed_classification_vote",
+		// Scenario 8 changes only transport arrival order. Message contents stay
+		// valid so the expected result should match the unanimous-correct baseline
+		// after evidence and certificate canonicalization.
+		"shuffled_valid_message_arrival",
+		// Scenario 9 mutates the leader's broadcast certificate in place. This
+		// models a malicious leader broadcasting a non-canonical certificate, so
+		// both receivers and the leader's subsequent local verification see the
+		// same tampered artifact instead of letting the leader finalize an
+		// unbroadcast valid certificate.
+		"leader_reorders_certificate_votes",
+		// Scenario 10 keeps the leader-provided groups unchanged but removes one
+		// signed vote from the broadcast certificate. Validators must reject the
+		// insufficient evidence instead of trusting derived classifications.
+		"leader_omits_certificate_vote",
+		// Scenario 11 mutates answer evidence at the leader broadcast boundary.
+		// Validators reject the evidence before judging, so no classification vote
+		// should be produced from the invalid artifact.
+		"invalid_answer_evidence",
+		// Scenario 12 drops enough classification votes to leave the leader with
+		// six valid votes, then injects the collection timeout for that step. The
+		// timeout is sent only after those six votes are stored to avoid racing the
+		// protocol state machine.
+		"classification_quorum_timeout",
 	}
 
-	registeredValidators := createValidators(publicKeys)
+	for _, scenarioName := range scenarios {
+		t.Run(scenarioName, func(t *testing.T) {
+			runMiniRoundTwoScenario(t, loadMiniRoundTwoScenario(t, scenarioName))
+		})
+	}
+}
 
-	inboxes := make([]chan data.RoundEvent, 0, numValidators)
-	for i := 0; i < numValidators; i++ {
-		inboxes = append(inboxes, make(chan data.RoundEvent, 128))
+func runMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
+	t.Helper()
+
+	publicKeys, privateKeys := generateScenarioKeys(t, scenario.Network.RegisteredNodes)
+	registeredValidators := createScenarioValidators(publicKeys)
+	transactions := scenarioTransactions(scenario)
+	frequencies := scenarioSubdomainFrequencies(scenario, uint64(scenario.Network.Quorum))
+	committees := selectScenarioCommittees(t, registeredValidators, frequencies)
+	require.Len(t, committees.miniRoundOne, scenario.Network.CommitteeSize)
+	require.Len(t, committees.miniRoundTwo, scenario.Network.CommitteeSize)
+
+	miniRoundTwoRoles := scenarioRolesByValidator(committees.miniRoundTwo)
+	inboxes := makeScenarioInboxes(scenario.Network.RegisteredNodes)
+	network := newMiniRoundTwoScenarioNetwork(t, inboxes, committees, scenario)
+
+	nodes := createMiniRoundTwoScenarioNodes(
+		t,
+		scenario,
+		registeredValidators,
+		privateKeys,
+		inboxes,
+		miniRoundTwoRoles,
+		network,
+		transactions,
+	)
+
+	done := startScenarioNodes(nodes)
+	stopNodes := stopScenarioNodesOnce(t, inboxes, done)
+	t.Cleanup(stopNodes)
+
+	miniRoundOneKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundOne)}
+	miniRoundTwoKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundTwo)}
+	startScenarioRound(inboxes, miniRoundOneKey)
+
+	if scenario.Delivery.TimeoutStep != 0 {
+		scheduleScenarioTimeout(t, scenario, nodes, committees, inboxes, miniRoundTwoKey)
 	}
 
-	transactions, agentExecutions := loadMiniRoundTwoFullFlowFixture(t, numValidators)
-	validateMiniRoundTwoFullFlowFixture(t, transactions, agentExecutions)
-
-	nodes := make([]*integrationTestNode, 0, numValidators)
-	for i := 0; i < numValidators; i++ {
-		validatorID := fmt.Sprintf("validator-%d", i+1)
-
-		node := createNode(
-			t,
-			validatorID,
-			privateKeys[i],
-			registeredValidators,
-			inboxes,
-			inboxes[i],
-			cloneTransactions(transactions),
-			createMiniRoundTwoAgentBackedLabeler(agentExecutions[i]),
-		)
-
-		nodes = append(nodes, node)
+	if !scenario.Expected.RoundFinalized {
+		requireScenarioDoesNotFinalize(t, scenario, nodes, miniRoundOneKey, miniRoundTwoKey)
+		stopNodes()
+		requireMiniRoundOneFinalizedOnAllNodes(t, nodes, miniRoundOneKey)
+		writeScenarioRejectedResult(t, scenario, committees, nodes, miniRoundOneKey, miniRoundTwoKey)
+		return
 	}
 
-	errCh := make(chan error, 128)
+	waitForMiniRoundTwoFinalization(t, nodes, miniRoundTwoKey)
 
-	for _, node := range nodes {
-		currentNode := node
-
-		go func() {
-			for err := range currentNode.loop.Errors() {
-				errCh <- err
-			}
-		}()
-	}
-
-	for _, node := range nodes {
-		currentNode := node
-
-		go func() {
-			currentNode.loop.Run()
-		}()
-	}
-
-	miniRoundOneKey := data.RoundKey{
-		Epoch:     0,
-		Round:     2,
-		MiniRound: uint64(data.MiniRoundOne),
-	}
-	miniRoundTwoKey := data.RoundKey{
-		Epoch:     miniRoundOneKey.Epoch,
-		Round:     miniRoundOneKey.Round,
-		MiniRound: uint64(data.MiniRoundTwo),
-	}
-
-	for _, inbox := range inboxes {
-		inbox <- data.RoundEvent{
-			Type:     data.StartRoundEvent,
-			RoundKey: miniRoundOneKey,
-		}
-	}
-
-	require.Eventually(t, func() bool {
-		select {
-		case err := <-errCh:
-			require.NoError(t, err)
-		default:
-		}
-
-		for _, node := range nodes {
-			finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(miniRoundTwoKey)
-			if err != nil || finalizedBlock == nil {
-				return false
-			}
-		}
-
-		return true
-	}, 5*time.Second, 10*time.Millisecond)
+	stopNodes()
+	require.NoError(t, firstScenarioError(nodes))
 
 	firstMiniRoundOneBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(miniRoundOneKey)
 	require.NoError(t, err)
-	require.NotNil(t, firstMiniRoundOneBlock)
-	require.NotEmpty(t, firstMiniRoundOneBlock.SubdomainsFrequencies)
-
 	firstMiniRoundTwoBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMRTwo(miniRoundTwoKey)
 	require.NoError(t, err)
-	require.NotNil(t, firstMiniRoundTwoBlock)
-	require.Len(t, firstMiniRoundTwoBlock.AggregatedExecutionResults, len(transactions))
-	requireMiniRoundTwoAnswersMatchFixture(t, firstMiniRoundTwoBlock.AggregatedExecutionResults, agentExecutions)
+
+	leaderID := committees.miniRoundTwo[0]
+	leaderNode := scenarioNodeByID(t, nodes, leaderID)
+	classificationVotes, err := leaderNode.roundState.GetAnswerClassificationVotes(miniRoundTwoKey)
+	require.NoError(t, err)
+
+	requireScenarioFinalizedState(
+		t,
+		scenario,
+		nodes,
+		committees,
+		frequencies,
+		firstMiniRoundOneBlock,
+		firstMiniRoundTwoBlock,
+		classificationVotes,
+		miniRoundOneKey,
+		miniRoundTwoKey,
+	)
+
+	writeScenarioResult(t, scenario, committees, firstMiniRoundOneBlock, firstMiniRoundTwoBlock, classificationVotes)
+}
+
+func scheduleScenarioTimeout(
+	t *testing.T,
+	scenario miniRoundTwoScenario,
+	nodes []*integrationTestNode,
+	committees scenarioCommittees,
+	inboxes []chan data.RoundEvent,
+	roundKey data.RoundKey,
+) {
+	t.Helper()
+
+	leaderID := committees.miniRoundTwo[0]
+	leaderIndex := scenarioValidatorIndex(leaderID)
+	leaderNode := scenarioNodeByID(t, nodes, leaderID)
+	go func() {
+		deadline := time.After(5 * time.Second)
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			votes, err := leaderNode.roundState.GetAnswerClassificationVotes(roundKey)
+			if err == nil && len(votes) == scenario.Network.Quorum-1 {
+				inboxes[leaderIndex] <- data.RoundEvent{
+					Type: data.TimeoutEvent,
+					Timeout: &data.RoundTimeout{
+						RoundKey: roundKey,
+						Step:     scenario.Delivery.TimeoutStep,
+					},
+				}
+				return
+			}
+
+			select {
+			case <-deadline:
+				t.Errorf("timed out waiting to inject scenario timeout")
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+}
+
+func requireScenarioDoesNotFinalize(
+	t *testing.T,
+	scenario miniRoundTwoScenario,
+	nodes []*integrationTestNode,
+	miniRoundOneKey data.RoundKey,
+	miniRoundTwoKey data.RoundKey,
+) {
+	t.Helper()
+
+	err := waitForScenarioError(t, nodes, scenario.Expected.ErrorContains)
+	require.Error(t, err)
+	requireMiniRoundOneFinalizedOnAllNodes(t, nodes, miniRoundOneKey)
+	require.Equal(t, scenario.Expected.FinalizedNodes, finalizedMiniRoundTwoNodeCount(nodes, miniRoundTwoKey))
+}
+
+func createMiniRoundTwoScenarioNodes(
+	t *testing.T,
+	scenario miniRoundTwoScenario,
+	registeredValidators scenarioValidators,
+	privateKeys [][]byte,
+	inboxes []chan data.RoundEvent,
+	miniRoundTwoRoles map[string]string,
+	network *testscommon.OrderedBroadcasterNetworkStub,
+	transactions []data.Transaction,
+) []*integrationTestNode {
+	t.Helper()
+
+	nodes := make([]*integrationTestNode, 0, scenario.Network.RegisteredNodes)
+	for index := 0; index < scenario.Network.RegisteredNodes; index++ {
+		validatorID := fmt.Sprintf("validator-%d", index+1)
+		role := miniRoundTwoRoles[validatorID]
+		if role == "" {
+			role = "observer"
+		}
+
+		node := createNodeWithBroadcaster(
+			t,
+			validatorID,
+			privateKeys[index],
+			registeredValidators,
+			inboxes[index],
+			cloneTransactions(transactions),
+			createScenarioAgent(t, scenario, role),
+			network.BroadcasterForNode(validatorID),
+		)
+		nodes = append(nodes, node)
+	}
+	return nodes
+}
+
+func stopScenarioNodesOnce(
+	t *testing.T,
+	inboxes []chan data.RoundEvent,
+	done []<-chan struct{},
+) func() {
+	t.Helper()
+
+	var stopOnce sync.Once
+	return func() {
+		stopOnce.Do(func() {
+			for _, inbox := range inboxes {
+				inbox <- data.RoundEvent{Type: data.StopEvent}
+			}
+			for _, nodeDone := range done {
+				select {
+				case <-nodeDone:
+				case <-time.After(5 * time.Second):
+					t.Errorf("timed out stopping scenario node")
+				}
+			}
+		})
+	}
+}
+
+func startScenarioRound(inboxes []chan data.RoundEvent, roundKey data.RoundKey) {
+	for _, inbox := range inboxes {
+		inbox <- data.RoundEvent{Type: data.StartRoundEvent, RoundKey: roundKey}
+	}
+}
+
+func waitForMiniRoundTwoFinalization(
+	t *testing.T,
+	nodes []*integrationTestNode,
+	roundKey data.RoundKey,
+) {
+	t.Helper()
+
+	var protocolErr error
+	require.Eventually(t, func() bool {
+		if protocolErr = firstScenarioError(nodes); protocolErr != nil {
+			return true
+		}
+
+		for _, node := range nodes {
+			if _, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey); err != nil {
+				return false
+			}
+		}
+		return true
+	}, 10*time.Second, 10*time.Millisecond)
+	require.NoError(t, protocolErr)
+}
+
+func waitForScenarioError(
+	t *testing.T,
+	nodes []*integrationTestNode,
+	expectedError string,
+) error {
+	t.Helper()
+
+	var observed error
+	require.Eventually(t, func() bool {
+		for _, node := range nodes {
+			select {
+			case err := <-node.loop.Errors():
+				if err == nil {
+					continue
+				}
+				if strings.Contains(err.Error(), expectedError) {
+					observed = err
+					return true
+				}
+				observed = errors.Join(observed, fmt.Errorf("%s: %w", node.id, err))
+			default:
+			}
+		}
+		return false
+	}, 10*time.Second, 10*time.Millisecond)
+
+	return observed
+}
+
+func requireMiniRoundOneFinalizedOnAllNodes(
+	t *testing.T,
+	nodes []*integrationTestNode,
+	roundKey data.RoundKey,
+) {
+	t.Helper()
 
 	for _, node := range nodes {
-		finalizedMiniRoundOneBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(miniRoundOneKey)
+		_, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 		require.NoError(t, err)
-		require.NotNil(t, finalizedMiniRoundOneBlock)
-		require.Equal(t, firstMiniRoundOneBlock.Block.Header.HeaderHash, finalizedMiniRoundOneBlock.Block.Header.HeaderHash)
-		require.Equal(t, firstMiniRoundOneBlock.SubdomainsFrequencies, finalizedMiniRoundOneBlock.SubdomainsFrequencies)
-
-		finalizedMiniRoundTwoBlock, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(miniRoundTwoKey)
-		require.NoError(t, err)
-		require.NotNil(t, finalizedMiniRoundTwoBlock)
-		require.Equal(t, firstMiniRoundOneBlock.Block.Header.HeaderHash, finalizedMiniRoundTwoBlock.Block.Header.HeaderHash)
-		require.Equal(t, firstMiniRoundOneBlock.SubdomainsFrequencies, finalizedMiniRoundTwoBlock.SubdomainsFrequencies)
-		require.Equal(t, firstMiniRoundTwoBlock.AggregatedExecutionResults, finalizedMiniRoundTwoBlock.AggregatedExecutionResults)
-
-		appendMiniRoundTwoAggregatedExecutionResult(
-			t,
-			node.id,
-			miniRoundTwoKey,
-			finalizedMiniRoundTwoBlock.AggregatedExecutionResults,
-		)
 	}
+}
 
-	for _, inbox := range inboxes {
-		inbox <- data.RoundEvent{
-			Type: data.StopEvent,
+func finalizedMiniRoundTwoNodeCount(nodes []*integrationTestNode, roundKey data.RoundKey) int {
+	finalized := 0
+	for _, node := range nodes {
+		if _, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey); err == nil {
+			finalized++
 		}
 	}
+	return finalized
 }
 
-type miniRoundTwoFullFlowFixture struct {
-	Transactions []miniRoundOneTransactionFixture `json:"transactions"`
-	Agents       []agentExecutionsFixture         `json:"agents"`
-}
-
-type agentExecutionsFixture struct {
-	Agent      string                     `json:"agent"`
-	Executions []executedTransactionEntry `json:"executions"`
-}
-
-type executedTransactionEntry struct {
-	TxHash string   `json:"txHash"`
-	Labels []string `json:"labels"`
-	Answer string   `json:"answer"`
-}
-
-type agentExecutionsByTxHash struct {
-	agent           string
-	labelsByTxHash  map[string][]string
-	answersByTxHash map[string]string
-}
-
-func loadMiniRoundTwoFullFlowFixture(
-	t *testing.T,
-	numAgents int,
-) ([]data.Transaction, []agentExecutionsByTxHash) {
-	t.Helper()
-
-	path := filepath.Join("testData", "miniround2", "full_flow.json")
-
-	rawData, err := os.ReadFile(path)
-	require.NoError(t, err)
-
-	var fixture miniRoundTwoFullFlowFixture
-	err = json.Unmarshal(rawData, &fixture)
-	require.NoError(t, err)
-
-	transactions := make([]data.Transaction, 0, len(fixture.Transactions))
-	for _, txFixture := range fixture.Transactions {
-		transactions = append(transactions, createTransactionFromFixture(txFixture))
-	}
-
-	require.Len(t, fixture.Agents, numAgents)
-
-	agents := make([]agentExecutionsByTxHash, 0, len(fixture.Agents))
-	for _, agentFixture := range fixture.Agents {
-		labelsByTxHash := make(map[string][]string, len(agentFixture.Executions))
-		answersByTxHash := make(map[string]string, len(agentFixture.Executions))
-
-		for _, execution := range agentFixture.Executions {
-			labelsByTxHash[execution.TxHash] = copyStringSlice(execution.Labels)
-			answersByTxHash[execution.TxHash] = execution.Answer
-		}
-
-		agents = append(agents, agentExecutionsByTxHash{
-			agent:           agentFixture.Agent,
-			labelsByTxHash:  labelsByTxHash,
-			answersByTxHash: answersByTxHash,
-		})
-	}
-
-	return transactions, agents
-}
-
-func validateMiniRoundTwoFullFlowFixture(
-	t *testing.T,
-	transactions []data.Transaction,
-	agents []agentExecutionsByTxHash,
-) {
-	t.Helper()
-
-	txHashes := make([]string, 0, len(transactions))
-	for _, tx := range transactions {
-		txHashes = append(txHashes, string(tx.GetTxHash()))
-	}
-
-	for _, agentExecution := range agents {
-		require.NotEmpty(t, agentExecution.agent)
-
-		for _, txHash := range txHashes {
-			labels, ok := agentExecution.labelsByTxHash[txHash]
-			require.Truef(t, ok, "agent %s has no labels for txHash %s", agentExecution.agent, txHash)
-			require.Lenf(t, labels, 6, "agent %s has invalid labels count for txHash %s", agentExecution.agent, txHash)
-
-			seenLabels := make(map[string]struct{}, len(labels))
-			for _, label := range labels {
-				_, ok = possibleSubDomains[label]
-				require.Truef(t, ok, "agent %s has invalid label %q for txHash %s", agentExecution.agent, label, txHash)
-
-				_, duplicated := seenLabels[label]
-				require.Falsef(t, duplicated, "agent %s has duplicated label %q for txHash %s", agentExecution.agent, label, txHash)
-
-				seenLabels[label] = struct{}{}
-			}
-
-			answer, ok := agentExecution.answersByTxHash[txHash]
-			require.Truef(t, ok, "agent %s has no answer for txHash %s", agentExecution.agent, txHash)
-			require.NotEmptyf(t, answer, "agent %s has empty answer for txHash %s", agentExecution.agent, txHash)
-		}
-	}
-}
-
-func createMiniRoundTwoAgentBackedLabeler(agentExecution agentExecutionsByTxHash) agent.Agent {
-	return &testscommon.LabelerStub{
-		LabelCalled: func(tx data.Transaction) ([]string, error) {
-			txHash := string(tx.GetTxHash())
-
-			labels, ok := agentExecution.labelsByTxHash[txHash]
-			if !ok {
-				return nil, fmt.Errorf("agent %s has no labels for txHash %s", agentExecution.agent, txHash)
-			}
-
-			return copyStringSlice(labels), nil
-		},
-		AnswerCalled: func(tx data.Transaction) (string, error) {
-			txHash := string(tx.GetTxHash())
-
-			answer, ok := agentExecution.answersByTxHash[txHash]
-			if !ok {
-				return "", fmt.Errorf("agent %s has no answer for txHash %s", agentExecution.agent, txHash)
-			}
-
-			return answer, nil
-		},
-	}
-}
-
-func requireMiniRoundTwoAnswersMatchFixture(
-	t *testing.T,
-	aggregatedResults data.AggregatedExecutionResults,
-	agents []agentExecutionsByTxHash,
-) {
-	t.Helper()
-
-	require.NotEmpty(t, aggregatedResults)
-
-	previousTxHash := ""
-	for _, txResult := range aggregatedResults {
-		txHash := string(txResult.TxHash)
-		require.Greater(t, txHash, previousTxHash)
-		previousTxHash = txHash
-
-		require.Len(t, txResult.Answers, consensusQuorum(5))
-		for _, answer := range txResult.Answers {
-			require.Equal(t, txResult.TxHash, answer.TxHash)
-			require.Contains(t, possibleAnswersForTxHash(agents, txHash), answer.Answer)
-		}
-	}
-}
-
-func possibleAnswersForTxHash(agents []agentExecutionsByTxHash, txHash string) []string {
-	answers := make([]string, 0, len(agents))
-	for _, agentExecution := range agents {
-		answer, ok := agentExecution.answersByTxHash[txHash]
-		if ok {
-			answers = append(answers, answer)
-		}
-	}
-
-	return answers
-}
-func appendMiniRoundTwoAggregatedExecutionResult(
-	t *testing.T,
-	nodeID string,
-	roundKey data.RoundKey,
-	aggregatedResults data.AggregatedExecutionResults,
-) {
-	t.Helper()
-
-	result := struct {
-		TestName                 string                                    `json:"testName"`
-		NodeID                   string                                    `json:"nodeId"`
-		Timestamp                string                                    `json:"timestamp"`
-		RoundKey                 data.RoundKey                             `json:"roundKey"`
-		AggregatedExecutionState []serializableAggregatedExecutionTxResult `json:"aggregatedExecutionState"`
-	}{
-		TestName:                 t.Name(),
-		NodeID:                   nodeID,
-		Timestamp:                time.Now().UTC().Format(time.RFC3339Nano),
-		RoundKey:                 roundKey,
-		AggregatedExecutionState: serializableAggregatedExecutionResults(aggregatedResults),
-	}
-
-	encodedResult, err := json.Marshal(result)
-	require.NoError(t, err)
-
-	outputPath := filepath.Join("testData", "miniround2", "results", "aggregated_execution_results.jsonl")
-	err = os.MkdirAll(filepath.Dir(outputPath), 0o755)
-	require.NoError(t, err)
-
-	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	require.NoError(t, err)
-	defer func() {
-		err = outputFile.Close()
-		require.NoError(t, err)
-	}()
-
-	_, err = outputFile.Write(append(encodedResult, '\n'))
-	require.NoError(t, err)
-}
-
-type serializableAggregatedExecutionTxResult struct {
-	TxHash  string                                  `json:"txHash"`
-	Answers []serializableAggregatedExecutionAnswer `json:"answers"`
-}
-
-type serializableAggregatedExecutionAnswer struct {
-	TxHash            string `json:"txHash"`
-	Answer            string `json:"answer"`
-	ActualConsumption uint64 `json:"actualConsumption"`
-}
-
-func serializableAggregatedExecutionResults(
-	aggregatedResults data.AggregatedExecutionResults,
-) []serializableAggregatedExecutionTxResult {
-	serializableResults := make([]serializableAggregatedExecutionTxResult, 0, len(aggregatedResults))
-
-	for _, txResult := range aggregatedResults {
-		answers := make([]serializableAggregatedExecutionAnswer, 0, len(txResult.Answers))
-		for _, answer := range txResult.Answers {
-			answers = append(answers, serializableAggregatedExecutionAnswer{
-				TxHash:            string(answer.TxHash),
-				Answer:            answer.Answer,
-				ActualConsumption: answer.ActualConsumption,
-			})
-		}
-
-		serializableResults = append(serializableResults, serializableAggregatedExecutionTxResult{
-			TxHash:  string(txResult.TxHash),
-			Answers: answers,
-		})
-	}
-
-	return serializableResults
+func scenarioValidatorIndex(validatorID string) int {
+	var index int
+	_, _ = fmt.Sscanf(validatorID, "validator-%d", &index)
+	return index - 1
 }

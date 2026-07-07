@@ -4,8 +4,21 @@ import (
 	"moa-chain/data"
 )
 
+// AnswerJudgeRequest separates trusted protocol instructions from untrusted
+// transaction prompts and candidate answers.
+type AnswerJudgeRequest struct {
+	SystemPrompt string
+	UserPrompt   string
+}
+
+// AnswersJudge classifies candidate answers and returns structured output.
+type AnswersJudge interface {
+	JudgeTransactionAnswers(request AnswerJudgeRequest) (string, error)
+}
+
 // Agent defines what an agent should do
 type Agent interface {
+	AnswersJudge
 	Label(tx data.Transaction) ([]string, error)
 	Answer(tx data.Transaction) (string, error)
 }

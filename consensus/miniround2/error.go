@@ -10,11 +10,11 @@ var ErrDuplicatedAnswer = errors.New("duplicated answer")
 // ErrNilAnswers signals nil answers.
 var ErrNilAnswers = errors.New("nil answers")
 
-// ErrNilAggregatedExecutionResults signals a nil aggregated execution results message.
-var ErrNilAggregatedExecutionResults = errors.New("nil aggregated execution results")
+// ErrNilAnswerEvidence signals a missing answer-evidence certificate.
+var ErrNilAnswerEvidence = errors.New("nil answer evidence")
 
-// ErrAggregatedExecutionResultsMismatch signals inconsistent aggregated execution results arrays.
-var ErrAggregatedExecutionResultsMismatch = errors.New("aggregated execution results mismatch")
+// ErrAnswerEvidenceMismatch signals inconsistent answer-evidence certificate arrays.
+var ErrAnswerEvidenceMismatch = errors.New("answer evidence mismatch")
 
 // ErrMessageNotFromLeader signals that the message was not sent by the expected leader.
 var ErrMessageNotFromLeader = errors.New("message not from leader")
@@ -36,3 +36,30 @@ var ErrExecutedPromptsAnswersMismatch = errors.New("executed prompts answers mis
 
 // ErrExecutionResultHashMismatch signals that the answers hash does not match the signed block hash.
 var ErrExecutionResultHashMismatch = errors.New("execution result hash mismatch")
+
+// ErrNilAnswerClassificationVote signals a missing classification vote message.
+var ErrNilAnswerClassificationVote = errors.New("nil answer classification vote")
+
+// ErrAnswerClassificationVoteMismatch signals vote metadata inconsistent with the current round.
+var ErrAnswerClassificationVoteMismatch = errors.New("answer classification vote mismatch")
+
+// ErrNilAnswerClassificationCertificate signals a missing classification certificate message.
+var ErrNilAnswerClassificationCertificate = errors.New("nil answer classification certificate")
+
+// ErrAnswerClassificationCertificateMismatch signals inconsistent certificate metadata or votes.
+var ErrAnswerClassificationCertificateMismatch = errors.New("answer classification certificate mismatch")
+
+// ErrClassificationVoteEvidenceMismatch prevents signing a vote for unexpected answer evidence.
+var ErrClassificationVoteEvidenceMismatch = errors.New("classification vote evidence mismatch")
+
+// ErrClassificationVotePromptMismatch prevents signing a vote with an unexpected protocol prompt.
+var ErrClassificationVotePromptMismatch = errors.New("classification vote prompt mismatch")
+
+// ErrClassificationVoteHashMismatch signals that a vote hash does not commit to its payload.
+var ErrClassificationVoteHashMismatch = errors.New("classification vote hash mismatch")
+
+// ErrMissingClassificationCollectionContext signals that the leader's trusted local vote is unavailable.
+var ErrMissingClassificationCollectionContext = errors.New("missing classification collection context")
+
+// ErrClassificationCertificateResultMismatch signals leader-provided groups that differ from deterministic aggregation.
+var ErrClassificationCertificateResultMismatch = errors.New("classification certificate result mismatch")

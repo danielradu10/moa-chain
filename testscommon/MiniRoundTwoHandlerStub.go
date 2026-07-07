@@ -17,10 +17,58 @@ type MiniRoundTwoHandlerStub struct {
 	HandleExecutedPromptsMessageMessage *data.AnswersBlockMessage
 	HandleExecutedPromptsMessageErr     error
 
-	HandleAggregatedExecutionResultsCalled  bool
-	HandleAggregatedExecutionResultsKey     data.RoundKey
-	HandleAggregatedExecutionResultsMessage *data.AggregatedExecutionResultsMessage
-	HandleAggregatedExecutionResultsErr     error
+	HandleAnswerEvidenceCalled  bool
+	HandleAnswerEvidenceKey     data.RoundKey
+	HandleAnswerEvidenceMessage *data.AggregatedExecutionResultsMessage
+	HandleAnswerEvidenceErr     error
+
+	HandleAnswerClassificationVoteCalled bool
+	HandleAnswerClassificationVoteKey    data.RoundKey
+	HandleAnswerClassificationVoteValue  *data.AnswerClassificationVote
+	HandleAnswerClassificationVoteErr    error
+
+	HandleAnswerClassificationCertificateCalled bool
+	HandleAnswerClassificationCertificateKey    data.RoundKey
+	HandleAnswerClassificationCertificateValue  *data.AnswerClassificationCertificate
+	HandleAnswerClassificationCertificateErr    error
+	HasVerifiedAnswerEvidenceValue              bool
+}
+
+func (stub *MiniRoundTwoHandlerStub) HasVerifiedAnswerEvidence(_ data.RoundKey) bool {
+	return stub.HasVerifiedAnswerEvidenceValue
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleAnswerEvidence(
+	roundKey data.RoundKey,
+	message *data.AggregatedExecutionResultsMessage,
+) error {
+	stub.HandleAnswerEvidenceCalled = true
+	stub.HandleAnswerEvidenceKey = roundKey
+	stub.HandleAnswerEvidenceMessage = message
+
+	return stub.HandleAnswerEvidenceErr
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleAnswerClassificationVote(
+	roundKey data.RoundKey,
+	vote *data.AnswerClassificationVote,
+) error {
+	stub.HandleAnswerClassificationVoteCalled = true
+	stub.HandleAnswerClassificationVoteKey = roundKey
+	stub.HandleAnswerClassificationVoteValue = vote
+
+	return stub.HandleAnswerClassificationVoteErr
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleAnswerClassificationCertificate(
+	roundKey data.RoundKey,
+	certificate *data.AnswerClassificationCertificate,
+) error {
+	stub.HandleAnswerClassificationCertificateCalled = true
+	stub.HandleAnswerClassificationCertificateKey = roundKey
+	stub.HandleAnswerClassificationCertificateValue = certificate
+
+	return stub.HandleAnswerClassificationCertificateErr
 }
 
 func (stub *MiniRoundTwoHandlerStub) HandleConsensusSelection(key data.RoundKey) (string, error) {
@@ -43,12 +91,4 @@ func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsMessage(roundKey data.
 	stub.HandleExecutedPromptsMessageMessage = message
 
 	return stub.HandleExecutedPromptsMessageErr
-}
-
-func (stub *MiniRoundTwoHandlerStub) HandleAggregatedExecutionResults(roundKey data.RoundKey, message *data.AggregatedExecutionResultsMessage) error {
-	stub.HandleAggregatedExecutionResultsCalled = true
-	stub.HandleAggregatedExecutionResultsKey = roundKey
-	stub.HandleAggregatedExecutionResultsMessage = message
-
-	return stub.HandleAggregatedExecutionResultsErr
 }

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sort"
 
+	"moa-chain/agent"
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/blockprocessing/hashing"
@@ -15,45 +16,55 @@ import (
 	"moa-chain/validators"
 )
 
+// miniRoundTwoHandler owns network-facing mini-round-two orchestration. Pure
+// judging and aggregation rules live in the classification subpackage so this
+// type only coordinates verified messages, round state, and finalization.
 type miniRoundTwoHandler struct {
 	myID string
 
-	blockProcessor    blockprocessing.BlockProcessor
-	roundState        state.RoundState
-	broadcaster       broadcast.Broadcaster
-	signer            signing.MessageSigner
-	validatorRegistry validators.ValidatorRegistry
-	blockchainState   state.BlockchainState
-	blockFinalizer    blockFinalizer.BlockFinalizer
-	logger            *slog.Logger
+	blockProcessor     blockprocessing.BlockProcessor
+	roundState         state.RoundState
+	broadcaster        broadcast.Broadcaster
+	signer             signing.MessageSigner
+	validatorRegistry  validators.ValidatorRegistry
+	blockchainState    state.BlockchainState
+	blockFinalizer     blockFinalizer.BlockFinalizer
+	answerJudge        agent.AnswersJudge
+	judgeModelMetadata string
+	logger             *slog.Logger
 }
 
-// MiniRoundTwoHandlerArgs defines the structure that encapsulates all the arguments for the handler.
+// MiniRoundTwoHandlerArgs contains the node-local dependencies used by both the
+// answer-evidence and classification phases.
 type MiniRoundTwoHandlerArgs struct {
 	MyID string
 
-	BlockProcessor    blockprocessing.BlockProcessor
-	RoundState        state.RoundState
-	Broadcaster       broadcast.Broadcaster
-	Signer            signing.MessageSigner
-	ValidatorRegistry validators.ValidatorRegistry
-	BlockchainState   state.BlockchainState
-	BlockFinalizer    blockFinalizer.BlockFinalizer
-	Logger            *slog.Logger
+	BlockProcessor     blockprocessing.BlockProcessor
+	RoundState         state.RoundState
+	Broadcaster        broadcast.Broadcaster
+	Signer             signing.MessageSigner
+	ValidatorRegistry  validators.ValidatorRegistry
+	BlockchainState    state.BlockchainState
+	BlockFinalizer     blockFinalizer.BlockFinalizer
+	AnswerJudge        agent.AnswersJudge
+	JudgeModelMetadata string
+	Logger             *slog.Logger
 }
 
 // NewMiniRoundTwoHandler creates a new mini-round two handler.
 func NewMiniRoundTwoHandler(args MiniRoundTwoHandlerArgs) *miniRoundTwoHandler {
 	return &miniRoundTwoHandler{
-		myID:              args.MyID,
-		blockProcessor:    args.BlockProcessor,
-		roundState:        args.RoundState,
-		broadcaster:       args.Broadcaster,
-		signer:            args.Signer,
-		validatorRegistry: args.ValidatorRegistry,
-		blockchainState:   args.BlockchainState,
-		blockFinalizer:    args.BlockFinalizer,
-		logger:            args.Logger,
+		myID:               args.MyID,
+		blockProcessor:     args.BlockProcessor,
+		roundState:         args.RoundState,
+		broadcaster:        args.Broadcaster,
+		signer:             args.Signer,
+		validatorRegistry:  args.ValidatorRegistry,
+		blockchainState:    args.BlockchainState,
+		blockFinalizer:     args.BlockFinalizer,
+		answerJudge:        args.AnswerJudge,
+		judgeModelMetadata: args.JudgeModelMetadata,
+		logger:             args.Logger,
 	}
 }
 
@@ -93,9 +104,9 @@ func (handler *miniRoundTwoHandler) HandleConsensusSelection(key data.RoundKey) 
 	return leaderID, nil
 }
 
-// HandleBlockExecution handles the execution of the prompts (transactions) finalized in the first mini-round.
-// This method should be called by each validator implied in the consensus of the second mini-round.
-// Each validator should sign its execution of the prompts and send
+// HandleBlockExecution executes the canonical mini-round-one transactions on a
+// selected producer, signs the resulting commitment, and sends it to the
+// mini-round-two leader. Nodes outside the committee intentionally do nothing.
 func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey) error {
 	handler.logger.Info("miniround2.HandleBlockExecution started", "roundKey", roundKey)
 
@@ -152,6 +163,8 @@ func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey)
 	return nil
 }
 
+// createExecutePromptsMessage converts execution results into the map carried
+// over the network while rejecting more than one result for the same tx hash.
 func (handler *miniRoundTwoHandler) createExecutePromptsMessage(
 	roundKey data.RoundKey,
 	canonicalBlockHeaderHash []byte,
@@ -240,126 +253,91 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 	// From this point the leader has enough independently verified execution results to build
 	// the mini-round two certificate. The certificate is evidence only; the finalized
 	// txHash -> answers view is derived locally after the certificate is broadcast.
+	// TODO: Define whether any valid execution-result quorum must lead to the
+	// same mini-round-two transaction eligibility decisions, or whether the
+	// protocol explicitly accepts leader/network timing as choosing the evidence
+	// quorum. If eligibility must be invariant, replace first-quorum finalization
+	// with a canonical or threshold-stable evidence selection rule.
 	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader reached quorum", "roundKey", roundKey, "numNodesWhichSentExecutionResults", len(answers), "consensusGroupSize", consensusGroupSize)
 
-	aggregatedExecutionResults, err := handler.createAggregatedExecutionResultsMessage(roundKey, answers)
+	answerEvidence, err := handler.createAnswerEvidence(roundKey, answers)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleExecutedPromptsMessage failed to aggregate execution results", "roundKey", roundKey, "error", err)
 		return err
 	}
 
 	handler.logger.Info(
-		"miniround2.HandleExecutedPromptsMessage leader aggregated execution results",
+		"miniround2.HandleExecutedPromptsMessage leader built answer evidence",
 		"roundKey", roundKey,
-		"numSigners", len(aggregatedExecutionResults.Signers),
-		"numAnswerSets", len(aggregatedExecutionResults.Answers),
+		"numSigners", len(answerEvidence.Signers),
+		"numAnswerSets", len(answerEvidence.Answers),
 	)
 
 	consensusMessage := &data.ConsensusMessage{
-		ConsensusMessageType:       data.AggregatedExecutionResultsConsensusMessage,
-		AggregatedExecutionResults: aggregatedExecutionResults,
+		ConsensusMessageType: data.AnswerEvidenceConsensusMessage,
+		AnswerEvidence:       answerEvidence,
 	}
 
 	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
 	handler.logger.Info(
-		"miniround2.HandleExecutedPromptsMessage leader broadcasting aggregated execution results",
+		"miniround2.HandleExecutedPromptsMessage leader broadcasting answer evidence",
 		"roundKey", roundKey,
 		"numReceivers", len(validatorsIDs),
 	)
 
-	err = handler.broadcaster.BroadcastAggregatedExecutionResults(consensusMessage, handler.myID, validatorsIDs)
+	err = handler.broadcaster.BroadcastAnswerEvidence(consensusMessage, handler.myID, validatorsIDs)
 	if err != nil {
-		handler.logger.Error("miniround2.HandleExecutedPromptsMessage leader failed to broadcast aggregated execution results", "roundKey", roundKey, "error", err)
+		handler.logger.Error("miniround2.HandleExecutedPromptsMessage leader failed to broadcast answer evidence", "roundKey", roundKey, "error", err)
 		return err
 	}
 
-	err = handler.finalizeAggregatedExecutionResultsBlock(roundKey, aggregatedExecutionResults)
-	if err != nil {
-		handler.logger.Error("miniround2.HandleExecutedPromptsMessage leader failed to finalize aggregated execution results block", "roundKey", roundKey, "error", err)
-		return err
-	}
-
-	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader finalized aggregated execution results block", "roundKey", roundKey)
-
-	return nil
+	// The evidence broadcast no longer finalizes mini-round two. The leader judges
+	// the same verified evidence locally and enters classification vote collection.
+	return handler.HandleAnswerEvidence(roundKey, answerEvidence)
 }
 
-func (handler *miniRoundTwoHandler) finalizeAggregatedExecutionResultsBlock(
-	roundKey data.RoundKey,
-	aggregatedExecutionResultsMessage *data.AggregatedExecutionResultsMessage,
-) error {
-	finalizedBlockInMROne, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
-		Epoch:     roundKey.Epoch,
-		Round:     roundKey.Round,
-		MiniRound: roundKey.MiniRound - 1,
-	})
-	if err != nil {
-		return err
-	}
-
-	aggregatedExecutionResults, err := handler.createFinalizedAggregatedExecutionResults(aggregatedExecutionResultsMessage)
-	if err != nil {
-		return err
-	}
-
-	// Mini-round two finalization keeps the canonical mini-round one block data and stores only
-	// the deterministic execution-result aggregation. The broadcast certificate remains the proof
-	// used to recompute this finalized view, but it is not itself the finalized artifact.
-	return handler.blockFinalizer.FinalizeBlockMRTwo(roundKey, &data.BlockOnChain{
-		Block:                      finalizedBlockInMROne.Block,
-		SubdomainsFrequencies:      finalizedBlockInMROne.SubdomainsFrequencies,
-		AggregatedExecutionResults: aggregatedExecutionResults,
-	})
-}
-
-// HandleAggregatedExecutionResults verifies and finalizes the execution result certificate broadcast by the mini-round two leader.
-// Each receiver first checks that the message comes from the selected leader and that the certificate arrays are aligned.
-// It then reconstructs every validator execution result from the signer, hash, signature, and answer slices, and verifies it
-// with the same rules used by the leader: signer membership, canonical block hash, execution result hash, and signature validity.
-// After all entries are valid, the receiver locally derives the deterministic txHash -> answers aggregation and finalizes it.
-func (handler *miniRoundTwoHandler) HandleAggregatedExecutionResults(
+// verifyAnswerEvidence validates the leader envelope and
+// every signed producer answer without finalizing any block state. The message
+// uses parallel slices, so their alignment is checked before indexing them.
+func (handler *miniRoundTwoHandler) verifyAnswerEvidence(
 	roundKey data.RoundKey,
 	message *data.AggregatedExecutionResultsMessage,
 ) error {
 	if message == nil {
-		return ErrNilAggregatedExecutionResults
+		handler.logger.Error("miniround2.verifyAnswerEvidence received nil evidence", "roundKey", roundKey)
+		return ErrNilAnswerEvidence
 	}
-
-	handler.logger.Info("miniround2.HandleAggregatedExecutionResults received aggregated execution results", "roundKey", roundKey, "senderID", message.SenderID)
 
 	expectedLeader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
 	if err != nil {
-		handler.logger.Error("miniround2.HandleAggregatedExecutionResults failed to get leader", "roundKey", roundKey, "error", err)
+		handler.logger.Error("miniround2.verifyAnswerEvidence failed to get leader", "roundKey", roundKey, "error", err)
 		return err
 	}
 
 	if message.SenderID != expectedLeader {
-		handler.logger.Error("miniround2.HandleAggregatedExecutionResults message not from expected leader", "roundKey", roundKey, "senderID", message.SenderID, "expectedLeader", expectedLeader)
+		handler.logger.Error("miniround2.verifyAnswerEvidence message not from expected leader", "roundKey", roundKey, "senderID", message.SenderID, "expectedLeader", expectedLeader)
 		return ErrMessageNotFromLeader
 	}
 
 	if message.Epoch != roundKey.Epoch || message.Round != roundKey.Round || message.MiniRound != roundKey.MiniRound {
-		handler.logger.Error("miniround2.HandleAggregatedExecutionResults round key mismatch", "roundKey", roundKey, "messageEpoch", message.Epoch, "messageRound", message.Round, "messageMiniRound", message.MiniRound)
-		return ErrAggregatedExecutionResultsMismatch
+		handler.logger.Error("miniround2.verifyAnswerEvidence round key mismatch", "roundKey", roundKey, "messageEpoch", message.Epoch, "messageRound", message.Round, "messageMiniRound", message.MiniRound)
+		return ErrAnswerEvidenceMismatch
 	}
 
 	if len(message.Signers) != len(message.BlockHashes) ||
 		len(message.Signers) != len(message.BlockSignatures) ||
 		len(message.Signers) != len(message.Answers) {
 		handler.logger.Error(
-			"miniround2.HandleAggregatedExecutionResults inconsistent certificate array lengths",
+			"miniround2.verifyAnswerEvidence inconsistent certificate array lengths",
 			"roundKey", roundKey,
 			"numSigners", len(message.Signers),
 			"numBlockHashes", len(message.BlockHashes),
 			"numBlockSignatures", len(message.BlockSignatures),
 			"numAnswerSets", len(message.Answers),
 		)
-		return ErrAggregatedExecutionResultsMismatch
+		return ErrAnswerEvidenceMismatch
 	}
 
-	// The certificate is encoded as parallel slices to mirror mini-round one. Reconstruct each
-	// original execution-result message so all validators run the exact same verification path
-	// as the leader did when it collected the result.
 	for index, signerID := range message.Signers {
 		executedPromptsMessage := &data.AnswersBlockMessage{
 			Epoch:              message.Epoch,
@@ -371,75 +349,19 @@ func (handler *miniRoundTwoHandler) HandleAggregatedExecutionResults(
 			BlockHash:          message.BlockHashes[index],
 			BlockSignature:     message.BlockSignatures[index],
 		}
-
-		err = handler.verifyExecutePromptsMessage(roundKey, executedPromptsMessage)
-		if err != nil {
-			handler.logger.Error("miniround2.HandleAggregatedExecutionResults failed to verify execution result", "roundKey", roundKey, "index", index, "signerID", signerID, "error", err)
+		if err = handler.verifyExecutePromptsMessage(roundKey, executedPromptsMessage); err != nil {
+			handler.logger.Error("miniround2.verifyAnswerEvidence failed to verify execution result", "roundKey", roundKey, "index", index, "signerID", signerID, "error", err)
 			return err
 		}
 	}
 
-	err = handler.finalizeAggregatedExecutionResultsBlock(roundKey, message)
-	if err != nil {
-		handler.logger.Error("miniround2.HandleAggregatedExecutionResults failed to finalize aggregated execution results block", "roundKey", roundKey, "error", err)
-		return err
-	}
-
-	handler.logger.Info("miniround2.HandleAggregatedExecutionResults finalized aggregated execution results block", "roundKey", roundKey, "numSigners", len(message.Signers))
 	return nil
 }
 
-func (handler *miniRoundTwoHandler) createFinalizedAggregatedExecutionResults(
-	message *data.AggregatedExecutionResultsMessage,
-) (data.AggregatedExecutionResults, error) {
-	if message == nil || len(message.Answers) == 0 {
-		return nil, ErrNilAnswers
-	}
-
-	txHashSet := make(map[string]struct{})
-	for txHash := range message.Answers[0] {
-		txHashSet[txHash] = struct{}{}
-	}
-
-	// Maps are intentionally converted to a sorted slice before finalization. This makes the
-	// finalized txHash -> answers artifact independent from Go map iteration order.
-	txHashes := make([]string, 0, len(txHashSet))
-	for txHash := range txHashSet {
-		txHashes = append(txHashes, txHash)
-	}
-	sort.Strings(txHashes)
-
-	aggregatedExecutionResults := make(data.AggregatedExecutionResults, 0, len(txHashes))
-	for _, txHash := range txHashes {
-		answers := make([]data.TransactionResult, 0, len(message.Answers))
-		for _, answerSet := range message.Answers {
-			// All validators must have answered the same canonical transaction set; otherwise
-			// different nodes could derive different finalized aggregates from the same evidence.
-			if len(answerSet) != len(txHashSet) {
-				return nil, ErrExecutedPromptsAnswersMismatch
-			}
-
-			answer, ok := answerSet[txHash]
-			if !ok {
-				return nil, ErrExecutedPromptsAnswersMismatch
-			}
-			if !bytes.Equal(answer.TxHash, []byte(txHash)) {
-				return nil, ErrExecutedPromptsAnswersMismatch
-			}
-
-			answers = append(answers, answer)
-		}
-
-		aggregatedExecutionResults = append(aggregatedExecutionResults, data.AggregatedTransactionExecutionResults{
-			TxHash:  []byte(txHash),
-			Answers: answers,
-		})
-	}
-
-	return aggregatedExecutionResults, nil
-}
-
-func (handler *miniRoundTwoHandler) createAggregatedExecutionResultsMessage(
+// createAnswerEvidence creates the answer-evidence
+// certificate. Producer messages are sorted because network arrival order must
+// never influence a consensus-visible certificate.
+func (handler *miniRoundTwoHandler) createAnswerEvidence(
 	roundKey data.RoundKey,
 	messages []*data.AnswersBlockMessage,
 ) (*data.AggregatedExecutionResultsMessage, error) {
@@ -502,6 +424,8 @@ func (handler *miniRoundTwoHandler) createAggregatedExecutionResultsMessage(
 	}, nil
 }
 
+// verifyExecutePromptsMessage reconstructs the producer's signed commitment
+// from canonical mini-round-one transaction order before checking its signature.
 func (handler *miniRoundTwoHandler) verifyExecutePromptsMessage(roundKey data.RoundKey, message *data.AnswersBlockMessage) error {
 	signature := message.BlockSignature
 	validatorID := message.SenderID
@@ -544,6 +468,8 @@ func (handler *miniRoundTwoHandler) verifyExecutePromptsMessage(roundKey data.Ro
 	return nil
 }
 
+// computeExecutionResultHashFromMessage converts the answer map back into
+// canonical transaction order; hashing a Go map directly would be nondeterministic.
 func (handler *miniRoundTwoHandler) computeExecutionResultHashFromMessage(
 	roundKey data.RoundKey,
 	message *data.AnswersBlockMessage,
