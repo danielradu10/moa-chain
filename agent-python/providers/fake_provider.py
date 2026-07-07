@@ -53,3 +53,6 @@ class FakeProvider:
         if self._raw_response is None:
             raise ValueError("FakeProvider: no raw response configured")
         return self._raw_response
+
+    async def ping(self) -> bool:
+        return True
