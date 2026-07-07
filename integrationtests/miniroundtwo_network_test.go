@@ -49,20 +49,40 @@ func newMiniRoundTwoScenarioNetwork(
 				// The leader handles its own classification vote directly instead of
 				// sending it through the broadcaster, so delivery starts at member-1.
 				StartIndex: 1,
-				Mutate: classificationVoteFaultMutator(
+				Mutate: leaderBoundFaultMutator(
 					t,
 					committees.miniRoundTwo,
 					scenario.Delivery.ClassificationVoteFaults,
+					mutateClassificationVoteMessage,
 				),
 			},
+		},
+		testscommon.OrderedBroadcastRule{
+			MessageType: data.AnswerEvidenceConsensusMessage,
+			Mutate: broadcastFaultMutator(
+				t,
+				committees.miniRoundTwo,
+				scenario.Delivery.AnswerEvidenceFaults,
+				mutateAnswerEvidenceMessage,
+			),
+		},
+		testscommon.OrderedBroadcastRule{
+			MessageType: data.AnswerClassificationCertificateConsensusMessage,
+			Mutate: broadcastFaultMutator(
+				t,
+				committees.miniRoundTwo,
+				scenario.Delivery.ClassificationCertificateFaults,
+				mutateClassificationCertificateMessage,
+			),
 		},
 	)
 }
 
-func classificationVoteFaultMutator(
+func leaderBoundFaultMutator(
 	t *testing.T,
 	committee []string,
 	faults []scenarioTransportFault,
+	mutate func(data.ConsensusMessage, scenarioTransportFault) data.ConsensusMessage,
 ) testscommon.OrderedMessageMutator {
 	t.Helper()
 	if len(faults) == 0 {
@@ -75,12 +95,41 @@ func classificationVoteFaultMutator(
 		faultsBySenderID[senderID] = fault
 	}
 
-	return func(senderID string, message data.ConsensusMessage) data.ConsensusMessage {
+	return func(senderID string, message data.ConsensusMessage) (data.ConsensusMessage, bool) {
 		fault, exists := faultsBySenderID[senderID]
 		if !exists {
-			return message
+			return message, true
 		}
-		return mutateClassificationVoteMessage(message, fault)
+		if fault.Type == "drop" {
+			return data.ConsensusMessage{}, false
+		}
+		return mutate(message, fault), true
+	}
+}
+
+func broadcastFaultMutator(
+	t *testing.T,
+	committee []string,
+	faults []scenarioTransportFault,
+	mutate func(*data.ConsensusMessage, scenarioTransportFault),
+) testscommon.OrderedBroadcastMutator {
+	t.Helper()
+	if len(faults) == 0 {
+		return nil
+	}
+
+	faultsBySenderID := make(map[string]scenarioTransportFault, len(faults))
+	for _, fault := range faults {
+		senderID := scenarioIDsForRoles(t, committee, []string{fault.SenderRole})[0]
+		faultsBySenderID[senderID] = fault
+	}
+
+	return func(senderID string, message *data.ConsensusMessage) {
+		fault, exists := faultsBySenderID[senderID]
+		if !exists {
+			return
+		}
+		mutate(message, fault)
 	}
 }
 
@@ -102,6 +151,44 @@ func mutateClassificationVoteMessage(
 	}
 	mutated.AnswerClassificationVote = &vote
 	return mutated
+}
+
+func mutateAnswerEvidenceMessage(message *data.ConsensusMessage, fault scenarioTransportFault) {
+	if fault.Type != "mutate_evidence_hash" || message.AnswerEvidence == nil {
+		return
+	}
+
+	message.AnswerEvidence.CanonicalBlockHash = append([]byte(nil), message.AnswerEvidence.CanonicalBlockHash...)
+	if len(message.AnswerEvidence.CanonicalBlockHash) == 0 {
+		message.AnswerEvidence.CanonicalBlockHash = []byte("invalid-canonical-block")
+	} else {
+		message.AnswerEvidence.CanonicalBlockHash[0] ^= 0xff
+	}
+}
+
+func mutateClassificationCertificateMessage(message *data.ConsensusMessage, fault scenarioTransportFault) {
+	if message.AnswerClassificationCertificate == nil {
+		return
+	}
+
+	switch fault.Type {
+	case "omit_certificate_vote":
+		if len(message.AnswerClassificationCertificate.Votes) > 0 {
+			message.AnswerClassificationCertificate.Votes = append(
+				[]data.AnswerClassificationVote(nil),
+				message.AnswerClassificationCertificate.Votes[:len(message.AnswerClassificationCertificate.Votes)-1]...,
+			)
+		}
+	case "reorder_certificate_votes":
+		if len(message.AnswerClassificationCertificate.Votes) > 1 {
+			message.AnswerClassificationCertificate.Votes = append(
+				[]data.AnswerClassificationVote(nil),
+				message.AnswerClassificationCertificate.Votes...,
+			)
+			message.AnswerClassificationCertificate.Votes[0], message.AnswerClassificationCertificate.Votes[1] =
+				message.AnswerClassificationCertificate.Votes[1], message.AnswerClassificationCertificate.Votes[0]
+		}
+	}
 }
 
 func scenarioInboxesByValidator(inboxes []chan data.RoundEvent) map[string]chan data.RoundEvent {

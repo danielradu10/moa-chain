@@ -16,16 +16,30 @@ type OrderedDeliveryRule struct {
 	Mutate      OrderedMessageMutator
 }
 
-// OrderedMessageMutator can alter a leader-bound message before delivery.
-type OrderedMessageMutator func(senderID string, message data.ConsensusMessage) data.ConsensusMessage
+// OrderedBroadcastRule configures mutations for messages broadcast by a leader.
+type OrderedBroadcastRule struct {
+	MessageType data.ConsensusMessageType
+	Mutate      OrderedBroadcastMutator
+}
+
+// OrderedMessageMutator can alter or drop a leader-bound message before delivery.
+// Returning false drops the message.
+type OrderedMessageMutator func(senderID string, message data.ConsensusMessage) (data.ConsensusMessage, bool)
+
+// OrderedBroadcastMutator mutates a leader broadcast in place before any receiver
+// gets it. Production code may also keep using the same message pointer after
+// Broadcast returns, so malicious-leader tests use this to make local and remote
+// verification see the same tampered artifact.
+type OrderedBroadcastMutator func(senderID string, message *data.ConsensusMessage)
 
 // OrderedBroadcasterNetworkStub delivers consensus messages through validator inboxes.
 // Optional ordering rules pin the first quorum in fixture-based scenario tests,
 // so assertions verify the intended edge case instead of goroutine scheduling.
 type OrderedBroadcasterNetworkStub struct {
-	mutex    sync.Mutex
-	inboxes  map[string]chan data.RoundEvent
-	delivery map[data.ConsensusMessageType]*orderedDeliveryState
+	mutex             sync.Mutex
+	inboxes           map[string]chan data.RoundEvent
+	delivery          map[data.ConsensusMessageType]*orderedDeliveryState
+	broadcastMutators map[data.ConsensusMessageType]OrderedBroadcastMutator
 }
 
 type orderedDeliveryState struct {
@@ -39,6 +53,7 @@ type orderedDeliveryState struct {
 func NewOrderedBroadcasterNetworkStub(
 	inboxes map[string]chan data.RoundEvent,
 	rules []OrderedDeliveryRule,
+	broadcastRules ...OrderedBroadcastRule,
 ) *OrderedBroadcasterNetworkStub {
 	delivery := make(map[data.ConsensusMessageType]*orderedDeliveryState, len(rules))
 	for _, rule := range rules {
@@ -49,10 +64,15 @@ func NewOrderedBroadcasterNetworkStub(
 			mutate:  rule.Mutate,
 		}
 	}
+	broadcastMutators := make(map[data.ConsensusMessageType]OrderedBroadcastMutator, len(broadcastRules))
+	for _, rule := range broadcastRules {
+		broadcastMutators[rule.MessageType] = rule.Mutate
+	}
 
 	return &OrderedBroadcasterNetworkStub{
-		inboxes:  cloneRoundEventInboxes(inboxes),
-		delivery: delivery,
+		inboxes:           cloneRoundEventInboxes(inboxes),
+		delivery:          delivery,
+		broadcastMutators: broadcastMutators,
 	}
 }
 
@@ -77,7 +97,11 @@ func (network *OrderedBroadcasterNetworkStub) sendToLeader(
 	if hasOrderedDelivery {
 		event := data.RoundEvent{Type: data.ConsensusMessageEvent, Message: *message}
 		if delivery.mutate != nil {
-			event.Message = delivery.mutate(senderID, event.Message)
+			mutated, keep := delivery.mutate(senderID, event.Message)
+			if !keep {
+				return nil
+			}
+			event.Message = mutated
 		}
 		return network.enqueueOrdered(senderID, leaderID, event, delivery)
 	}
@@ -126,6 +150,10 @@ func (network *OrderedBroadcasterNetworkStub) broadcast(
 
 	network.mutex.Lock()
 	defer network.mutex.Unlock()
+
+	if mutate := network.broadcastMutators[message.ConsensusMessageType]; mutate != nil {
+		mutate(senderID, message)
+	}
 
 	for _, receiverID := range receivers {
 		if receiverID == senderID {

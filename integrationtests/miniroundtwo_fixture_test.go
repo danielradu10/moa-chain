@@ -56,9 +56,12 @@ type scenarioJudgeClassificationFixture struct {
 }
 
 type scenarioDeliveryFixture struct {
-	ProducerOrder            []string                 `json:"producerOrder"`
-	JudgeOrder               []string                 `json:"judgeOrder"`
-	ClassificationVoteFaults []scenarioTransportFault `json:"classificationVoteFaults,omitempty"`
+	ProducerOrder                   []string                 `json:"producerOrder"`
+	JudgeOrder                      []string                 `json:"judgeOrder"`
+	AnswerEvidenceFaults            []scenarioTransportFault `json:"answerEvidenceFaults,omitempty"`
+	ClassificationVoteFaults        []scenarioTransportFault `json:"classificationVoteFaults,omitempty"`
+	ClassificationCertificateFaults []scenarioTransportFault `json:"classificationCertificateFaults,omitempty"`
+	TimeoutStep                     data.Step                `json:"timeoutStep,omitempty"`
 }
 
 type scenarioTransportFault struct {
@@ -69,6 +72,7 @@ type scenarioTransportFault struct {
 type scenarioExpectedFixture struct {
 	RoundFinalized          bool                          `json:"roundFinalized"`
 	FinalizedNodes          int                           `json:"finalizedNodes"`
+	ErrorContains           string                        `json:"errorContains,omitempty"`
 	AnswerEvidenceProducers []string                      `json:"answerEvidenceProducers"`
 	ClassificationVoters    []string                      `json:"classificationVoters"`
 	Transactions            []scenarioExpectedTransaction `json:"transactions"`
@@ -134,17 +138,24 @@ func validateMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 	require.Equal(t, scenario.Network.RegisteredNodes/2, scenario.Network.CommitteeSize)
 	require.Equal(t, consensusQuorum(scenario.Network.CommitteeSize), scenario.Network.Quorum)
 	require.Len(t, scenario.Transactions, 3)
-	require.True(t, scenario.Expected.RoundFinalized)
-	require.Equal(t, scenario.Network.RegisteredNodes, scenario.Expected.FinalizedNodes)
-	require.Len(t, scenario.Expected.AnswerEvidenceProducers, scenario.Network.Quorum)
-	require.Len(t, scenario.Expected.ClassificationVoters, scenario.Network.Quorum)
-	require.Len(t, scenario.Expected.Transactions, len(scenario.Transactions))
+	if scenario.Expected.RoundFinalized {
+		require.Equal(t, scenario.Network.RegisteredNodes, scenario.Expected.FinalizedNodes)
+		require.Empty(t, scenario.Expected.ErrorContains)
+		require.Len(t, scenario.Expected.AnswerEvidenceProducers, scenario.Network.Quorum)
+		require.Len(t, scenario.Expected.ClassificationVoters, scenario.Network.Quorum)
+		require.Len(t, scenario.Expected.Transactions, len(scenario.Transactions))
+	} else {
+		require.Less(t, scenario.Expected.FinalizedNodes, scenario.Network.RegisteredNodes)
+		require.NotEmpty(t, scenario.Expected.ErrorContains)
+	}
 
 	txHashes := validateScenarioTransactions(t, scenario.Transactions)
 	validateScenarioProfiles(t, scenario, txHashes)
 	validateScenarioRoleOrder(t, scenario.Delivery.ProducerOrder, scenario.Network.CommitteeSize)
 	validateScenarioRoleOrder(t, scenario.Delivery.JudgeOrder, scenario.Network.CommitteeSize)
+	validateScenarioTransportFaults(t, scenario.Delivery.AnswerEvidenceFaults)
 	validateScenarioTransportFaults(t, scenario.Delivery.ClassificationVoteFaults)
+	validateScenarioTransportFaults(t, scenario.Delivery.ClassificationCertificateFaults)
 	validateScenarioExpectations(t, scenario, txHashes)
 }
 
@@ -188,6 +199,10 @@ func validateScenarioExpectations(
 	txHashes map[string]struct{},
 ) {
 	t.Helper()
+	if !scenario.Expected.RoundFinalized {
+		require.Empty(t, scenario.Expected.Transactions)
+		return
+	}
 
 	expectedTxHashes := make(map[string]struct{}, len(scenario.Expected.Transactions))
 	evidenceRoles := setFromStrings(scenario.Expected.AnswerEvidenceProducers)
@@ -361,7 +376,11 @@ func validateScenarioTransportFaults(t *testing.T, faults []scenarioTransportFau
 		seen[fault.SenderRole] = struct{}{}
 
 		switch fault.Type {
-		case "invalid_signature":
+		case "drop",
+			"invalid_signature",
+			"mutate_evidence_hash",
+			"omit_certificate_vote",
+			"reorder_certificate_votes":
 		default:
 			require.Failf(t, "unsupported transport fault", "sender %s uses unsupported fault %s", fault.SenderRole, fault.Type)
 		}

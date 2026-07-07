@@ -92,6 +92,42 @@ func writeScenarioResult(
 	require.NoError(t, os.WriteFile(filepath.Join(scenario.directory, "result.json"), encoded, 0o644))
 }
 
+func writeScenarioRejectedResult(
+	t *testing.T,
+	scenario miniRoundTwoScenario,
+	committees scenarioCommittees,
+	nodes []*integrationTestNode,
+	miniRoundOneKey data.RoundKey,
+	miniRoundTwoKey data.RoundKey,
+) {
+	t.Helper()
+
+	miniRoundOneBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(miniRoundOneKey)
+	require.NoError(t, err)
+
+	result := scenarioResult{
+		Scenario: scenario.Name,
+		Passed:   true,
+		Network:  scenario.Network,
+		Committees: scenarioResultCommittees{
+			MiniRoundOne: scenarioResultCommittee(committees.miniRoundOne),
+			MiniRoundTwo: scenarioResultCommittee(committees.miniRoundTwo),
+		},
+		MiniRound1: scenarioMiniRoundOneResult{
+			FinalizedNodes:       scenario.Network.RegisteredNodes,
+			SubdomainFrequencies: miniRoundOneBlock.SubdomainsFrequencies,
+		},
+		MiniRound2: scenarioMiniRoundTwoResult{
+			FinalizedNodes: finalizedMiniRoundTwoNodeCount(nodes, miniRoundTwoKey),
+		},
+	}
+
+	encoded, err := json.MarshalIndent(result, "", "  ")
+	require.NoError(t, err)
+	encoded = append(encoded, '\n')
+	require.NoError(t, os.WriteFile(filepath.Join(scenario.directory, "result.json"), encoded, 0o644))
+}
+
 func buildScenarioResult(
 	scenario miniRoundTwoScenario,
 	committees scenarioCommittees,
