@@ -54,6 +54,10 @@ func TestMiniRoundOneToMiniRoundTwoScenarios(t *testing.T) {
 		// same tampered artifact instead of letting the leader finalize an
 		// unbroadcast valid certificate.
 		"leader_reorders_certificate_votes",
+		// Scenario 10 keeps the leader-provided groups unchanged but removes one
+		// signed vote from the broadcast certificate. Validators must reject the
+		// insufficient evidence instead of trusting derived classifications.
+		"leader_omits_certificate_vote",
 	}
 
 	for _, scenarioName := range scenarios {
