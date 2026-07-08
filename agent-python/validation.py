@@ -51,3 +51,16 @@ def check_confidence_range(confidence: float) -> None:
             ErrorCode.INVALID_MODEL_OUTPUT,
             f"confidence {confidence} is outside [0.0, 1.0]",
         )
+
+
+def check_non_empty(value: str, field: str) -> None:
+    """Ensure a string field is non-empty after stripping whitespace.
+
+    Used for answer text and judge reason fields — an empty value means
+    the model returned a structurally valid response but with no useful content.
+    """
+    if not value.strip():
+        raise AgentServiceError(
+            ErrorCode.EMPTY_ANSWER,
+            f"'{field}' is empty or whitespace-only",
+        )
