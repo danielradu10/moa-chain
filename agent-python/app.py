@@ -9,29 +9,42 @@ from config import settings
 from errors import AgentServiceError, ErrorCode, ErrorResponse
 from prompts.loader import load_protocol_prompt
 from providers.ollama_provider import OllamaProvider
-from routers import health
+from routers import health, label
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Store config so routers can access it via request.app.state.config.
     app.state.config = settings
+
+    # Single LLM provider instance shared across all requests.
+    # In production this points at the local Ollama server.
+    # Tests replace this with FakeProvider after startup.
     app.state.provider = OllamaProvider(
         base_url=settings.ollama_base_url,
         model=settings.ollama_model,
         temperature=settings.llm_temperature,
     )
+
+    # Load and hash versioned prompt files once at startup.
+    # If a file is missing this raises immediately — fail fast rather than
+    # serving requests with a broken prompt.
     app.state.prompts = {
         "labeler_v1": load_protocol_prompt("labeler_v1"),
         "answerer_v1": load_protocol_prompt("answerer_v1"),
     }
+
     yield
 
 
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(health.router)
+app.include_router(label.router)
 
 
+# All AgentServiceError exceptions are caught here and returned as structured JSON.
+# Stack traces are never exposed — only the error code and a human-readable detail.
 @app.exception_handler(AgentServiceError)
 async def agent_service_error_handler(
     request: Request, exc: AgentServiceError
@@ -42,6 +55,8 @@ async def agent_service_error_handler(
     )
 
 
+# FastAPI raises RequestValidationError when the request body fails Pydantic validation.
+# We map it to INVALID_REQUEST so the client gets a consistent error shape.
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(
     request: Request, exc: RequestValidationError
@@ -55,6 +70,8 @@ async def validation_error_handler(
     )
 
 
+# Catches 404 (unknown route) and other Starlette HTTP errors.
+# Returns the same structured error shape as everything else.
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(
     request: Request, exc: StarletteHTTPException

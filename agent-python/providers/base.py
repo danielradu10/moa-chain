@@ -5,8 +5,12 @@ from pydantic import BaseModel
 T = TypeVar("T", bound=BaseModel)
 
 
+# LLMProvider is a structural Protocol — any class that implements these three
+# methods is a valid provider, without needing to inherit from this class.
+# This allows OllamaProvider and FakeProvider to be swapped transparently.
 @runtime_checkable
 class LLMProvider(Protocol):
+
     async def structured_chat(
         self,
         system_prompt: str,
@@ -16,6 +20,7 @@ class LLMProvider(Protocol):
     ) -> T:
         """Call the LLM and parse the response into response_schema.
 
+        Used by /label and /answer where the Python side owns the output schema.
         Raises AgentServiceError on timeout, provider error, invalid JSON,
         or schema mismatch.
         """

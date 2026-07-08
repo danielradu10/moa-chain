@@ -8,7 +8,13 @@ class HealthResponse(BaseModel):
     status: str
     provider: str
     model: str
+
+    # False if Ollama is not running or unreachable — does not cause a non-200 response,
+    # just signals to the caller that LLM calls will fail until Ollama is up.
     reachable: bool
+
+    # Prompt version strings returned so Go can verify the service is running
+    # the expected prompt versions before sending real requests.
     prompt_versions: dict[str, str]
     prompt_hashes: dict[str, str]
 
@@ -17,8 +23,10 @@ class HealthResponse(BaseModel):
 async def health(request: Request) -> HealthResponse:
     cfg = request.app.state.config
     provider = request.app.state.provider
-    reachable = await provider.ping()
     prompts = request.app.state.prompts
+
+    reachable = await provider.ping()
+
     return HealthResponse(
         status="ok",
         provider=cfg.llm_provider,

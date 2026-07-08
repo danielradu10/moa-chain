@@ -217,6 +217,31 @@ request: [tx_A, tx_B, tx_C, tx_D]  (MAX_CONCURRENCY=2)
 response: [tx_A, tx_B, tx_C, tx_D]  (always input order)
 ```
 
+## How Ollama Works
+
+Ollama is a local model runtime that exposes a REST API (`http://127.0.0.1:11434`
+by default). It is a separate process that owns the model weights and the GPU/CPU
+context — the Python service is just an HTTP client to it.
+
+```
+Python service  →  POST /api/chat  →  Ollama server  →  model weights (local disk/RAM)
+```
+
+The only time Ollama contacts the internet is during `ollama pull`, which downloads
+model weights from Ollama's registry to your local disk (similar to `docker pull`).
+After that the server runs fully offline — no external calls at runtime.
+
+When the first request arrives Ollama loads the model into memory and keeps it warm
+between requests. This is why it runs as a server rather than being embedded directly
+in the Python process: a 7B model takes several gigabytes of VRAM and a few seconds
+to load. A shared server loads it once and serves any number of clients, instead of
+each process loading it independently and exhausting memory.
+
+In production each physical validator node runs its own Ollama instance alongside its
+own Python service. Validators call their local Ollama independently, which is the
+whole point: each validator generates labels, answers, and classification votes without
+sharing a model or inference state with any other validator.
+
 ## Running Locally
 
 ```bash
