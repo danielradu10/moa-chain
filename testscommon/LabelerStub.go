@@ -5,6 +5,8 @@ import (
 	"moa-chain/data"
 )
 
+// LabelerStub implements both agent.Agent and agent.BatchAgent.
+// Tests configure responses via the map fields or the *Called hook functions.
 type LabelerStub struct {
 	Err                error
 	AnswerErr          error
@@ -13,6 +15,8 @@ type LabelerStub struct {
 	LabelCalled        func(tx data.Transaction) ([]string, error)
 	AnswerCalled       func(tx data.Transaction) (string, error)
 	JudgeAnswersCalled func(request agent.AnswerJudgeRequest) (string, error)
+	LabelBatchCalled   func(txs []data.Transaction) ([]agent.LabelResult, error)
+	AnswerBatchCalled  func(txs []data.Transaction) ([]agent.AnswerResult, error)
 }
 
 func (tl *LabelerStub) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
@@ -55,4 +59,46 @@ func (tl *LabelerStub) Answer(tx data.Transaction) (string, error) {
 	}
 
 	return answer, nil
+}
+
+// LabelBatch implements agent.BatchAgent. Delegates to LabelBatchCalled if set,
+// otherwise falls back to calling Label per transaction (uses existing map/hook).
+func (tl *LabelerStub) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error) {
+	if tl.LabelBatchCalled != nil {
+		return tl.LabelBatchCalled(txs)
+	}
+
+	results := make([]agent.LabelResult, 0, len(txs))
+	for _, tx := range txs {
+		labels, err := tl.Label(tx)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, agent.LabelResult{
+			TxHash: tx.GetTxHash(),
+			Labels: labels,
+		})
+	}
+	return results, nil
+}
+
+// AnswerBatch implements agent.BatchAgent. Delegates to AnswerBatchCalled if set,
+// otherwise falls back to calling Answer per transaction (uses existing map/hook).
+func (tl *LabelerStub) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, error) {
+	if tl.AnswerBatchCalled != nil {
+		return tl.AnswerBatchCalled(txs)
+	}
+
+	results := make([]agent.AnswerResult, 0, len(txs))
+	for _, tx := range txs {
+		answer, err := tl.Answer(tx)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, agent.AnswerResult{
+			TxHash: tx.GetTxHash(),
+			Answer: answer,
+		})
+	}
+	return results, nil
 }
