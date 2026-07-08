@@ -85,7 +85,7 @@ func createNode(
 	inboxes []chan data.RoundEvent,
 	myInbox chan data.RoundEvent,
 	transactions []data.Transaction,
-	labeler agent.Agent,
+	batchAgent agent.BatchAgent,
 ) *integrationTestNode {
 	peersRegistry := broadcast.NewPeerRegistry()
 	for i, validator := range registeredValidators {
@@ -100,7 +100,7 @@ func createNode(
 		registeredValidators,
 		myInbox,
 		transactions,
-		labeler,
+		batchAgent,
 		broadcast.NewBroadcaster(peersRegistry),
 	)
 }
@@ -114,7 +114,7 @@ func createNodeWithBroadcaster(
 	registeredValidators []*validators.Validator,
 	myInbox chan data.RoundEvent,
 	transactions []data.Transaction,
-	labeler agent.Agent,
+	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
 ) *integrationTestNode {
 	t.Helper()
@@ -150,7 +150,7 @@ func createNodeWithBroadcaster(
 		validatorsRegistry,
 		myInbox,
 		finalizer,
-		labeler,
+		batchAgent,
 		broadcaster,
 		roundState,
 		logger,
@@ -185,7 +185,7 @@ func createRoundLoop(
 	validatorRegistry validators.ValidatorRegistry,
 	inbox chan data.RoundEvent,
 	blockFinalizer blockFinalizer.BlockFinalizer,
-	labeler agent.Agent,
+	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
 	roundState state.RoundState,
 	logger *slog.Logger,
@@ -199,7 +199,7 @@ func createRoundLoop(
 		CurrentEpochValue:       currentHeader.Epoch,
 	}
 
-	protocolAgent := integrationProtocolAgent{delegate: labeler}
+	protocolAgent := integrationProtocolAgent{delegate: batchAgent}
 	base := createBlockBase(txPool, blockchainStateStub, protocolAgent, logger)
 	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
 		MyID:              nodeID,
@@ -251,20 +251,26 @@ func createRoundLoop(
 // integrationProtocolAgent supplies deterministic non-empty answers and judge
 // output so integration tests exercise the complete classification protocol.
 type integrationProtocolAgent struct {
-	delegate agent.Agent
+	delegate agent.BatchAgent
 }
 
-func (testAgent integrationProtocolAgent) Label(tx data.Transaction) ([]string, error) {
-	return testAgent.delegate.Label(tx)
+func (testAgent integrationProtocolAgent) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error) {
+	return testAgent.delegate.LabelBatch(txs)
 }
 
-func (testAgent integrationProtocolAgent) Answer(tx data.Transaction) (string, error) {
-	answer, err := testAgent.delegate.Answer(tx)
-	if err != nil || answer != "" {
-		return answer, err
+func (testAgent integrationProtocolAgent) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, error) {
+	results, err := testAgent.delegate.AnswerBatch(txs)
+	if err != nil {
+		return nil, err
 	}
 
-	return "integration answer for " + string(tx.GetTxHash()), nil
+	for i, r := range results {
+		if r.Answer == "" {
+			results[i].Answer = "integration answer for " + string(r.TxHash)
+		}
+	}
+
+	return results, nil
 }
 
 func (testAgent integrationProtocolAgent) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
@@ -303,7 +309,7 @@ func (testAgent integrationProtocolAgent) JudgeTransactionAnswers(request agent.
 func createBlockBase(
 	mempool mempool.Mempool,
 	blockchainState state.BlockchainState,
-	labelerCalled agent.Agent,
+	batchAgent agent.BatchAgent,
 	logger *slog.Logger,
 ) blockprocessing.Base {
 	aliceAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
@@ -345,7 +351,7 @@ func createBlockBase(
 	return blockprocessing.Base{
 		AccountsSnapshotFactory: &accountSnapshotFactoryMock,
 		BlockchainState:         blockchainState,
-		Agent:                   labelerCalled,
+		BatchAgent:              batchAgent,
 		AccountState:            accountStateStub,
 		Mempool:                 mempool,
 		Logger:                  logger,

@@ -341,8 +341,25 @@ Implements `BatchAgent`. Configuration:
 type Config struct {
     BaseURL        string
     TimeoutSeconds int
+    // Defense-in-depth: checked against the returned prompt_version / prompt_hash
+    // in every /label and /answer response. Empty strings skip the check.
+    LabelPromptVersion  string
+    LabelPromptHash     string
+    AnswerPromptVersion string
+    AnswerPromptHash    string
 }
 ```
+
+Node-level defaults (overridable via env vars or config file):
+
+| Go field | Default | Description |
+|---|---|---|
+| `Agent.BaseURL` | `http://127.0.0.1:8081` | Python service address |
+| `Agent.TimeoutSeconds` | `60` | Per-request HTTP timeout |
+| `Agent.LabelPromptVersion` | `labeler_v1` | Expected label prompt version |
+| `Agent.AnswerPromptVersion` | `answerer_v1` | Expected answer prompt version |
+| `Agent.LabelPromptHash` | _(empty)_ | Pin to skip version drift in production |
+| `Agent.AnswerPromptHash` | _(empty)_ | Pin to skip version drift in production |
 
 - `LabelBatch` → `POST /label` with all transactions; parses label list per tx
 - `AnswerBatch` → `POST /answer` with all transactions; parses answer string per tx

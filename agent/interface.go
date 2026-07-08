@@ -16,13 +16,6 @@ type AnswersJudge interface {
 	JudgeTransactionAnswers(request AnswerJudgeRequest) (string, error)
 }
 
-// Agent defines what an agent should do
-type Agent interface {
-	AnswersJudge
-	Label(tx data.Transaction) ([]string, error)
-	Answer(tx data.Transaction) (string, error)
-}
-
 // LabelResult holds the labeling output for a single transaction.
 type LabelResult struct {
 	TxHash []byte
