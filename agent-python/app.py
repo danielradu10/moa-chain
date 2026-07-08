@@ -9,7 +9,7 @@ from config import settings
 from errors import AgentServiceError, ErrorCode, ErrorResponse
 from prompts.loader import load_protocol_prompt
 from providers.ollama_provider import OllamaProvider
-from routers import answer, health, label
+from routers import answer, health, judge, label
 
 
 @asynccontextmanager
@@ -42,6 +42,7 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(health.router)
 app.include_router(label.router)
 app.include_router(answer.router)
+app.include_router(judge.router)
 
 
 # All AgentServiceError exceptions are caught here and returned as structured JSON.

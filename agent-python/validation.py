@@ -53,6 +53,47 @@ def check_confidence_range(confidence: float) -> None:
         )
 
 
+def check_judge_response(response: str) -> None:
+    """Validate the raw judge response string returned by the LLM.
+
+    Python does the minimum validation needed to surface model errors early.
+    Go owns the full schema and parses the response itself after this check passes.
+    The expected structure is a JSON array of objects with 'category' and 'reason' fields.
+    """
+    import json
+
+    allowed_categories = {"Correct", "Hallucination", "Malicious", "Wrong"}
+
+    try:
+        data = json.loads(response)
+    except json.JSONDecodeError as exc:
+        raise AgentServiceError(
+            ErrorCode.INVALID_MODEL_OUTPUT,
+            f"judge response is not valid JSON: {exc}",
+        ) from exc
+
+    if not isinstance(data, list):
+        raise AgentServiceError(
+            ErrorCode.INVALID_MODEL_OUTPUT,
+            "judge response must be a JSON array",
+        )
+
+    for item in data:
+        category = item.get("category", "")
+        if category not in allowed_categories:
+            raise AgentServiceError(
+                ErrorCode.UNKNOWN_CATEGORY,
+                f"category '{category}' not in allowed set {sorted(allowed_categories)}",
+            )
+
+        reason = item.get("reason", "")
+        if not reason.strip():
+            raise AgentServiceError(
+                ErrorCode.EMPTY_ANSWER,
+                "reason is empty or whitespace-only",
+            )
+
+
 def check_non_empty(value: str, field: str) -> None:
     """Ensure a string field is non-empty after stripping whitespace.
 

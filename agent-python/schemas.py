@@ -57,3 +57,17 @@ class AnswerResponse(BaseModel):
     prompt_version: str  # loaded version, returned so Go can verify
     prompt_hash: str     # SHA-256 hex of the prompt file, returned so Go can verify
     results: list[AnswerResult]
+
+
+# --- /judge schemas ---
+
+class JudgeRequest(BaseModel):
+    # Both prompt strings are built entirely by Go — Python just forwards them to the LLM.
+    # Go owns the judge prompt version and hash; this endpoint has no prompt_version field.
+    system_prompt: str  # versioned judge system prompt constructed by Go
+    user_prompt: str    # anonymized candidate answers payload constructed by Go
+
+
+class JudgeResponse(BaseModel):
+    # Raw model output — Go parses and validates the structure itself.
+    response: str
