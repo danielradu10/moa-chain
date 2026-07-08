@@ -28,7 +28,7 @@ func (pe *promptExecutor) ExecutePromptTransaction(tx data.Transaction) (*data.T
 		return nil, err
 	}
 
-	consumption, err := calculateNumTokensFromPrompt(answer)
+	consumption, err := CountTokensFromAnswer(answer)
 	if err != nil {
 		return nil, err
 	}

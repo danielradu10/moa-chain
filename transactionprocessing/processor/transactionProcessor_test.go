@@ -384,7 +384,7 @@ func TestPromptExecutor_ExecutePromptTransaction(t *testing.T) {
 		promptExecutor, err := NewPromptExecutor(labeler)
 		require.NoError(t, err)
 
-		expectedConsumption, err := calculateNumTokensFromPrompt(answer)
+		expectedConsumption, err := CountTokensFromAnswer(answer)
 		require.NoError(t, err)
 
 		result, err := promptExecutor.ExecutePromptTransaction(tx)
