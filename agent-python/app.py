@@ -7,6 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import settings
 from errors import AgentServiceError, ErrorCode, ErrorResponse
+from prompts.loader import load_protocol_prompt
 from providers.ollama_provider import OllamaProvider
 from routers import health
 
@@ -19,7 +20,10 @@ async def lifespan(app: FastAPI):
         model=settings.ollama_model,
         temperature=settings.llm_temperature,
     )
-    # PR 3: load and hash protocol prompt files here
+    app.state.prompts = {
+        "labeler_v1": load_protocol_prompt("labeler_v1"),
+        "answerer_v1": load_protocol_prompt("answerer_v1"),
+    }
     yield
 
 
