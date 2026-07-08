@@ -8,9 +8,7 @@ import (
 type TxProcessorStub struct {
 	ProcessTransactionCalled           func(tx data.Transaction, miniRound data.MiniRound) (uint64, error)
 	ValidateTransactionsOrderingCalled func(previousTransaction data.Transaction, currentTransaction data.Transaction) error
-	LabelTransactionCalled             func(tx data.Transaction) ([]string, error)
 	SelectTransactionsCalled           func() []data.Transaction
-	ExecutePromptTransactionCalled     func(tx data.Transaction) (*data.TransactionResult, error)
 	Called                             bool
 }
 
@@ -34,15 +32,6 @@ func (tps *TxProcessorStub) ValidateTransactionsOrdering(previousTransaction dat
 	return nil
 }
 
-// LabelTransaction -
-func (tps *TxProcessorStub) LabelTransaction(tx data.Transaction) ([]string, error) {
-	if tps.LabelTransactionCalled != nil {
-		return tps.LabelTransactionCalled(tx)
-	}
-
-	return nil, nil
-}
-
 // SelectTransactions -
 func (tps *TxProcessorStub) SelectTransactions() []data.Transaction {
 	if tps.SelectTransactionsCalled != nil {
@@ -50,15 +39,4 @@ func (tps *TxProcessorStub) SelectTransactions() []data.Transaction {
 	}
 
 	return nil
-}
-
-// ExecutePromptTransaction -
-func (tps *TxProcessorStub) ExecutePromptTransaction(tx data.Transaction) (*data.TransactionResult, error) {
-	if tps.ExecutePromptTransactionCalled != nil {
-		return tps.ExecutePromptTransactionCalled(tx)
-	}
-
-	return &data.TransactionResult{
-		TxHash: tx.GetTxHash(),
-	}, nil
 }

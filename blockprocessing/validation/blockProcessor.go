@@ -67,7 +67,6 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, data.Subdoma
 	txProcessor, err := processor.NewTxProcessor(
 		snapshot,
 		bp.AccountState,
-		bp.Agent,
 		bp.Mempool,
 	)
 	if err != nil {
@@ -210,7 +209,7 @@ func (bp *blockProcessor) validateHashContinuity(
 }
 
 func (bp *blockProcessor) validateAndExecuteBlockBody(blockBody *data.BlockBody, transactionProcessor transactionprocessing.TxProcessor) (data.Subdomains, error) {
-	executor := blockprocessing.NewBodyExecutor(bp.Logger)
+	executor := blockprocessing.NewBodyExecutor(bp.BatchAgent, bp.Logger)
 	execResult, err := executor.ExecuteBlockBodyMiniRoundOne(blockBody, transactionProcessor)
 	if err != nil {
 		return nil, err
@@ -233,12 +232,6 @@ func (bp *blockProcessor) ExecuteBlockPrompts(block *data.BlockBody) (*data.Bloc
 		bp.Logger = logging.NewNopLogger()
 	}
 
-	executor := blockprocessing.NewBodyExecutor(bp.Logger)
-	promptExecutor, err := processor.NewPromptExecutor(bp.Agent)
-	if err != nil {
-		bp.Logger.Error("blockProcessor.ExecuteBlockPrompts", "err", err.Error())
-		return nil, err
-	}
-
-	return executor.ExecuteBlockBodyMiniRoundTwo(block, promptExecutor)
+	executor := blockprocessing.NewBodyExecutor(bp.BatchAgent, bp.Logger)
+	return executor.ExecuteBlockBodyMiniRoundTwo(block)
 }

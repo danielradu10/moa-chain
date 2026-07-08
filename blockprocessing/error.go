@@ -40,9 +40,6 @@ var ErrDuplicatedTransaction = errors.New("duplicated transaction")
 // ErrNilTransaction signals a nil transaction
 var ErrNilTransaction = errors.New("nil transaction")
 
-// ErrNilPromptExecutor signals a nil prompt executor.
-var ErrNilPromptExecutor = errors.New("nil prompt executor")
-
 // ErrTxHashMismatch signals a transaction mismatch.
 var ErrTxHashMismatch = errors.New("tx hash mismatch")
 

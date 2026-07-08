@@ -15,7 +15,7 @@ import (
 
 var errScenarioJudgeExecution = errors.New("scenario judge execution failed")
 
-func createScenarioAgent(t *testing.T, scenario miniRoundTwoScenario, role string) agent.Agent {
+func createScenarioAgent(t *testing.T, scenario miniRoundTwoScenario, role string) agent.BatchAgent {
 	t.Helper()
 
 	labelsByTxHash := make(map[string][]string, len(scenario.Transactions))
@@ -25,9 +25,27 @@ func createScenarioAgent(t *testing.T, scenario miniRoundTwoScenario, role strin
 
 	executor := scenarioExecutorForRole(t, scenario.Executors, role)
 	judge := scenarioJudgeForRole(t, scenario.Judges, role)
+	answers := executor.Answers
+
 	return &testscommon.LabelerStub{
-		LabelsByTxHash:  labelsByTxHash,
-		AnswersByTxHash: executor.Answers,
+		LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
+			results := make([]agent.LabelResult, 0, len(txs))
+			for _, tx := range txs {
+				labels := copyStringSlice(labelsByTxHash[string(tx.GetTxHash())])
+				results = append(results, agent.LabelResult{TxHash: tx.GetTxHash(), Labels: labels})
+			}
+			return results, nil
+		},
+		AnswerBatchCalled: func(txs []data.Transaction) ([]agent.AnswerResult, error) {
+			results := make([]agent.AnswerResult, 0, len(txs))
+			for _, tx := range txs {
+				results = append(results, agent.AnswerResult{
+					TxHash: tx.GetTxHash(),
+					Answer: answers[string(tx.GetTxHash())],
+				})
+			}
+			return results, nil
+		},
 		JudgeAnswersCalled: func(request agent.AnswerJudgeRequest) (string, error) {
 			return executeScenarioJudge(request, judge)
 		},

@@ -248,16 +248,18 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 	transactions := createTransactions()
 
 	labelerStub := &testscommon.LabelerStub{
-		LabelCalled: func(tx data.Transaction) ([]string, error) {
-			labels := tx.GetDomainLabels()
-			if len(labels) == 0 {
-				return nil, errors.New("transaction has no precomputed labels")
+		LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
+			results := make([]agent.LabelResult, 0, len(txs))
+			for _, tx := range txs {
+				labels := tx.GetDomainLabels()
+				if len(labels) == 0 {
+					return nil, errors.New("transaction has no precomputed labels")
+				}
+				copiedLabels := make([]string, len(labels))
+				copy(copiedLabels, labels)
+				results = append(results, agent.LabelResult{TxHash: tx.GetTxHash(), Labels: copiedLabels})
 			}
-
-			copiedLabels := make([]string, len(labels))
-			copy(copiedLabels, labels)
-
-			return copiedLabels, nil
+			return results, nil
 		},
 	}
 
@@ -712,28 +714,30 @@ func loadAgentLabelsFixture(t *testing.T, path string) agentLabelsByTxHash {
 	}
 }
 
-func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Agent {
+func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.BatchAgent {
 	return &testscommon.LabelerStub{
-		LabelCalled: func(tx data.Transaction) ([]string, error) {
-			txHash := string(tx.GetTxHash())
+		LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
+			results := make([]agent.LabelResult, 0, len(txs))
+			for _, tx := range txs {
+				txHash := string(tx.GetTxHash())
 
-			labels, ok := agentLabels.labelsByTxHash[txHash]
-			if !ok {
-				return nil, fmt.Errorf("agent %s has no labels for txHash %s", agentLabels.agent, txHash)
+				labels, ok := agentLabels.labelsByTxHash[txHash]
+				if !ok {
+					return nil, fmt.Errorf("agent %s has no labels for txHash %s", agentLabels.agent, txHash)
+				}
+
+				if len(labels) != 6 {
+					return nil, fmt.Errorf(
+						"agent %s has invalid labels count for txHash %s: got %d, expected 6",
+						agentLabels.agent,
+						txHash,
+						len(labels),
+					)
+				}
+
+				results = append(results, agent.LabelResult{TxHash: tx.GetTxHash(), Labels: copyStringSlice(labels)})
 			}
-
-			if len(labels) != 6 {
-				return nil, fmt.Errorf(
-					"agent %s has invalid labels count for txHash %s: got %d, expected 6",
-					agentLabels.agent,
-					txHash,
-					len(labels),
-				)
-			}
-
-			copiedLabels := copyStringSlice(labels)
-
-			return copiedLabels, nil
+			return results, nil
 		},
 	}
 }

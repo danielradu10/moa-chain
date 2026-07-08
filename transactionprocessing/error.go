@@ -36,6 +36,3 @@ var ErrLabelIsNotValid = errors.New("label is not valid")
 
 // ErrTxsDoNotRespectProtocolOrder signals that the proposed tx do not respect protcol order
 var ErrTxsDoNotRespectProtocolOrder = errors.New("txs do not respect protocol order")
-
-// ErrNilAgent signals a nil agent.
-var ErrNilAgent = errors.New("nil agent")

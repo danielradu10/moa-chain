@@ -11,187 +11,16 @@ import (
 	"moa-chain/testscommon"
 )
 
-func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
+func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne(t *testing.T) {
 	t.Parallel()
 
-	t.Run("should execute prompts and return transaction results", func(t *testing.T) {
-		t.Parallel()
-
-		tx1 := createBodyExecutorTestTransaction("txHash1")
-		tx2 := createBodyExecutorTestTransaction("txHash2")
-		txProcessor := &testscommon.TxProcessorStub{
-			ExecutePromptTransactionCalled: func(tx data.Transaction) (*data.TransactionResult, error) {
-				switch string(tx.GetTxHash()) {
-				case "txHash1":
-					return createTransactionResult(tx, "answer one", 3), nil
-				case "txHash2":
-					return createTransactionResult(tx, "answer two", 5), nil
-				default:
-					return createTransactionResult(tx, "unknown answer", 0), nil
-				}
-			},
-		}
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
-			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
-			txProcessor,
-		)
-
-		require.NoError(t, err)
-		require.Equal(t, uint64(8), result.TotalConsumption)
-		require.NotEmpty(t, result.BlockHash)
-		require.Equal(t, []data.TransactionResult{
-			{
-				TxHash:            []byte("txHash1"),
-				Answer:            "answer one",
-				ActualConsumption: 3,
-			},
-			{
-				TxHash:            []byte("txHash2"),
-				Answer:            "answer two",
-				ActualConsumption: 5,
-			},
-		}, result.TxsResults)
-	})
-
-	t.Run("should return execution error", func(t *testing.T) {
-		t.Parallel()
-
-		expectedErr := errors.New("prompt execution error")
-		tx := createBodyExecutorTestTransaction("txHash1")
-		txProcessor := &testscommon.TxProcessorStub{
-			ExecutePromptTransactionCalled: func(tx data.Transaction) (*data.TransactionResult, error) {
-				return nil, expectedErr
-			},
-		}
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
-			&data.BlockBody{Transactions: []data.Transaction{tx}},
-			txProcessor,
-		)
-
-		require.Nil(t, result)
-		require.Equal(t, expectedErr, err)
-	})
-
-	t.Run("should use safe default transaction processor stub result", func(t *testing.T) {
-		t.Parallel()
-
-		tx := createBodyExecutorTestTransaction("txHash1")
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
-			&data.BlockBody{Transactions: []data.Transaction{tx}},
-			&testscommon.TxProcessorStub{},
-		)
-
-		require.NoError(t, err)
-		require.Equal(t, uint64(0), result.TotalConsumption)
-		require.NotEmpty(t, result.BlockHash)
-		require.Equal(t, []data.TransactionResult{
-			{
-				TxHash: []byte("txHash1"),
-			},
-		}, result.TxsResults)
-	})
-
-	t.Run("should return ErrNilBlock when block body is nil", func(t *testing.T) {
-		t.Parallel()
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(nil, &testscommon.TxProcessorStub{})
-
-		require.Nil(t, result)
-		require.Equal(t, ErrNilBlock, err)
-	})
-
-	t.Run("should return ErrNilPromptExecutor when prompt executor is nil", func(t *testing.T) {
-		t.Parallel()
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(&data.BlockBody{}, nil)
-
-		require.Nil(t, result)
-		require.Equal(t, ErrNilPromptExecutor, err)
-	})
-
-	t.Run("should return ErrNilTransaction when block contains nil transaction", func(t *testing.T) {
-		t.Parallel()
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
-			&data.BlockBody{Transactions: []data.Transaction{nil}},
-			&testscommon.TxProcessorStub{},
-		)
-
-		require.Nil(t, result)
-		require.Equal(t, ErrNilTransaction, err)
-	})
-
-	t.Run("should return ErrDuplicatedTransaction when block contains duplicate transaction hashes", func(t *testing.T) {
-		t.Parallel()
-
-		tx1 := createBodyExecutorTestTransaction("txHash1")
-		tx2 := createBodyExecutorTestTransaction("txHash1")
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
-			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
-			&testscommon.TxProcessorStub{},
-		)
-
-		require.Nil(t, result)
-		require.Equal(t, ErrDuplicatedTransaction, err)
-	})
-
-	t.Run("should return ErrNilTransactionResult when prompt executor returns nil result", func(t *testing.T) {
-		t.Parallel()
-
-		tx := createBodyExecutorTestTransaction("txHash1")
-		txProcessor := &testscommon.TxProcessorStub{
-			ExecutePromptTransactionCalled: func(tx data.Transaction) (*data.TransactionResult, error) {
-				return nil, nil
-			},
-		}
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
-			&data.BlockBody{Transactions: []data.Transaction{tx}},
-			txProcessor,
-		)
-
-		require.Nil(t, result)
-		require.Equal(t, ErrNilTransactionResult, err)
-	})
-
-	t.Run("should return ErrTxHashMismatch when prompt result has different transaction hash", func(t *testing.T) {
-		t.Parallel()
-
-		tx := createBodyExecutorTestTransaction("txHash1")
-		txProcessor := &testscommon.TxProcessorStub{
-			ExecutePromptTransactionCalled: func(tx data.Transaction) (*data.TransactionResult, error) {
-				return &data.TransactionResult{
-					TxHash: []byte("differentTxHash"),
-				}, nil
-			},
-		}
-
-		result, err := NewBodyExecutor().ExecuteBlockBodyMiniRoundTwo(
-			&data.BlockBody{Transactions: []data.Transaction{tx}},
-			txProcessor,
-		)
-
-		require.Nil(t, result)
-		require.Equal(t, ErrTxHashMismatch, err)
-	})
-}
-
-func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne_WithBatchAgent(t *testing.T) {
-	t.Parallel()
-
-	t.Run("should call LabelBatch instead of per-tx LabelTransaction", func(t *testing.T) {
+	t.Run("should call LabelBatch", func(t *testing.T) {
 		t.Parallel()
 
 		tx1 := createBodyExecutorTestTransaction("txHash1")
 		tx2 := createBodyExecutorTestTransaction("txHash2")
 
 		labelBatchCalled := false
-		perTxLabelCalled := false
-
 		batchAgent := &testscommon.LabelerStub{
 			LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
 				labelBatchCalled = true
@@ -201,21 +30,14 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne_WithBatchAgent(t *testing.T) 
 				}, nil
 			},
 		}
-		txProcessor := &testscommon.TxProcessorStub{
-			LabelTransactionCalled: func(tx data.Transaction) ([]string, error) {
-				perTxLabelCalled = true
-				return nil, nil
-			},
-		}
 
-		result, err := NewBodyExecutorWithBatchAgent(batchAgent).ExecuteBlockBodyMiniRoundOne(
+		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundOne(
 			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
-			txProcessor,
+			&testscommon.TxProcessorStub{},
 		)
 
 		require.NoError(t, err)
 		require.True(t, labelBatchCalled)
-		require.False(t, perTxLabelCalled)
 		require.Equal(t, []string{"databases"}, result.Subdomains["txHash1"])
 		require.Equal(t, []string{"security", "back_end"}, result.Subdomains["txHash2"])
 	})
@@ -231,7 +53,7 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne_WithBatchAgent(t *testing.T) 
 			},
 		}
 
-		result, err := NewBodyExecutorWithBatchAgent(batchAgent).ExecuteBlockBodyMiniRoundOne(
+		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundOne(
 			&data.BlockBody{Transactions: []data.Transaction{tx}},
 			&testscommon.TxProcessorStub{},
 		)
@@ -258,7 +80,7 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne_WithBatchAgent(t *testing.T) 
 			},
 		}
 
-		result, err := NewBodyExecutorWithBatchAgent(batchAgent).ExecuteBlockBodyMiniRoundOne(
+		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundOne(
 			&data.BlockBody{Transactions: []data.Transaction{tx}},
 			txProcessor,
 		)
@@ -269,7 +91,7 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne_WithBatchAgent(t *testing.T) 
 	})
 }
 
-func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo_WithBatchAgent(t *testing.T) {
+func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
 	t.Parallel()
 
 	t.Run("should call AnswerBatch and compute token consumption", func(t *testing.T) {
@@ -287,10 +109,8 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo_WithBatchAgent(t *testing.T) 
 			},
 		}
 
-		// promptExecutor is nil — the batch path does not require it.
-		result, err := NewBodyExecutorWithBatchAgent(batchAgent).ExecuteBlockBodyMiniRoundTwo(
+		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundTwo(
 			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
-			nil,
 		)
 
 		require.NoError(t, err)
@@ -315,9 +135,8 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo_WithBatchAgent(t *testing.T) 
 			},
 		}
 
-		result, err := NewBodyExecutorWithBatchAgent(batchAgent).ExecuteBlockBodyMiniRoundTwo(
+		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundTwo(
 			&data.BlockBody{Transactions: []data.Transaction{tx}},
-			nil,
 		)
 
 		require.Nil(t, result)
@@ -327,7 +146,7 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo_WithBatchAgent(t *testing.T) 
 	t.Run("should return ErrNilBlock when block body is nil", func(t *testing.T) {
 		t.Parallel()
 
-		result, err := NewBodyExecutorWithBatchAgent(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(nil, nil)
+		result, err := NewBodyExecutor(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(nil)
 
 		require.Nil(t, result)
 		require.Equal(t, ErrNilBlock, err)
@@ -336,9 +155,8 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo_WithBatchAgent(t *testing.T) 
 	t.Run("should return ErrNilTransaction when block contains nil transaction", func(t *testing.T) {
 		t.Parallel()
 
-		result, err := NewBodyExecutorWithBatchAgent(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(
+		result, err := NewBodyExecutor(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(
 			&data.BlockBody{Transactions: []data.Transaction{nil}},
-			nil,
 		)
 
 		require.Nil(t, result)
@@ -351,9 +169,8 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo_WithBatchAgent(t *testing.T) 
 		tx1 := createBodyExecutorTestTransaction("txHash1")
 		tx2 := createBodyExecutorTestTransaction("txHash1")
 
-		result, err := NewBodyExecutorWithBatchAgent(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(
+		result, err := NewBodyExecutor(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(
 			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
-			nil,
 		)
 
 		require.Nil(t, result)
