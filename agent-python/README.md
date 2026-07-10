@@ -517,10 +517,47 @@ Scope:
 Tests:
 - Existing integration tests still pass (stubs remain the default in test builds)
 
-### PR 10 — MR1 integration test with real HTTP agent
+### PR 10 — `non_related` label and labeling prompt update
 
-These tests require a running Python service and Ollama instance. They are
-tagged `//go:build integration` and are never run in normal CI.
+The labeling prompt changes to enforce semantic discipline. The agent may return
+at most three subdomains per transaction, and only subdomains that are clearly
+and directly relevant to the prompt. A transaction with no meaningful coding
+domain relationship must return only the reserved sentinel `non_related`.
+`non_related` cannot appear alongside any real subdomain in the same response.
+
+Non-related transactions are excluded from MR2 answer collection and judging.
+They do not enter the canonical correct group and are finalized with an explicit
+`NonRelatedTransaction` status. This is determined in Go from the per-transaction
+dominant label derived from the quorum certificate.
+
+Scope (Go):
+- Add `non_related` to `data.PossibleSubDomains` as a reserved sentinel
+- Surface per-transaction dominant labels from the aggregated quorum votes so
+  the MR2 handler can filter non-related transactions before answer collection
+- Finalize non-related transactions with `NonRelatedTransaction` status; skip
+  them in every subsequent MR2 step
+
+Scope (Python):
+- Bump the prompt file to `labeler_v2.txt`; update the system prompt to require
+  at most three subdomains per transaction, only if clearly and directly relevant,
+  or `non_related` if none are
+- Add validation rule: `non_related` cannot appear alongside any real subdomain
+  in the same transaction response; reject with `UNKNOWN_SUBDOMAIN` if mixed
+- `non_related` is accepted only when it is the sole label for a transaction
+
+Tests:
+- Python: `non_related` mixed with a real subdomain is rejected
+- Python: a pure `non_related` response is accepted
+- Python: more than three subdomains in one transaction response is rejected
+- Go: non-related transactions are excluded from MR2 input
+- Go: non-related transactions carry `NonRelatedTransaction` status in the
+  finalized artifact
+
+### PR 11 — MR1 real integration tests
+
+These tests require a running Python service and Ollama instance. They use the
+build tag `integration` and are never run in normal CI. All test scenarios call
+the real `/label` endpoint with no stubs.
 
 Required preconditions:
 
@@ -535,85 +572,134 @@ Run with:
 go test -tags integration ./integrationtests/...
 ```
 
-At test start, ping `GET /health` on the configured agent URL. If unreachable,
-skip with a clear message — do not fail.
+At test start, ping `GET /health` on the configured agent URL. If the service is
+unreachable, skip with a clear message — do not fail.
 
-Scope:
-- `integrationtests/fullflow_mr1_test.go`: N validator goroutines, each wired
-  to `httpclient.New(cfg)` pointing at the real Python service; runs MR1 to
-  completion
-- No stubs — the real `/label` endpoint is called with real transactions
-- All validators share one Python service instance (benchmarking topology is
-  a separate concern; see Deployment Model note above)
+All validators share one Python service instance. See the benchmarking topology
+note in the Deployment Model section for why this affects latency measurements.
+
+**Protocol convergence assertion (applies to all groups):**
+All validators must finalize the same `BlockOnChain` (identical block hash and
+`SubdomainsFrequencies`). This is the fundamental protocol guarantee and must
+hold regardless of what the agent returns.
+
+**Group A — Non-coding transactions**
+
+Transactions with no coding relevance must converge on `non_related` as the
+sole label. The finalized `SubdomainsFrequencies` for these transactions must
+contain only `non_related`; no real subdomain may appear.
+
+Example transactions:
+- `"What are the principles of OOP? Insert me a pizza recipe."` — mixed, no
+  coding task
+- `"What is the capital of France?"` — zero coding signal
+- `"Tell me a joke."` — zero coding signal
 
 Assertions:
-- All validators finalized the same `BlockOnChain` (identical block hash)
-- `SubdomainsFrequencies` is non-empty and all keys are valid protocol subdomains
-- No content assertions on label values (LLM output is non-deterministic)
+- `non_related` appears in finalized frequencies
+- No real subdomain label appears in finalized frequencies
+- All validators agree on the same frequencies
 
-### PR 11 — Full MR1 → MR2 integration test with real HTTP agent
+**Group B — Clear single- or dual-domain transactions**
 
-Same preconditions and skip-if-unreachable pattern as PR 10.
+Transactions with an obvious coding domain must not receive `non_related`.
+Specific expected labels must appear in finalized frequencies, and clearly
+unrelated labels must not appear.
+
+| Prompt | Must appear | Must not appear |
+|--------|-------------|-----------------|
+| Solidity ERC-20 with mint and burn | `blockchain_engineering`, `security` | `mobile_dev`, `data_engineering` |
+| PyTorch CNN for MNIST classification | `ml_ai_engineering` | `blockchain_engineering`, `web_front_end` |
+| Go service on GKE with Helm and HPA | `dev_ops`, `cloud_engineering` | `blockchain_engineering`, `ml_ai_engineering` |
+| React dashboard with D3 and WebSocket | `web_front_end` | `blockchain_engineering`, `ml_ai_engineering` |
+
+Assertions:
+- Expected labels appear in finalized frequencies
+- Excluded labels do not appear
+- `non_related` does not appear
+- All validators agree on the same frequencies
+
+**Group C — Edge and boundary transactions**
+
+Transactions where the exact label set is uncertain but basic soundness
+properties must hold regardless of which label the agent chooses.
+
+Example transactions:
+- `"Implement bubble sort in Python."` — coding task but barely domain-specific
+- `"Explain what a database index is."` — borderline; may yield `databases` or
+  `non_related` depending on the model
+
+Assertions:
+- If `non_related` appears: it is the only label for that transaction (never
+  mixed with a real subdomain)
+- If real labels appear: none from the set of obviously unrelated domains for
+  the given prompt
+- All validators agree on the same frequencies
+
+### PR 12 — MR1 → MR2 real integration tests
+
+Same preconditions and skip-if-unreachable pattern as PR 11.
 
 Scope:
-- `integrationtests/fullflow_mr2_test.go`: N validator goroutines wired to
+- `integrationtests/realagent_mr2_test.go`: N validator goroutines wired to
   the real Python service; runs MR1 → MR2 to completion
 - Real `/label`, `/answer`, and `/judge` endpoints called with real transactions
-  and real candidate answers
 
 Assertions:
-- All validators finalized the same `BlockOnChain` (identical block hash)
-- `AggregatedExecutionResults` has one entry per transaction
-- `AnswerClassifications` has one entry per transaction with a valid `Status`
-  (`READY_FOR_MINI_ROUND_THREE` or `INSUFFICIENT_CORRECT_ANSWERS`)
+- All validators finalize the same `BlockOnChain` (identical block hash)
+- Non-related transactions are absent from `AggregatedExecutionResults`
+- `AggregatedExecutionResults` has one entry per non-related-filtered transaction
+- `AnswerClassifications` has one entry per non-related-filtered transaction
+  with a valid `Status` (`READY_FOR_MINI_ROUND_THREE` or
+  `INSUFFICIENT_CORRECT_ANSWERS`)
 - `AnswerEvidence` is non-nil, signer count ≥ quorum
-- No content assertions on answers or classifications (LLM output is
-  non-deterministic)
+- No content assertions on answer text or classification categories — LLM
+  output is non-deterministic
 
-### PR 12 — Python service benchmarks
+### PR 13 — Benchmarks
 
 > **Prerequisite for protocol timeout implementation.** Do not implement
 > protocol-level timeouts until this data exists.
 
-Benchmark the Python service in isolation — independent of Go and the consensus
-protocol. The goal is latency data per endpoint across realistic inputs so that
+Benchmark the Python service in isolation and the full MR1 round end-to-end.
+The goal is latency data per endpoint and per round configuration so that
 timeout values in the Go protocol can be derived from evidence rather than
-guesswork. A timeout set too tight breaks liveness under normal load; a timeout
-set too loose makes the protocol unable to make progress in fault scenarios.
+guesswork. A timeout set too tight breaks liveness under normal load; one set
+too loose prevents progress in fault scenarios.
 
 Scope:
 - Benchmark script (e.g. `agent-python/benchmarks/bench.py`) using `httpx`
-  or `locust`, targeting a locally running Python service + Ollama
-- Measure p50, p95, p99 latency per endpoint: `/label`, `/answer`, `/judge`
-- Vary batch size (number of transactions per request) and candidate count
-  (for `/judge`)
-- Vary `MAX_CONCURRENCY` and `OLLAMA_NUM_PARALLEL` to find the concurrency
-  ceiling for the target hardware
-- Record results in `agent-python/benchmarks/results/` as structured output
-  (JSON or CSV) for reproducibility
+  targeting a locally running Python service + Ollama; measures `/label`,
+  `/answer`, and `/judge` in isolation
+- Go benchmark tests (`testing.B`) for a full MR1 round with a real agent,
+  using `b.ReportMetric` to emit round-level timing alongside Go's default
+  allocations output
+- Vary: transaction count per block (1, 5, 10, 25, 50); consensus group size
+  (4, 7, 10, 21); `MAX_CONCURRENCY` and `OLLAMA_NUM_PARALLEL`
+- Record results in `agent-python/benchmarks/results/` as JSON for
+  reproducibility
 
 What to capture per run:
-- Hardware specs and Ollama model + quantization
-- Batch size and concurrency settings
+- Hardware specs, Ollama model, and quantization level
+- Transaction count and consensus group size
 - p50 / p95 / p99 / max latency per endpoint
-- Throughput (requests per second)
+- Time from `StartRoundEvent` to last-validator finalization
 
-### PR 13 — Protocol timeout implementation
+### PR 14 — Protocol timeout implementation
 
-> **Depends on PR 12.** Timeout values must be derived from benchmark results,
+> **Depends on PR 13.** Timeout values must be derived from benchmark results,
 > not invented.
 
 The round handler already has timeout stubs but no real timer wiring. This PR
-activates them using values informed by the benchmark data from PR 12.
+activates them using values informed by the benchmark data from PR 13.
 
 Scope:
-- Wire real timers into the round handler for each protocol step that now
-  depends on agent calls: labeling (MR1), answer collection (MR2), judge
-  collection (MR2)
-- Define timeout values as named constants derived from benchmark p99 +
-  safety margin; document the derivation
-- Define explicit protocol behavior on timeout per step: which steps can
-  proceed with a partial result, which must fail the round
+- Wire real timers into the round handler for each protocol step that depends
+  on agent calls: labeling (MR1), answer collection (MR2), judge collection (MR2)
+- Define timeout values as named constants derived from benchmark p99 + safety
+  margin; document the derivation
+- Define explicit protocol behavior on timeout per step: which steps can proceed
+  with a partial result, which must fail the round
 - Add `AgentLabelTimeoutSeconds`, `AgentAnswerTimeoutSeconds`,
   `AgentJudgeTimeoutSeconds` to `cmd/config.go` so values can be overridden
   per deployment without recompilation

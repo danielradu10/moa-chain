@@ -67,6 +67,6 @@ type judgeResponseJSON struct {
 // ── error response ───────────────────────────────────────────────────────────
 
 type pythonErrorResponse struct {
-	ErrorCode string `json:"error_code"`
-	Message   string `json:"message"`
+	ErrorCode string `json:"error"`
+	Message   string `json:"detail"`
 }
