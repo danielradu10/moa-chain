@@ -23,8 +23,8 @@ def _result(tx_hash: str, subdomain: str, confidence: float = 0.9) -> LabelResul
 
 
 VALID_REQUEST = {
-    "prompt_version": "labeler_v1",
-    "allowed_subdomains": ["databases", "security"],
+    "prompt_version": "labeler_v2",
+    "allowed_subdomains": ["databases", "security", "non_related"],
     "transactions": [{"tx_hash": "0xabc", "prompt": "Design a rate-limited API."}],
 }
 
@@ -35,7 +35,7 @@ def test_label_valid_single_transaction(label_client) -> None:
     resp = client.post("/label", json=VALID_REQUEST)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["prompt_version"] == "labeler_v1"
+    assert data["prompt_version"] == "labeler_v2"
     assert len(data["prompt_hash"]) == 64
     assert len(data["results"]) == 1
     assert data["results"][0]["tx_hash"] == "0xabc"
@@ -52,8 +52,8 @@ def test_label_valid_multiple_transactions(label_client) -> None:
     fake.structured_chat = per_tx
 
     resp = client.post("/label", json={
-        "prompt_version": "labeler_v1",
-        "allowed_subdomains": ["databases"],
+        "prompt_version": "labeler_v2",
+        "allowed_subdomains": ["databases", "non_related"],
         "transactions": [
             {"tx_hash": "0xaaa", "prompt": "Prompt A"},
             {"tx_hash": "0xbbb", "prompt": "Prompt B"},
@@ -96,7 +96,7 @@ def test_label_confidence_out_of_range(label_client) -> None:
 def test_label_prompt_version_mismatch(label_client) -> None:
     client, fake = label_client
     fake.set_structured_response(_result("0xabc", "databases"))
-    resp = client.post("/label", json={**VALID_REQUEST, "prompt_version": "labeler_v99"})
+    resp = client.post("/label", json={**VALID_REQUEST, "prompt_version": "labeler_v999"})
     assert resp.status_code == 400
     assert resp.json()["error"] == "PROMPT_VERSION_MISMATCH"
 
@@ -113,8 +113,8 @@ def test_label_output_order_matches_input_order(label_client) -> None:
     fake.structured_chat = delayed_per_tx
 
     resp = client.post("/label", json={
-        "prompt_version": "labeler_v1",
-        "allowed_subdomains": ["databases"],
+        "prompt_version": "labeler_v2",
+        "allowed_subdomains": ["databases", "non_related"],
         "transactions": [
             {"tx_hash": "0x000", "prompt": "Prompt 0"},
             {"tx_hash": "0x001", "prompt": "Prompt 1"},
@@ -131,3 +131,50 @@ def test_label_one_failed_call_fails_whole_endpoint(label_client) -> None:
     resp = client.post("/label", json=VALID_REQUEST)
     assert resp.status_code == 500
     assert resp.json()["error"] == "PROVIDER_ERROR"
+
+
+def test_label_non_related_pure_response_is_accepted(label_client) -> None:
+    client, fake = label_client
+    fake.set_structured_response(LabelResult(
+        tx_hash="0xabc",
+        labels=[LabelEntry(subdomain="non_related", confidence=0.95)],
+    ))
+    resp = client.post("/label", json=VALID_REQUEST)
+    assert resp.status_code == 200
+    result = resp.json()["results"][0]
+    assert result["labels"][0]["subdomain"] == "non_related"
+
+
+def test_label_non_related_mixed_with_real_subdomain_is_rejected(label_client) -> None:
+    client, fake = label_client
+    fake.set_structured_response(LabelResult(
+        tx_hash="0xabc",
+        labels=[
+            LabelEntry(subdomain="non_related", confidence=0.5),
+            LabelEntry(subdomain="databases", confidence=0.8),
+        ],
+    ))
+    resp = client.post("/label", json=VALID_REQUEST)
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "UNKNOWN_SUBDOMAIN"
+
+
+def test_label_more_than_three_subdomains_is_rejected(label_client) -> None:
+    client, fake = label_client
+    allowed = ["databases", "security", "systems_programming", "dev_ops", "non_related"]
+    fake.set_structured_response(LabelResult(
+        tx_hash="0xabc",
+        labels=[
+            LabelEntry(subdomain="databases", confidence=0.9),
+            LabelEntry(subdomain="security", confidence=0.8),
+            LabelEntry(subdomain="systems_programming", confidence=0.7),
+            LabelEntry(subdomain="dev_ops", confidence=0.6),
+        ],
+    ))
+    resp = client.post("/label", json={
+        "prompt_version": "labeler_v2",
+        "allowed_subdomains": allowed,
+        "transactions": [{"tx_hash": "0xabc", "prompt": "Build a full-stack system."}],
+    })
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "INVALID_MODEL_OUTPUT"

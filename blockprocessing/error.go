@@ -25,6 +25,10 @@ var ErrBlockConsumptionReached = errors.New("block consumption reached")
 // ErrInvalidNumSubdomains signals invalid subdomains
 var ErrInvalidNumSubdomains = errors.New("invalid number of subdomains")
 
+// ErrNonRelatedMixedWithLabel signals that non_related was returned alongside
+// a real subdomain in the same transaction label list, which is not allowed.
+var ErrNonRelatedMixedWithLabel = errors.New("non_related mixed with real subdomain")
+
 // ErrInvalidSubdomain signals invalid subdomain
 var ErrInvalidSubdomain = errors.New("invalid subdomain")
 

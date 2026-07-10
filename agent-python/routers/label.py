@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request
 from schemas import LabelRequest, LabelResponse, LabelResult
 from validation import (
     check_confidence_range,
+    check_label_list,
     check_prompt_version,
     check_subdomain_membership,
     check_tx_hash_coverage,
@@ -16,7 +17,7 @@ router = APIRouter()
 @router.post("/label", response_model=LabelResponse)
 async def label(body: LabelRequest, request: Request) -> LabelResponse:
     state = request.app.state
-    prompt = state.prompts["labeler_v1"]
+    prompt = state.prompts["labeler_v2"]
 
     check_prompt_version(body.prompt_version, prompt.version)
 
@@ -41,6 +42,7 @@ async def label(body: LabelRequest, request: Request) -> LabelResponse:
             )
 
         check_tx_hash_coverage(result.tx_hash, tx.tx_hash)
+        check_label_list(result.labels, tx.tx_hash, allowed)
         for entry in result.labels:
             check_subdomain_membership(entry.subdomain, allowed)
             check_confidence_range(entry.confidence)

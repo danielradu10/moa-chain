@@ -22,10 +22,7 @@
       "labels": [
         "test_engineering_and_qa_automation",
         "back_end_with_apis",
-        "systems_programming",
-        "security",
-        "dev_ops",
-        "databases"
+        "systems_programming"
       ]
     },
     {
@@ -43,10 +40,7 @@
       "labels": [
         "security",
         "blockchain_engineering",
-        "systems_programming",
-        "back_end_with_apis",
-        "databases",
-        "dev_ops"
+        "systems_programming"
       ]
     },
     {
@@ -64,10 +58,7 @@
       "labels": [
         "blockchain_engineering",
         "systems_programming",
-        "test_engineering_and_qa_automation",
-        "back_end_with_apis",
-        "databases",
-        "security"
+        "test_engineering_and_qa_automation"
       ]
     }
   ],

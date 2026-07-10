@@ -22,8 +22,19 @@ type RoundKey struct {
 	MiniRound uint64
 }
 
+// NonRelatedSubdomain is the reserved sentinel returned by the labeling agent
+// when a transaction prompt has no meaningful relationship to any coding
+// subdomain. It may never appear alongside a real subdomain in the same
+// transaction response, and a transaction whose dominant label is NonRelatedSubdomain
+// is excluded from mini-round two.
+const NonRelatedSubdomain = "non_related"
+
 // PossibleSubDomains defines the subdomains accepted by the protocol.
+// NonRelatedSubdomain is included so the label validator and the HTTP client
+// treat it as a valid label value; the mixing and count rules are enforced
+// separately in ValidateLabels.
 var PossibleSubDomains = map[string]struct{}{
+	NonRelatedSubdomain:                  {},
 	"systems_programming":                {},
 	"web_front_end":                      {},
 	"back_end_with_apis":                 {},

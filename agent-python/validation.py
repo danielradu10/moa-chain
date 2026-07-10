@@ -94,6 +94,36 @@ def check_judge_response(response: str) -> None:
             )
 
 
+NON_RELATED = "non_related"
+_MAX_LABELS = 3
+
+
+def check_label_list(labels: list, tx_hash: str, allowed: set[str]) -> None:
+    """Enforce the PR-10 labeling rules for a single transaction:
+
+    - non_related must be the only label when present; mixing it with a real
+      subdomain is rejected as UNKNOWN_SUBDOMAIN.
+    - At most three real subdomains may be assigned per transaction.
+    - Every subdomain must be in the allowed set.
+    """
+    subdomains = [entry.subdomain for entry in labels]
+
+    has_non_related = NON_RELATED in subdomains
+    has_real = any(s != NON_RELATED for s in subdomains)
+
+    if has_non_related and has_real:
+        raise AgentServiceError(
+            ErrorCode.UNKNOWN_SUBDOMAIN,
+            f"tx_hash '{tx_hash}': non_related cannot appear alongside a real subdomain",
+        )
+
+    if not has_non_related and len(subdomains) > _MAX_LABELS:
+        raise AgentServiceError(
+            ErrorCode.INVALID_MODEL_OUTPUT,
+            f"tx_hash '{tx_hash}': at most {_MAX_LABELS} subdomains allowed, got {len(subdomains)}",
+        )
+
+
 def check_non_empty(value: str, field: str) -> None:
     """Ensure a string field is non-empty after stripping whitespace.
 

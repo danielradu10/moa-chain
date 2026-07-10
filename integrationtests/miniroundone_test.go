@@ -508,9 +508,6 @@ func createTransactions() []data.Transaction {
 				"back_end_with_apis",
 				"databases",
 				"security",
-				"cloud_engineering",
-				"dev_ops",
-				"test_engineering_and_qa_automation",
 			},
 		),
 		createTransaction(
@@ -523,9 +520,6 @@ func createTransactions() []data.Transaction {
 				"web_front_end",
 				"test_engineering_and_qa_automation",
 				"mobile_dev",
-				"security",
-				"back_end_with_apis",
-				"databases",
 			},
 		),
 		createTransaction(
@@ -538,9 +532,6 @@ func createTransactions() []data.Transaction {
 				"data_engineering",
 				"databases",
 				"cloud_engineering",
-				"ml_ai_engineering",
-				"dev_ops",
-				"back_end_with_apis",
 			},
 		),
 		createTransaction(
@@ -553,9 +544,6 @@ func createTransactions() []data.Transaction {
 				"blockchain_engineering",
 				"security",
 				"systems_programming",
-				"databases",
-				"cloud_engineering",
-				"dev_ops",
 			},
 		),
 		createTransaction(
@@ -568,9 +556,6 @@ func createTransactions() []data.Transaction {
 				"mobile_dev",
 				"back_end_with_apis",
 				"cloud_engineering",
-				"web_front_end",
-				"security",
-				"databases",
 			},
 		),
 		createTransaction(
@@ -583,9 +568,6 @@ func createTransactions() []data.Transaction {
 				"dev_ops",
 				"cloud_engineering",
 				"test_engineering_and_qa_automation",
-				"systems_programming",
-				"security",
-				"data_engineering",
 			},
 		),
 	}
@@ -629,19 +611,23 @@ func createTransaction(
 }
 
 func expectedSubdomains() data.SubdomainsFrequency {
+	// The consensus group and quorum are selected deterministically from the 10
+	// registered validators for round key {Epoch:0, Round:2, MiniRound:0}.
+	// The quorum certificate contains 4 validators, each contributing 1 vote per
+	// label per transaction. Labels appearing in N transactions contribute N×4
+	// to the block-level frequency map.
 	return data.SubdomainsFrequency{
-		"back_end_with_apis":                 16,
-		"databases":                          20,
-		"security":                           20,
-		"web_front_end":                      8,
-		"test_engineering_and_qa_automation": 12,
-		"data_engineering":                   8,
-		"cloud_engineering":                  20,
-		"blockchain_engineering":             4,
-		"systems_programming":                8,
-		"mobile_dev":                         8,
-		"dev_ops":                            16,
-		"ml_ai_engineering":                  4,
+		"back_end_with_apis":                 8,  // alice + eveline
+		"databases":                          8,  // alice + carol
+		"security":                           8,  // alice + david
+		"web_front_end":                      4,  // bob
+		"test_engineering_and_qa_automation": 8,  // bob + frank
+		"mobile_dev":                         8,  // bob + eveline
+		"data_engineering":                   4,  // carol
+		"cloud_engineering":                  12, // carol + eveline + frank
+		"blockchain_engineering":             4,  // david
+		"systems_programming":                4,  // david
+		"dev_ops":                            4,  // frank
 	}
 }
 
@@ -726,15 +712,6 @@ func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.BatchAgent 
 					return nil, fmt.Errorf("agent %s has no labels for txHash %s", agentLabels.agent, txHash)
 				}
 
-				if len(labels) != 6 {
-					return nil, fmt.Errorf(
-						"agent %s has invalid labels count for txHash %s: got %d, expected 6",
-						agentLabels.agent,
-						txHash,
-						len(labels),
-					)
-				}
-
 				results = append(results, agent.LabelResult{TxHash: tx.GetTxHash(), Labels: copyStringSlice(labels)})
 			}
 			return results, nil
@@ -761,7 +738,8 @@ func validateAgentLabelsFixtures(
 			labels, ok := agentLabels.labelsByTxHash[txHash]
 			require.Truef(t, ok, "agent %s has no labels for txHash %s", agentLabels.agent, txHash)
 
-			require.Lenf(t, labels, 6, "agent %s has invalid labels count for txHash %s", agentLabels.agent, txHash)
+			require.Truef(t, len(labels) >= 1 && len(labels) <= 3,
+				"agent %s has invalid labels count for txHash %s: got %d, want 1–3", agentLabels.agent, txHash, len(labels))
 
 			seenLabels := make(map[string]struct{}, len(labels))
 			for _, label := range labels {

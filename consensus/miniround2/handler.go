@@ -125,7 +125,7 @@ func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey)
 		return err
 	}
 
-	blockBody := finalizedBlockInMRO.Block.Body
+	blockBody := filterNonRelatedTransactions(finalizedBlockInMRO.Block.Body, finalizedBlockInMRO.NonRelatedTransactionHashes)
 	executionResult, err := handler.blockProcessor.ExecuteBlockPrompts(&blockBody)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleBlockExecution failed when executing the prompts", "err", err)
@@ -488,7 +488,8 @@ func (handler *miniRoundTwoHandler) computeExecutionResultHashFromMessage(
 		return nil, ErrCanonicalBlockHashMismatch
 	}
 
-	canonicalTxs := canonicalBlock.Body.Transactions
+	filteredBody := filterNonRelatedTransactions(canonicalBlock.Body, finalizedBlockInMROne.NonRelatedTransactionHashes)
+	canonicalTxs := filteredBody.Transactions
 	if len(message.Answers) != len(canonicalTxs) {
 		return nil, ErrExecutedPromptsAnswersMismatch
 	}

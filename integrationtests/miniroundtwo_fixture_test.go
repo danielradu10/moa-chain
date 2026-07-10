@@ -182,7 +182,8 @@ func validateScenarioTransactions(
 func validateScenarioTransactionLabels(t *testing.T, transaction scenarioTransactionFixture) {
 	t.Helper()
 
-	require.Len(t, transaction.Labels, 6)
+	require.Truef(t, len(transaction.Labels) >= 1 && len(transaction.Labels) <= 3,
+		"transaction %s has invalid label count %d, want 1–3", transaction.TxHash, len(transaction.Labels))
 	seenLabels := make(map[string]struct{}, len(transaction.Labels))
 	for _, label := range transaction.Labels {
 		_, valid := possibleSubDomains[label]

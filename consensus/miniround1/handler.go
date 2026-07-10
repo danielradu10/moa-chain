@@ -377,14 +377,18 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 	}
 	handler.logger.Info("miniround1.HandleBlockVote leader set round certificate", "roundKey", roundKey, "numSigners", len(aggVotes.Signers))
 
-	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains, consensusGroupSize)
+	subdomainsFrequencies, nonRelatedTxHashes, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains, consensusGroupSize)
 	if err != nil {
 		handler.logger.Error("leader failed to aggregate labels", "roundKey", roundKey, "error", err)
 		return err
 	}
-	handler.logger.Info("miniround1.HandleBlockVote leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies)
+	handler.logger.Info("miniround1.HandleBlockVote leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
 
-	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{Block: *currentProposedBlock, SubdomainsFrequencies: subdomainsFrequencies})
+	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
+		Block:                       *currentProposedBlock,
+		SubdomainsFrequencies:       subdomainsFrequencies,
+		NonRelatedTransactionHashes: nonRelatedTxHashes,
+	})
 	if err != nil {
 		handler.logger.Error("leader failed to finalize block", "roundKey", roundKey, "error", err)
 		return err
@@ -525,14 +529,18 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 		return err
 	}
 
-	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains, consensusGroupSize)
+	subdomainsFrequencies, nonRelatedTxHashes, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains, consensusGroupSize)
 	if err != nil {
 		handler.logger.Error("failed to aggregate labels from aggregated votes", "roundKey", roundKey, "error", err)
 		return err
 	}
-	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies)
+	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
 
-	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{Block: *block, SubdomainsFrequencies: subdomainsFrequencies})
+	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
+		Block:                       *block,
+		SubdomainsFrequencies:       subdomainsFrequencies,
+		NonRelatedTransactionHashes: nonRelatedTxHashes,
+	})
 	if err != nil {
 		handler.logger.Error("failed to finalize block from aggregated votes", "roundKey", roundKey, "error", err)
 		return err

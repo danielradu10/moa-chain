@@ -45,9 +45,9 @@ def test_health_includes_prompt_versions_and_hashes(client: TestClient) -> None:
     data = client.get("/health").json()
     assert "prompt_versions" in data
     assert "prompt_hashes" in data
-    assert "labeler_v1" in data["prompt_versions"]
+    assert "labeler_v2" in data["prompt_versions"]
     assert "answerer_v1" in data["prompt_versions"]
-    assert "labeler_v1" in data["prompt_hashes"]
+    assert "labeler_v2" in data["prompt_hashes"]
     assert "answerer_v1" in data["prompt_hashes"]
 
 
