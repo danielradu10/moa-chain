@@ -115,10 +115,23 @@ does not claim that a producer's private intent is known.
 
 ## Protocol Flow
 
+### 0. Filter non-related transactions
+
+Before answer collection begins, the MR2 handler filters the canonical MR1
+transaction set. Any transaction whose per-transaction dominant label derived
+from the MR1 quorum certificate is `non_related` is excluded from all subsequent
+MR2 steps. Excluded transactions are finalized immediately with a
+`NonRelatedTransaction` status and do not enter answer collection, judging, the
+canonical correct group, or mini-round three.
+
+Only the remaining transactions — those with at least one real coding subdomain
+as their dominant label — proceed to step 1.
+
 ### 1. Produce and collect answers
 
-Each selected validator executes every canonical mini-round-one transaction and
-sends its signed execution result to the mini-round-two leader. The leader:
+Each selected validator executes every canonical mini-round-one transaction that
+passed the non-related filter and sends its signed execution result to the
+mini-round-two leader. The leader:
 
 1. verifies committee membership, transaction coverage, hashes, and signatures;
 2. collects the answer-evidence quorum;
@@ -479,7 +492,7 @@ Scope:
 
 - expose only eligible canonical correct groups to mini-round three;
 - bind mini-round-three input to the finalized mini-round-two artifact hash;
-- skip transactions with `InsufficientCorrectAnswers`;
+- skip transactions with `InsufficientCorrectAnswers` or `NonRelatedTransaction`;
 - retain evidence needed to audit every included answer.
 
 Mini-round-three answer synthesis and validation are separate design work and
