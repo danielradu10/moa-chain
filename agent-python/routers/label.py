@@ -41,6 +41,20 @@ async def label(body: LabelRequest, request: Request) -> LabelResponse:
                 timeout_seconds=state.config.llm_timeout_seconds,
             )
 
+        # The model returns all relevant labels with confidence scores.
+        # Select the top 3 real labels by confidence, or keep non_related if it
+        # dominates (higher confidence than any real label the model found).
+        non_related_entry = next((e for e in result.labels if e.subdomain == "non_related"), None)
+        real_entries = [e for e in result.labels if e.subdomain != "non_related"]
+
+        if real_entries:
+            max_real_confidence = max(e.confidence for e in real_entries)
+            if non_related_entry and non_related_entry.confidence > max_real_confidence:
+                result = LabelResult(tx_hash=result.tx_hash, labels=[non_related_entry])
+            else:
+                top3 = sorted(real_entries, key=lambda e: e.confidence, reverse=True)[:3]
+                result = LabelResult(tx_hash=result.tx_hash, labels=top3)
+
         check_tx_hash_coverage(result.tx_hash, tx.tx_hash)
         check_label_list(result.labels, tx.tx_hash, allowed)
         for entry in result.labels:

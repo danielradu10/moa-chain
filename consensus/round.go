@@ -14,12 +14,13 @@ import (
 type roundHandler struct {
 	selfID string
 
-	currentStep         data.Step
-	currentRoundKey     data.RoundKey
-	miniRoundOneHandler miniround1.MiniRoundOneHandler
-	miniRoundTwoHandler miniround2.MiniRoundTwoHandler
-	blockFinalizer      blockFinalizer.BlockFinalizer
-	logger              *slog.Logger
+	currentStep           data.Step
+	currentRoundKey       data.RoundKey
+	miniRoundOneHandler   miniround1.MiniRoundOneHandler
+	miniRoundTwoHandler   miniround2.MiniRoundTwoHandler
+	blockFinalizer        blockFinalizer.BlockFinalizer
+	stopAfterMiniRoundOne bool
+	logger                *slog.Logger
 }
 
 type RoundHandlerArgs struct {
@@ -29,19 +30,23 @@ type RoundHandlerArgs struct {
 	MiniRoundOneHandler miniround1.MiniRoundOneHandler
 	MiniRoundTwoHandler miniround2.MiniRoundTwoHandler
 	BlockFinalizer      blockFinalizer.BlockFinalizer
-	Logger              *slog.Logger
+	// StopAfterMiniRoundOne prevents the handler from advancing to MR2 after MR1
+	// finalization. Intended for MR1-only tests and benchmarks.
+	StopAfterMiniRoundOne bool
+	Logger                *slog.Logger
 }
 
 // NewRoundHandler creates a new round handler
 func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 	return &roundHandler{
-		selfID:              args.SelfID,
-		currentStep:         args.CurrentStep,
-		currentRoundKey:     args.CurrentRoundKey,
-		miniRoundOneHandler: args.MiniRoundOneHandler,
-		miniRoundTwoHandler: args.MiniRoundTwoHandler,
-		blockFinalizer:      args.BlockFinalizer,
-		logger:              logging.FromOptional(args.Logger),
+		selfID:                args.SelfID,
+		currentStep:           args.CurrentStep,
+		currentRoundKey:       args.CurrentRoundKey,
+		miniRoundOneHandler:   args.MiniRoundOneHandler,
+		miniRoundTwoHandler:   args.MiniRoundTwoHandler,
+		blockFinalizer:        args.BlockFinalizer,
+		stopAfterMiniRoundOne: args.StopAfterMiniRoundOne,
+		logger:                logging.FromOptional(args.Logger),
 	}
 }
 
@@ -285,6 +290,12 @@ func (rh *roundHandler) startNextMiniRound(roundKey data.RoundKey) error {
 	}
 
 	if nextRoundKey.MiniRound == uint64(data.MiniRoundTwo) {
+		if rh.stopAfterMiniRoundOne {
+			rh.currentStep = data.StepFinished
+			rh.logger.Info("mini-round one finalized; stopping before mini-round two (StopAfterMiniRoundOne=true)", "roundKey", roundKey)
+			return nil
+		}
+
 		finalizedBlock, err := rh.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 		if err != nil {
 			rh.currentStep = data.StepFailed

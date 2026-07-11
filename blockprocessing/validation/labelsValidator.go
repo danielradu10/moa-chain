@@ -96,7 +96,7 @@ func (lv *labelsValidator) validateTransactionLabels(subdomains []string) error 
 // A transaction is non-related when non_related is the only label that reaches the
 // quorum threshold for that tx. The returned slice of non-related tx hashes is sorted
 // for deterministic finalization.
-func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomains, consensusGroupSize uint64) (data.SubdomainsFrequency, []string, error) {
+func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomains, consensusGroupSize uint64) (data.SubdomainsFrequency, []string, map[string][]string, error) {
 	quorumThreshold := (2*consensusGroupSize)/3 + 1
 	lv.logger.Info(
 		"validation.AggregateLabels started",
@@ -119,6 +119,7 @@ func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomain
 	}
 
 	subdomainsFrequency := make(data.SubdomainsFrequency)
+	dominantLabelsPerTx := make(map[string][]string)
 	var nonRelatedTxHashes []string
 
 	for txHash, labelCounts := range countPerTx {
@@ -128,10 +129,12 @@ func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomain
 			// non_related reached quorum for this transaction: the protocol mixing
 			// rule means no real subdomain can also reach quorum for the same tx.
 			nonRelatedTxHashes = append(nonRelatedTxHashes, txHash)
+			dominantLabelsPerTx[txHash] = []string{data.NonRelatedSubdomain}
 			lv.logger.Debug("transaction labeled non_related by quorum", "txHash", txHash, "count", nonRelatedCount, "threshold", quorumThreshold)
 			continue
 		}
 
+		var txDominantLabels []string
 		for subdomain, freq := range labelCounts {
 			if subdomain == data.NonRelatedSubdomain {
 				continue
@@ -142,11 +145,16 @@ func (lv *labelsValidator) AggregateLabels(aggregatedSubdomains []data.Subdomain
 			}
 			lv.logger.Debug("label reached threshold for transaction", "txHash", txHash, "subdomain", subdomain, "frequency", freq, "threshold", quorumThreshold)
 			subdomainsFrequency[subdomain] += freq
+			txDominantLabels = append(txDominantLabels, subdomain)
+		}
+		if len(txDominantLabels) > 0 {
+			sort.Strings(txDominantLabels)
+			dominantLabelsPerTx[txHash] = txDominantLabels
 		}
 	}
 
 	sort.Strings(nonRelatedTxHashes)
 
 	lv.logger.Info("validation.AggregateLabels finished", "frequencies", subdomainsFrequency, "numNonRelatedTxs", len(nonRelatedTxHashes))
-	return subdomainsFrequency, nonRelatedTxHashes, nil
+	return subdomainsFrequency, nonRelatedTxHashes, dominantLabelsPerTx, nil
 }

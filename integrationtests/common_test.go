@@ -86,6 +86,7 @@ func createNode(
 	myInbox chan data.RoundEvent,
 	transactions []data.Transaction,
 	batchAgent agent.BatchAgent,
+	stopAfterMiniRoundOne bool,
 ) *integrationTestNode {
 	peersRegistry := broadcast.NewPeerRegistry()
 	for i, validator := range registeredValidators {
@@ -102,6 +103,7 @@ func createNode(
 		transactions,
 		batchAgent,
 		broadcast.NewBroadcaster(peersRegistry),
+		stopAfterMiniRoundOne,
 	)
 }
 
@@ -116,6 +118,7 @@ func createNodeWithBroadcaster(
 	transactions []data.Transaction,
 	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
+	stopAfterMiniRoundOne bool,
 ) *integrationTestNode {
 	t.Helper()
 
@@ -153,6 +156,7 @@ func createNodeWithBroadcaster(
 		batchAgent,
 		broadcaster,
 		roundState,
+		stopAfterMiniRoundOne,
 		logger,
 	)
 
@@ -188,6 +192,7 @@ func createRoundLoop(
 	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
 	roundState state.RoundState,
+	stopAfterMiniRoundOne bool,
 	logger *slog.Logger,
 ) *consensus.RoundLoop {
 	currentHeader := currentIntegrationTestHeader()
@@ -234,13 +239,14 @@ func createRoundLoop(
 	miniRoundTwoHandler := miniround2.NewMiniRoundTwoHandler(miniRoundTwoHandlerArgs)
 
 	roundHandlerArgs := consensus.RoundHandlerArgs{
-		SelfID:              nodeID,
-		CurrentStep:         data.StepIdle,
-		CurrentRoundKey:     data.RoundKey{},
-		MiniRoundOneHandler: miniRoundOneHandler,
-		MiniRoundTwoHandler: miniRoundTwoHandler,
-		BlockFinalizer:      blockFinalizer,
-		Logger:              logger,
+		SelfID:                nodeID,
+		CurrentStep:           data.StepIdle,
+		CurrentRoundKey:       data.RoundKey{},
+		MiniRoundOneHandler:   miniRoundOneHandler,
+		MiniRoundTwoHandler:   miniRoundTwoHandler,
+		BlockFinalizer:        blockFinalizer,
+		StopAfterMiniRoundOne: stopAfterMiniRoundOne,
+		Logger:                logger,
 	}
 
 	roundHandler := consensus.NewRoundHandler(roundHandlerArgs)
@@ -448,6 +454,7 @@ func writeTestString(
 }
 
 var possibleSubDomains = map[string]struct{}{
+	"non_related":                        {},
 	"systems_programming":                {},
 	"web_front_end":                      {},
 	"back_end_with_apis":                 {},

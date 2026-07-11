@@ -377,12 +377,18 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 	}
 	handler.logger.Info("miniround1.HandleBlockVote leader set round certificate", "roundKey", roundKey, "numSigners", len(aggVotes.Signers))
 
-	subdomainsFrequencies, nonRelatedTxHashes, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains, consensusGroupSize)
+	subdomainsFrequencies, nonRelatedTxHashes, dominantLabelsPerTx, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains, consensusGroupSize)
 	if err != nil {
 		handler.logger.Error("leader failed to aggregate labels", "roundKey", roundKey, "error", err)
 		return err
 	}
 	handler.logger.Info("miniround1.HandleBlockVote leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
+
+	for _, tx := range currentProposedBlock.Body.Transactions {
+		if labels, ok := dominantLabelsPerTx[string(tx.GetTxHash())]; ok {
+			tx.SetDomainLabels(labels)
+		}
+	}
 
 	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
 		Block:                       *currentProposedBlock,
@@ -529,12 +535,18 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 		return err
 	}
 
-	subdomainsFrequencies, nonRelatedTxHashes, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains, consensusGroupSize)
+	subdomainsFrequencies, nonRelatedTxHashes, dominantLabelsPerTx, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains, consensusGroupSize)
 	if err != nil {
 		handler.logger.Error("failed to aggregate labels from aggregated votes", "roundKey", roundKey, "error", err)
 		return err
 	}
 	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
+
+	for _, tx := range block.Body.Transactions {
+		if labels, ok := dominantLabelsPerTx[string(tx.GetTxHash())]; ok {
+			tx.SetDomainLabels(labels)
+		}
+	}
 
 	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
 		Block:                       *block,

@@ -238,6 +238,7 @@ func createMiniRoundTwoScenarioNodes(
 			cloneTransactions(transactions),
 			createScenarioAgent(t, scenario, role),
 			network.BroadcasterForNode(validatorID),
+			false,
 		)
 		nodes = append(nodes, node)
 	}

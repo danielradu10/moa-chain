@@ -54,6 +54,7 @@ func TestMiniRoundOne_NoErrorsDuringRound(t *testing.T) {
 			inboxes[i],
 			nil,
 			&testscommon.LabelerStub{},
+			true,
 		)
 
 		nodes = append(nodes, node)
@@ -144,6 +145,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 			inboxes[i],
 			nil,
 			&testscommon.LabelerStub{},
+			true,
 		)
 
 		nodes = append(nodes, node)
@@ -276,6 +278,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 			inboxes[i],
 			cloneTransactions(transactions),
 			labelerStub,
+			true,
 		)
 
 		nodes = append(nodes, node)
@@ -401,6 +404,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 			inboxes[i],
 			cloneTransactions(transactions),
 			labelerStub,
+			true,
 		)
 
 		nodes = append(nodes, node)

@@ -145,8 +145,9 @@ def test_label_non_related_pure_response_is_accepted(label_client) -> None:
     assert result["labels"][0]["subdomain"] == "non_related"
 
 
-def test_label_non_related_mixed_with_real_subdomain_is_rejected(label_client) -> None:
+def test_label_real_label_dominates_non_related_by_confidence(label_client) -> None:
     client, fake = label_client
+    # Real label has higher confidence than non_related → keep real label only.
     fake.set_structured_response(LabelResult(
         tx_hash="0xabc",
         labels=[
@@ -155,13 +156,33 @@ def test_label_non_related_mixed_with_real_subdomain_is_rejected(label_client) -
         ],
     ))
     resp = client.post("/label", json=VALID_REQUEST)
-    assert resp.status_code == 400
-    assert resp.json()["error"] == "UNKNOWN_SUBDOMAIN"
+    assert resp.status_code == 200
+    result = resp.json()["results"][0]
+    returned_subdomains = [e["subdomain"] for e in result["labels"]]
+    assert returned_subdomains == ["databases"]
 
 
-def test_label_more_than_three_subdomains_is_rejected(label_client) -> None:
+def test_label_non_related_dominates_real_label_by_confidence(label_client) -> None:
+    client, fake = label_client
+    # non_related has higher confidence than any real label → keep non_related only.
+    fake.set_structured_response(LabelResult(
+        tx_hash="0xabc",
+        labels=[
+            LabelEntry(subdomain="non_related", confidence=0.9),
+            LabelEntry(subdomain="databases", confidence=0.3),
+        ],
+    ))
+    resp = client.post("/label", json=VALID_REQUEST)
+    assert resp.status_code == 200
+    result = resp.json()["results"][0]
+    returned_subdomains = [e["subdomain"] for e in result["labels"]]
+    assert returned_subdomains == ["non_related"]
+
+
+def test_label_more_than_three_subdomains_is_truncated_to_top_3_by_confidence(label_client) -> None:
     client, fake = label_client
     allowed = ["databases", "security", "systems_programming", "dev_ops", "non_related"]
+    # Model returns 4 labels; service must keep the 3 with highest confidence.
     fake.set_structured_response(LabelResult(
         tx_hash="0xabc",
         labels=[
@@ -176,5 +197,11 @@ def test_label_more_than_three_subdomains_is_rejected(label_client) -> None:
         "allowed_subdomains": allowed,
         "transactions": [{"tx_hash": "0xabc", "prompt": "Build a full-stack system."}],
     })
-    assert resp.status_code == 400
-    assert resp.json()["error"] == "INVALID_MODEL_OUTPUT"
+    assert resp.status_code == 200
+    result = resp.json()["results"][0]
+    returned_subdomains = [e["subdomain"] for e in result["labels"]]
+    assert len(returned_subdomains) == 3
+    assert "databases" in returned_subdomains
+    assert "security" in returned_subdomains
+    assert "systems_programming" in returned_subdomains
+    assert "dev_ops" not in returned_subdomains
