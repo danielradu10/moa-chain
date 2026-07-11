@@ -26,6 +26,10 @@ type MiniRoundOneHandlerStub struct {
 	HandleAggregatedVotesKey     data.RoundKey
 	HandleAggregatedVotesMessage *data.AggregatedVotes
 	HandleAggregatedVotesErr     error
+
+	HandleVoteCollectionTimeoutCalled bool
+	HandleVoteCollectionTimeoutKey    data.RoundKey
+	HandleVoteCollectionTimeoutErr    error
 }
 
 func (stub *MiniRoundOneHandlerStub) HandleConsensusSelection(key data.RoundKey) (string, error) {
@@ -64,4 +68,11 @@ func (stub *MiniRoundOneHandlerStub) HandleAggregatedVotes(roundKey data.RoundKe
 	stub.HandleAggregatedVotesMessage = votes
 
 	return stub.HandleAggregatedVotesErr
+}
+
+func (stub *MiniRoundOneHandlerStub) HandleVoteCollectionTimeout(roundKey data.RoundKey) error {
+	stub.HandleVoteCollectionTimeoutCalled = true
+	stub.HandleVoteCollectionTimeoutKey = roundKey
+
+	return stub.HandleVoteCollectionTimeoutErr
 }

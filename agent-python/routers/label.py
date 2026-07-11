@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import time
 
 from fastapi import APIRouter, Request
 
@@ -12,6 +14,7 @@ from validation import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/label", response_model=LabelResponse)
@@ -26,10 +29,13 @@ async def label(body: LabelRequest, request: Request) -> LabelResponse:
     # Cap concurrent Ollama calls to match OLLAMA_NUM_PARALLEL on the server side.
     # Without this, all transactions would be fired at once regardless of batch size.
     semaphore = asyncio.Semaphore(state.config.label_max_concurrency)
+    request_start = time.perf_counter()
 
     async def process_one(tx) -> LabelResult:
         # Semaphore only wraps the LLM call — validation runs after the slot is released.
         async with semaphore:
+            t0 = time.perf_counter()
+            logger.info("llm_label_start tx=%s", tx.tx_hash[:8])
             result: LabelResult = await state.provider.structured_chat(
                 system_prompt=prompt.content,
                 user_payload={
@@ -40,6 +46,7 @@ async def label(body: LabelRequest, request: Request) -> LabelResponse:
                 response_schema=LabelResult,
                 timeout_seconds=state.config.llm_timeout_seconds,
             )
+            logger.info("llm_label_done tx=%s elapsed_s=%.3f", tx.tx_hash[:8], time.perf_counter() - t0)
 
         # The model returns all relevant labels with confidence scores.
         # Select the top 3 real labels by confidence, or keep non_related if it
@@ -64,6 +71,7 @@ async def label(body: LabelRequest, request: Request) -> LabelResponse:
 
     # gather preserves submission order regardless of completion order.
     results = await asyncio.gather(*[process_one(tx) for tx in body.transactions])
+    logger.info("label_batch_done batch=%d total_s=%.3f", len(body.transactions), time.perf_counter() - request_start)
 
     return LabelResponse(
         prompt_version=prompt.version,

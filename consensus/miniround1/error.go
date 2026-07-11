@@ -22,3 +22,5 @@ var ErrNilVote = errors.New("nil vote")
 var ErrMessageNotFromLeader = errors.New("message not from leader")
 
 var ErrOnlyLeaderCanCollectVotes = errors.New("only leader can collect votes")
+
+var ErrNotEnoughVotesAfterTimeout = errors.New("not enough votes to finalize after vote-collection timeout")

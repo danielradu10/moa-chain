@@ -44,7 +44,7 @@ func pingAgentOrSkip(t *testing.T) {
 func realAgentClient() *httpclient.Client {
 	return httpclient.New(httpclient.Config{
 		BaseURL:             agentBaseURLForTest(),
-		TimeoutSeconds:      360,
+		TimeoutSeconds:      720,
 		LabelPromptVersion:  "labeler_v2",
 		LabelPromptHash:     "",
 		AnswerPromptVersion: "answerer_v1",
@@ -63,7 +63,7 @@ func runRealAgentMR1Round(
 ) *data.BlockOnChain {
 	t.Helper()
 
-	const numValidators = 7
+	const numValidators = 20
 
 	publicKeys := make([][]byte, 0, numValidators)
 	privateKeys := make([][]byte, 0, numValidators)
@@ -94,6 +94,7 @@ func runRealAgentMR1Round(
 			cloneTransactions(transactions),
 			batchAgent,
 			true,
+			0,
 		)
 		nodes = append(nodes, node)
 	}

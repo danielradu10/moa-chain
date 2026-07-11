@@ -33,7 +33,7 @@ MOA_AGENT_BASE_URL  ?= http://$(AGENT_HOST):$(AGENT_PORT)
 OLLAMA_MODEL        ?= qwen2.5-coder:7b
 OLLAMA_NUM_PARALLEL   ?= 7
 LABEL_MAX_CONCURRENCY ?= 7
-LLM_TIMEOUT_SECONDS   ?= 300
+LLM_TIMEOUT_SECONDS   ?= 600
 AGENT_STARTUP_WAIT    ?= 60
 
 # Start uvicorn in the background, write its PID to .agent.pid, then poll
@@ -136,5 +136,57 @@ test-realagent-mr1-group-b: _start-agent
 	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
 	go test -tags integration -timeout 60m -v \
 		-run TestMiniRoundOne_RealAgent_GroupB_ClearDomainTransactionsConvergeToExpectedLabels \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# MOA_REPEATED_RUNS controls how many rounds to run (default: 5 set in test code).
+# Each run appends to testData/miniround1/results/repeated_runs_results.jsonl.
+.PHONY: test-realagent-mr1-repeated-a
+test-realagent-mr1-repeated-a: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	MOA_REPEATED_RUNS=$(MOA_REPEATED_RUNS) \
+	go test -tags integration -timeout 120m -v \
+		-run TestMiniRoundOne_RealAgent_RepeatedRuns_GroupA_NonCodingConvergeToNonRelated \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr1-repeated-b
+test-realagent-mr1-repeated-b: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	MOA_REPEATED_RUNS=$(MOA_REPEATED_RUNS) \
+	go test -tags integration -timeout 120m -v \
+		-run TestMiniRoundOne_RealAgent_RepeatedRuns_GroupB_ClearDomainConvergeToExpectedLabels \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# k=3 corrupted validators (= f, the BFT bound): consensus must always succeed.
+.PHONY: test-realagent-mr1-byzantine-k3
+test-realagent-mr1-byzantine-k3: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	MOA_REPEATED_RUNS=$(MOA_REPEATED_RUNS) \
+	go test -tags integration -timeout 120m -v \
+		-run TestMiniRoundOne_RealAgent_Byzantine_K3_CorrectLabelSurvives \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# k=6 corrupted validators (= 2f): protocol degrades, some rounds fail to finalize.
+.PHONY: test-realagent-mr1-byzantine-k6
+test-realagent-mr1-byzantine-k6: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	MOA_REPEATED_RUNS=$(MOA_REPEATED_RUNS) \
+	go test -tags integration -timeout 120m -v \
+		-run TestMiniRoundOne_RealAgent_Byzantine_K6_ProtocolDegrades \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# Labeling latency benchmark — calibrates maxBlockConsumption and maxNumTransactions.
+# Experiment A: fixed short prompt, vary tx count (1, 2, 4, 8, 16).
+# Experiment B: fixed 4 txs, vary prompt length (short, medium, long, very_long).
+# Results are appended to integrationtests/testData/miniround1/results/benchmark_labeling_results.jsonl.
+.PHONY: test-realagent-mr1-benchmark
+test-realagent-mr1-benchmark: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundOne_LabelingLatencyBenchmark \
 		./integrationtests/... ; \
 	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT

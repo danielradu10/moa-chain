@@ -95,11 +95,11 @@
   "miniRoundOne": {
     "finalizedNodes": 20,
     "subdomainFrequencies": {
-      "back_end_with_apis": 7,
-      "blockchain_engineering": 14,
-      "security": 7,
-      "systems_programming": 21,
-      "test_engineering_and_qa_automation": 14
+      "back_end_with_apis": 10,
+      "blockchain_engineering": 20,
+      "security": 10,
+      "systems_programming": 30,
+      "test_engineering_and_qa_automation": 20
     }
   },
   "miniRoundTwo": {
