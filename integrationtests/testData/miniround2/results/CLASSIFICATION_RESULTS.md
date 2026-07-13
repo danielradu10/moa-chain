@@ -735,3 +735,104 @@ every transaction even with an all-honest committee, because the 7B judge cannot
 recognise semantic equivalence across phrasings. Addressing this requires either
 a larger judge model or a semantic-similarity layer between answer collection
 and binary classification.
+
+---
+
+## Prompt Engineering Attempt — answer-judge-v3
+
+### Hypothesis
+
+The canonical-preference bias observed in the diverse tests might be a
+consequence of how the model is prompted rather than a fundamental model
+limitation. When presented with 7 candidates simultaneously without explicit
+guidance, the model may default to a comparative ranking mode — reading all
+answers, forming an internal ideal, picking the closest match as CORRECT, and
+treating everything else as a deviation. Rephrasing the prompt to enforce
+independent per-candidate evaluation might break this behaviour.
+
+### Changes in v3
+
+The system prompt was updated from `answer-judge-v2` to `answer-judge-v3` with
+three targeted additions:
+
+1. **Independent evaluation instruction:** "Evaluate each candidate
+   INDEPENDENTLY against the `prompt` field in the input. Do NOT compare
+   candidates to each other."
+
+2. **Explicit no-limit rule:** "Every category may be assigned to any number of
+   candidates — there is no limit on how many candidates can share the same
+   category. All candidates can be CORRECT. All candidates can be WRONG."
+
+3. **JSON example showing two CORRECT:** The example output was changed from
+   one each of CORRECT/WRONG/HALLUCINATION to two CORRECT and one WRONG,
+   explicitly demonstrating that the same category can appear multiple times.
+
+The v2 example subliminally suggested one winner per run; v3 removes that
+implication.
+
+### Result — Group A diverse (all correct, round 30)
+
+| TX | v2 CORRECT/7 | v3 CORRECT/7 | Change |
+|----|-------------|-------------|--------|
+| control-after (ordering) | 1 | 1 | none |
+| control-before (unit tests) | 1 | 2 | +1 |
+| target (signatures) | 2 | 2 | none |
+
+Timing: 140s (v3) vs 135s (v2) — no meaningful difference.
+
+The prompt change produced no significant improvement. The bias persists at
+essentially the same level (1–2 CORRECT out of 7 diverse correct answers).
+
+### Possible explanations
+
+**1 — The bias is in the weights, not the instructions.**
+A 7B model has a fixed internal representation of "the correct answer" for
+well-known concepts, built during pre-training and fine-tuning. The instruction
+"evaluate independently" cannot override this: the model applies its internal
+knowledge graph to each candidate and finds that only one phrasing matches its
+stored representation closely enough. The other phrasings are genuinely
+unfamiliar to the model as correct framings, even though a human expert would
+accept them.
+
+**2 — Position/order bias.**
+The model may anchor on the first candidate it reads as the implicit reference
+point. In these tests candidate ordering is deterministic (validator-1 always
+produces perspective-1, which becomes candidate-1), so the same phrasing always
+occupies position 1. If whichever text lands first wins, the fix is trivial
+(randomise ordering); if the same text always wins regardless of position, the
+bias is semantic, not positional. These two mechanisms are distinguishable by
+re-running Group A with shuffled candidate order.
+
+**3 — Instruction-following ceiling of 7B models.**
+Small models are known to struggle with negative instructions ("do NOT compare")
+and abstract constraints ("no limit on how many can share a category"). The
+model may parse the instruction but revert to its default evaluation strategy
+when generating the output, because that strategy is more deeply reinforced than
+the prompt instruction.
+
+### Possible solutions
+
+**Option A — One judge call per candidate (architectural)**
+Send `{prompt, single_candidate}` to the judge instead of `{prompt, all_candidates}`.
+Cross-candidate comparison becomes structurally impossible. The cost is 7× more
+LLM calls per transaction per validator — significant for a 7B model, but
+eliminates the bias at the protocol level rather than relying on model behaviour.
+
+**Option B — Generate-then-compare (two-stage)**
+First call: ask the judge to generate the correct answer to the prompt. Second
+call: for each candidate, ask whether it is semantically equivalent to the
+generated answer. Separates "what is a correct answer?" from "is this candidate
+saying the same thing?" Likely more accurate, costs 2× calls, and degrades
+gracefully (the generated reference is produced fresh per validator, not shared).
+
+**Option C — Position-bias ablation**
+Randomise the order of candidates before building the judge input. If mechanism 2
+above is the cause, this alone would fix the bias at zero extra cost. If results
+remain the same after shuffling, mechanism 1 is confirmed and a structural
+change is needed.
+
+**Option D — Larger judge model**
+A 70B-parameter or frontier model (GPT-4, Claude-class) has sufficient semantic
+breadth to recognise that "regression safety", "fast feedback", and "executable
+specification" are all valid correct framings of the same question. This is the
+production-quality fix, at higher inference cost per call.
