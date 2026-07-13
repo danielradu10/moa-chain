@@ -190,3 +190,11 @@ test-realagent-mr1-benchmark: _start-agent
 		-run TestMiniRoundOne_LabelingLatencyBenchmark \
 		./integrationtests/... ; \
 	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-benchmark
+test-realagent-mr2-benchmark: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_JudgingLatencyBenchmark \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
