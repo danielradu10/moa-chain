@@ -636,7 +636,55 @@ Assertions:
   the given prompt
 - All validators agree on the same frequencies
 
-### PR 12 — MR1 → MR2 real integration tests
+### PR 12 — MR1 label data collection
+
+Runs MR1 `N` times against the real agent and records per-run label assignments
+for offline data analysis. Intended to support quantitative claims in the
+dissertation about label consistency, validator agreement, and `non_related`
+classification rates.
+
+Each run appends one JSON record to
+`integrationtests/testData/miniround1/results/group_a_data_collection.jsonl`
+(append-mode, so partial runs are not lost on interruption). Results are not
+asserted in the test — the file is consumed by a separate analysis script.
+
+Scope:
+- New test `TestMiniRoundOne_RealAgent_GroupA_DataCollection` with build tag
+  `integration`; number of runs controlled by `MR1_RUNS` env var (default 20)
+- Recording wrapper around the real agent that intercepts `LabelBatch` results
+  per validator without modifying protocol behavior
+- New Makefile target `test-realagent-mr1-group-a-collect` that starts
+  Ollama + agent service and runs the data collection test
+- Analysis script `integrationtests/analysis/mr1_label_stats.py` that reads
+  the JSONL and prints per-transaction label frequency tables, validator
+  agreement rate, `non_related` rate, and round duration percentiles
+
+Per-record schema:
+```json
+{
+  "runIndex": 1,
+  "timestamp": "...",
+  "durationMs": 75000,
+  "subdomainsFrequencies": {"non_related": 5},
+  "nonRelatedTransactionHashes": ["..."],
+  "validatorLabels": [
+    {
+      "validatorId": "validator-1",
+      "labels": {"txHash1": ["non_related"], "txHash2": ["non_related"]}
+    }
+  ]
+}
+```
+
+Metrics the analysis script produces:
+- Per-transaction: how often each label appears across N runs (frequency table)
+- Per-transaction: `non_related` rate (0.0–1.0)
+- Per-round: validator agreement rate (fraction of validators that agreed on the
+  finalized label set)
+- Round duration: p50 / p95 / p99 / max across N runs
+
+### PR 13 — MR1 → MR2 real integration tests
+
 
 Same preconditions and skip-if-unreachable pattern as PR 11.
 
@@ -656,9 +704,9 @@ Assertions:
 - No content assertions on answer text or classification categories — LLM
   output is non-deterministic
 
-### PR 13 — Benchmarks
+### PR 14 — Benchmarks
 
-> **Prerequisite for protocol timeout implementation.** Do not implement
+> **Prerequisite for PR 15 (protocol timeout implementation).** Do not implement
 > protocol-level timeouts until this data exists.
 
 Benchmark the Python service in isolation and the full MR1 round end-to-end.
@@ -685,9 +733,9 @@ What to capture per run:
 - p50 / p95 / p99 / max latency per endpoint
 - Time from `StartRoundEvent` to last-validator finalization
 
-### PR 14 — Protocol timeout implementation
+### PR 15 — Protocol timeout implementation
 
-> **Depends on PR 13.** Timeout values must be derived from benchmark results,
+> **Depends on PR 14.** Timeout values must be derived from benchmark results,
 > not invented.
 
 The round handler already has timeout stubs but no real timer wiring. This PR

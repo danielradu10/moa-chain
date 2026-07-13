@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -86,6 +87,8 @@ func createNode(
 	myInbox chan data.RoundEvent,
 	transactions []data.Transaction,
 	batchAgent agent.BatchAgent,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
 ) *integrationTestNode {
 	peersRegistry := broadcast.NewPeerRegistry()
 	for i, validator := range registeredValidators {
@@ -102,6 +105,8 @@ func createNode(
 		transactions,
 		batchAgent,
 		broadcast.NewBroadcaster(peersRegistry),
+		stopAfterMiniRoundOne,
+		voteCollectionDeadline,
 	)
 }
 
@@ -116,6 +121,8 @@ func createNodeWithBroadcaster(
 	transactions []data.Transaction,
 	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
 ) *integrationTestNode {
 	t.Helper()
 
@@ -153,6 +160,8 @@ func createNodeWithBroadcaster(
 		batchAgent,
 		broadcaster,
 		roundState,
+		stopAfterMiniRoundOne,
+		voteCollectionDeadline,
 		logger,
 	)
 
@@ -188,6 +197,8 @@ func createRoundLoop(
 	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
 	roundState state.RoundState,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
 	logger *slog.Logger,
 ) *consensus.RoundLoop {
 	currentHeader := currentIntegrationTestHeader()
@@ -234,13 +245,16 @@ func createRoundLoop(
 	miniRoundTwoHandler := miniround2.NewMiniRoundTwoHandler(miniRoundTwoHandlerArgs)
 
 	roundHandlerArgs := consensus.RoundHandlerArgs{
-		SelfID:              nodeID,
-		CurrentStep:         data.StepIdle,
-		CurrentRoundKey:     data.RoundKey{},
-		MiniRoundOneHandler: miniRoundOneHandler,
-		MiniRoundTwoHandler: miniRoundTwoHandler,
-		BlockFinalizer:      blockFinalizer,
-		Logger:              logger,
+		SelfID:                 nodeID,
+		CurrentStep:            data.StepIdle,
+		CurrentRoundKey:        data.RoundKey{},
+		MiniRoundOneHandler:    miniRoundOneHandler,
+		MiniRoundTwoHandler:    miniRoundTwoHandler,
+		BlockFinalizer:         blockFinalizer,
+		StopAfterMiniRoundOne:  stopAfterMiniRoundOne,
+		Logger:                 logger,
+		Inbox:                  inbox,
+		VoteCollectionDeadline: voteCollectionDeadline,
 	}
 
 	roundHandler := consensus.NewRoundHandler(roundHandlerArgs)
@@ -448,6 +462,7 @@ func writeTestString(
 }
 
 var possibleSubDomains = map[string]struct{}{
+	"non_related":                        {},
 	"systems_programming":                {},
 	"web_front_end":                      {},
 	"back_end_with_apis":                 {},

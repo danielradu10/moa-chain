@@ -127,7 +127,7 @@ func TestLabelsValidator_AggregateLabels(t *testing.T) {
 			makeSubdomains("txHash1", "non_related"),
 		}
 
-		freq, nonRelated, err := lv.AggregateLabels(subdomains, 3)
+		freq, nonRelated, _, err := lv.AggregateLabels(subdomains, 3)
 
 		require.NoError(t, err)
 		require.Empty(t, freq)
@@ -145,7 +145,7 @@ func TestLabelsValidator_AggregateLabels(t *testing.T) {
 			makeSubdomains("txHash1", "databases"),
 		}
 
-		freq, nonRelated, err := lv.AggregateLabels(subdomains, 3)
+		freq, nonRelated, _, err := lv.AggregateLabels(subdomains, 3)
 
 		require.NoError(t, err)
 		require.Empty(t, freq)
@@ -162,7 +162,7 @@ func TestLabelsValidator_AggregateLabels(t *testing.T) {
 			makeSubdomains("txHash1", "databases"),
 		}
 
-		freq, nonRelated, err := lv.AggregateLabels(subdomains, 3)
+		freq, nonRelated, _, err := lv.AggregateLabels(subdomains, 3)
 
 		require.NoError(t, err)
 		require.Equal(t, data.SubdomainsFrequency{"databases": 3}, freq)
@@ -180,7 +180,7 @@ func TestLabelsValidator_AggregateLabels(t *testing.T) {
 			makeSubdomains("txHash1", "security"),
 		}
 
-		freq, nonRelated, err := lv.AggregateLabels(subdomains, 4)
+		freq, nonRelated, _, err := lv.AggregateLabels(subdomains, 4)
 
 		require.NoError(t, err)
 		require.Empty(t, freq)
@@ -199,7 +199,7 @@ func TestLabelsValidator_AggregateLabels(t *testing.T) {
 			{"txHash1": {"non_related"}, "txHash2": {"databases"}},
 		}
 
-		freq, nonRelated, err := lv.AggregateLabels(subdomains, 3)
+		freq, nonRelated, _, err := lv.AggregateLabels(subdomains, 3)
 
 		require.NoError(t, err)
 		require.Equal(t, data.SubdomainsFrequency{"databases": 3}, freq)
@@ -216,7 +216,7 @@ func TestLabelsValidator_AggregateLabels(t *testing.T) {
 			{"txHashB": {"non_related"}, "txHashA": {"non_related"}},
 		}
 
-		_, nonRelated, err := lv.AggregateLabels(subdomains, 3)
+		_, nonRelated, _, err := lv.AggregateLabels(subdomains, 3)
 
 		require.NoError(t, err)
 		require.Equal(t, []string{"txHashA", "txHashB"}, nonRelated)
@@ -225,7 +225,7 @@ func TestLabelsValidator_AggregateLabels(t *testing.T) {
 	t.Run("empty input — returns empty results", func(t *testing.T) {
 		t.Parallel()
 
-		freq, nonRelated, err := lv.AggregateLabels(nil, 3)
+		freq, nonRelated, _, err := lv.AggregateLabels(nil, 3)
 
 		require.NoError(t, err)
 		require.Empty(t, freq)

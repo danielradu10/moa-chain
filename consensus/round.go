@@ -3,6 +3,7 @@ package consensus
 import (
 	"errors"
 	"log/slog"
+	"time"
 
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/consensus/miniround1"
@@ -14,12 +15,21 @@ import (
 type roundHandler struct {
 	selfID string
 
-	currentStep         data.Step
-	currentRoundKey     data.RoundKey
-	miniRoundOneHandler miniround1.MiniRoundOneHandler
-	miniRoundTwoHandler miniround2.MiniRoundTwoHandler
-	blockFinalizer      blockFinalizer.BlockFinalizer
-	logger              *slog.Logger
+	currentStep           data.Step
+	currentRoundKey       data.RoundKey
+	miniRoundOneHandler   miniround1.MiniRoundOneHandler
+	miniRoundTwoHandler   miniround2.MiniRoundTwoHandler
+	blockFinalizer        blockFinalizer.BlockFinalizer
+	stopAfterMiniRoundOne bool
+	logger                *slog.Logger
+
+	// inbox is the write end of this node's event queue, used to self-inject
+	// TimeoutEvents from background timer goroutines.
+	inbox chan<- data.RoundEvent
+	// voteCollectionDeadline is how long the leader waits for all G consensus-group
+	// votes before falling back to aggregating with whatever Q+ votes arrived.
+	// Zero disables the fallback timer (leader waits for G votes indefinitely).
+	voteCollectionDeadline time.Duration
 }
 
 type RoundHandlerArgs struct {
@@ -29,19 +39,31 @@ type RoundHandlerArgs struct {
 	MiniRoundOneHandler miniround1.MiniRoundOneHandler
 	MiniRoundTwoHandler miniround2.MiniRoundTwoHandler
 	BlockFinalizer      blockFinalizer.BlockFinalizer
-	Logger              *slog.Logger
+	// StopAfterMiniRoundOne prevents the handler from advancing to MR2 after MR1
+	// finalization. Intended for MR1-only tests and benchmarks.
+	StopAfterMiniRoundOne bool
+	Logger                *slog.Logger
+
+	// Inbox is the node's event channel. Required when VoteCollectionDeadline > 0.
+	Inbox chan data.RoundEvent
+	// VoteCollectionDeadline is the fallback timeout for the leader's vote-collection
+	// step. Zero means wait for all G votes with no timeout.
+	VoteCollectionDeadline time.Duration
 }
 
 // NewRoundHandler creates a new round handler
 func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 	return &roundHandler{
-		selfID:              args.SelfID,
-		currentStep:         args.CurrentStep,
-		currentRoundKey:     args.CurrentRoundKey,
-		miniRoundOneHandler: args.MiniRoundOneHandler,
-		miniRoundTwoHandler: args.MiniRoundTwoHandler,
-		blockFinalizer:      args.BlockFinalizer,
-		logger:              logging.FromOptional(args.Logger),
+		selfID:                 args.SelfID,
+		currentStep:            args.CurrentStep,
+		currentRoundKey:        args.CurrentRoundKey,
+		miniRoundOneHandler:    args.MiniRoundOneHandler,
+		miniRoundTwoHandler:    args.MiniRoundTwoHandler,
+		blockFinalizer:         args.BlockFinalizer,
+		stopAfterMiniRoundOne:  args.StopAfterMiniRoundOne,
+		logger:                 logging.FromOptional(args.Logger),
+		inbox:                  args.Inbox,
+		voteCollectionDeadline: args.VoteCollectionDeadline,
 	}
 }
 
@@ -78,7 +100,9 @@ func (rh *roundHandler) startMiniRoundOne(roundKey data.RoundKey) error {
 		rh.currentStep = data.StepCollectVotes
 		rh.logger.Info("consensus.StartRound step changed", "roundKey", roundKey, "step", rh.currentStep)
 
-		// return rh.timer.Start(roundKey, StepCollectVotes)
+		if rh.voteCollectionDeadline > 0 {
+			go rh.scheduleVoteCollectionTimeout(roundKey)
+		}
 		return nil
 	}
 
@@ -112,6 +136,23 @@ func (rh *roundHandler) startMiniRoundTwo(roundKey data.RoundKey) error {
 
 	rh.logger.Info("consensus.StartRound mini-round two step changed", "roundKey", roundKey, "step", rh.currentStep)
 	return nil
+}
+
+// scheduleVoteCollectionTimeout fires a TimeoutEvent for StepCollectVotes after
+// voteCollectionDeadline elapses. If the leader already collected all G votes the
+// event will be treated as stale and silently ignored by OnTimeout.
+func (rh *roundHandler) scheduleVoteCollectionTimeout(roundKey data.RoundKey) {
+	time.Sleep(rh.voteCollectionDeadline)
+	if rh.inbox == nil {
+		return
+	}
+	rh.inbox <- data.RoundEvent{
+		Type: data.TimeoutEvent,
+		Timeout: &data.RoundTimeout{
+			RoundKey: roundKey,
+			Step:     data.StepCollectVotes,
+		},
+	}
 }
 
 func (rh *roundHandler) HandleMessage(message data.ConsensusMessage) error {
@@ -285,6 +326,12 @@ func (rh *roundHandler) startNextMiniRound(roundKey data.RoundKey) error {
 	}
 
 	if nextRoundKey.MiniRound == uint64(data.MiniRoundTwo) {
+		if rh.stopAfterMiniRoundOne {
+			rh.currentStep = data.StepFinished
+			rh.logger.Info("mini-round one finalized; stopping before mini-round two (StopAfterMiniRoundOne=true)", "roundKey", roundKey)
+			return nil
+		}
+
 		finalizedBlock, err := rh.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 		if err != nil {
 			rh.currentStep = data.StepFailed
@@ -524,24 +571,28 @@ func (rh *roundHandler) handleAnswerClassificationCertificate(message data.Conse
 
 func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error {
 	if roundKey != rh.currentRoundKey {
-		rh.logger.Error("stale timeout for different round", "expectedRoundKey", rh.currentRoundKey, "actualRoundKey", roundKey, "timeoutStep", step)
-		return ErrStaleTimeout
+		rh.logger.Info("stale timeout for different round (ignoring)", "currentRoundKey", rh.currentRoundKey, "timeoutRoundKey", roundKey, "timeoutStep", step)
+		return nil
 	}
 
 	if step != rh.currentStep {
-		rh.logger.Error("stale timeout for different step", "roundKey", roundKey, "currentStep", rh.currentStep, "timeoutStep", step)
-		return ErrStaleTimeout
+		rh.logger.Info("stale timeout for different step (ignoring)", "roundKey", roundKey, "currentStep", rh.currentStep, "timeoutStep", step)
+		return nil
 	}
 
-	rh.logger.Error("round timeout", "roundKey", roundKey, "step", step)
+	rh.logger.Info("round timeout", "roundKey", roundKey, "step", step)
 	switch step {
 	case data.StepAwaitProposal:
 		rh.currentStep = data.StepFailed
 		return ErrProposalTimeout
 
 	case data.StepCollectVotes:
-		rh.currentStep = data.StepFailed
-		return ErrNotEnoughVotes
+		err := rh.miniRoundOneHandler.HandleVoteCollectionTimeout(roundKey)
+		if err != nil {
+			rh.currentStep = data.StepFailed
+			return err
+		}
+		return rh.startMiniRoundTwoIfMiniRoundOneWasFinalized(roundKey)
 
 	case data.StepAwaitAggregatedVotes:
 		rh.currentStep = data.StepFailed

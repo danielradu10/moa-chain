@@ -10,5 +10,6 @@ type MiniRoundOneHandler interface {
 	HandleProposingBlock(roundKey data.RoundKey) error
 	HandleProposedBlock(roundKey data.RoundKey, message *data.ProposedBlockMessage) error
 	HandleBlockVote(roundKey data.RoundKey, vote *data.BlockVote) error
+	HandleVoteCollectionTimeout(roundKey data.RoundKey) error
 	HandleAggregatedVotes(roundKey data.RoundKey, votes *data.AggregatedVotes) error
 }

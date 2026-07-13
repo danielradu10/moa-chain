@@ -54,6 +54,8 @@ func TestMiniRoundOne_NoErrorsDuringRound(t *testing.T) {
 			inboxes[i],
 			nil,
 			&testscommon.LabelerStub{},
+			true,
+			0,
 		)
 
 		nodes = append(nodes, node)
@@ -144,6 +146,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 			inboxes[i],
 			nil,
 			&testscommon.LabelerStub{},
+			true,
+			0,
 		)
 
 		nodes = append(nodes, node)
@@ -276,6 +280,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 			inboxes[i],
 			cloneTransactions(transactions),
 			labelerStub,
+			true,
+			0,
 		)
 
 		nodes = append(nodes, node)
@@ -401,6 +407,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 			inboxes[i],
 			cloneTransactions(transactions),
 			labelerStub,
+			true,
+			0,
 		)
 
 		nodes = append(nodes, node)
@@ -613,21 +621,22 @@ func createTransaction(
 func expectedSubdomains() data.SubdomainsFrequency {
 	// The consensus group and quorum are selected deterministically from the 10
 	// registered validators for round key {Epoch:0, Round:2, MiniRound:0}.
-	// The quorum certificate contains 4 validators, each contributing 1 vote per
-	// label per transaction. Labels appearing in N transactions contribute N×4
-	// to the block-level frequency map.
+	// The protocol now collects all G=5 votes before aggregating; the quorum
+	// threshold Q=4 is still used to decide which labels pass. Each validator
+	// contributes 1 vote per label per transaction, so labels appearing in N
+	// transactions contribute N×5 to the block-level frequency map.
 	return data.SubdomainsFrequency{
-		"back_end_with_apis":                 8,  // alice + eveline
-		"databases":                          8,  // alice + carol
-		"security":                           8,  // alice + david
-		"web_front_end":                      4,  // bob
-		"test_engineering_and_qa_automation": 8,  // bob + frank
-		"mobile_dev":                         8,  // bob + eveline
-		"data_engineering":                   4,  // carol
-		"cloud_engineering":                  12, // carol + eveline + frank
-		"blockchain_engineering":             4,  // david
-		"systems_programming":                4,  // david
-		"dev_ops":                            4,  // frank
+		"back_end_with_apis":                 10, // alice + eveline
+		"databases":                          10, // alice + carol
+		"security":                           10, // alice + david
+		"web_front_end":                      5,  // bob
+		"test_engineering_and_qa_automation": 10, // bob + frank
+		"mobile_dev":                         10, // bob + eveline
+		"data_engineering":                   5,  // carol
+		"cloud_engineering":                  15, // carol + eveline + frank
+		"blockchain_engineering":             5,  // david
+		"systems_programming":                5,  // david
+		"dev_ops":                            5,  // frank
 	}
 }
 
@@ -797,41 +806,57 @@ func requireFinalizedFrequenciesFromValidQuorum(
 	quorumSize := consensusQuorum(len(consensusGroup))
 	require.LessOrEqual(t, quorumSize, len(consensusGroup))
 
-	leaderID := consensusGroup[0]
-	remainingValidators := consensusGroup[1:]
-	requiredFollowers := quorumSize - 1
-
-	var matchingQuorum []string
-	var visit func(start int, selected []string)
-	visit = func(start int, selected []string) {
-		if matchingQuorum != nil {
+	// The protocol now waits for all G votes before aggregating (with Q threshold
+	// applied to determine which labels pass). Try subsets from largest (G) down
+	// to smallest valid (Q), so the normal G-vote path is checked first.
+	for subsetSize := len(consensusGroup); subsetSize >= quorumSize; subsetSize-- {
+		if findExplainingSubset(t, actual, consensusGroup, agents, transactions, subsetSize, quorumSize) {
 			return
-		}
-
-		if len(selected) == requiredFollowers {
-			quorum := append([]string{leaderID}, selected...)
-			expected := aggregateAgentLabelFrequencies(t, quorum, agents, transactions, uint64(quorumSize))
-			if subdomainsFrequenciesEqual(actual, expected) {
-				matchingQuorum = copyStringSlice(quorum)
-			}
-			return
-		}
-
-		remainingSlots := requiredFollowers - len(selected)
-		for i := start; i <= len(remainingValidators)-remainingSlots; i++ {
-			visit(i+1, append(selected, remainingValidators[i]))
 		}
 	}
 
-	visit(0, nil)
-
-	require.NotNilf(
+	require.Failf(
 		t,
-		matchingQuorum,
+		"frequencies not explainable by any valid quorum",
 		"finalized subdomain frequencies are not explainable by any quorum of the selected consensus group; consensusGroup=%v actual=%v",
 		consensusGroup,
 		actual,
 	)
+}
+
+// findExplainingSubset returns true if some subsetSize-member subset of
+// consensusGroup explains actual when labels are filtered at quorumThreshold.
+func findExplainingSubset(
+	t *testing.T,
+	actual data.SubdomainsFrequency,
+	consensusGroup []string,
+	agents []agentLabelsByTxHash,
+	transactions []data.Transaction,
+	subsetSize int,
+	quorumThreshold int,
+) bool {
+	t.Helper()
+
+	found := false
+	var visit func(start int, selected []string)
+	visit = func(start int, selected []string) {
+		if found {
+			return
+		}
+		if len(selected) == subsetSize {
+			expected := aggregateAgentLabelFrequencies(t, selected, agents, transactions, uint64(quorumThreshold))
+			if subdomainsFrequenciesEqual(actual, expected) {
+				found = true
+			}
+			return
+		}
+		remaining := subsetSize - len(selected)
+		for i := start; i <= len(consensusGroup)-remaining; i++ {
+			visit(i+1, append(selected, consensusGroup[i]))
+		}
+	}
+	visit(0, nil)
+	return found
 }
 
 func aggregateAgentLabelFrequencies(

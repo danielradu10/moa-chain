@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -270,15 +271,36 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 			"bob":   {nonce: 0, balance: 100},
 		})
 
-		tx1 := createSelectionTx(0, "alice", 100, 9000, 10, []byte("txHash1"))
-		tx2 := createSelectionTx(0, "bob", 90, 2000, 10, []byte("txHash2"))
+		tx1 := &transaction{nonce: 0, sender: []byte("alice"), txHash: []byte("txHash1"), tip: 900000, estimatedConsumption: 9000, estimatedScore: 100, transferredValue: 10}
+		tx2 := &transaction{nonce: 0, sender: []byte("bob"), txHash: []byte("txHash2"), tip: 180000, estimatedConsumption: 2000, estimatedScore: 90, transferredValue: 10}
 
-		require.NoError(t, mempool.AddTransaction(tx1))
-		require.NoError(t, mempool.AddTransaction(tx2))
+		addTxDirect(mempool, tx1)
+		addTxDirect(mempool, tx2)
 
 		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Equal(t, []data.Transaction{tx1}, selectedTransactions)
+	})
+
+	t.Run("should stop when max number of transactions is reached", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := newTestMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{})
+
+		for i := 0; i < maxNumTransactions+5; i++ {
+			sender := fmt.Sprintf("sender-%d", i)
+			require.NoError(t, accountsState.AddAccount(sender, 0, 100000))
+			tx := createSelectionTx(0, sender, 10, 10, 10, []byte(fmt.Sprintf("hash-%d", i)))
+			require.NoError(t, mempool.AddTransaction(tx))
+		}
+
+		selectedTransactions := mempool.SelectTransactions(accountsState)
+
+		require.Len(t, selectedTransactions, maxNumTransactions)
 	})
 
 	t.Run("should skip sender when first transaction has initial nonce gap", func(t *testing.T) {

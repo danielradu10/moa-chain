@@ -82,7 +82,10 @@ func runMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 	publicKeys, privateKeys := generateScenarioKeys(t, scenario.Network.RegisteredNodes)
 	registeredValidators := createScenarioValidators(publicKeys)
 	transactions := scenarioTransactions(scenario)
-	frequencies := scenarioSubdomainFrequencies(scenario, uint64(scenario.Network.Quorum))
+	// The protocol now aggregates all G (CommitteeSize) votes before applying the
+	// Q (Quorum) threshold for label frequency. Frequencies are therefore G×txCount
+	// per label, not Q×txCount.
+	frequencies := scenarioSubdomainFrequencies(scenario, uint64(scenario.Network.CommitteeSize))
 	committees := selectScenarioCommittees(t, registeredValidators, frequencies)
 	require.Len(t, committees.miniRoundOne, scenario.Network.CommitteeSize)
 	require.Len(t, committees.miniRoundTwo, scenario.Network.CommitteeSize)
@@ -238,6 +241,8 @@ func createMiniRoundTwoScenarioNodes(
 			cloneTransactions(transactions),
 			createScenarioAgent(t, scenario, role),
 			network.BroadcasterForNode(validatorID),
+			false,
+			0,
 		)
 		nodes = append(nodes, node)
 	}
