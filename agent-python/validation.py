@@ -58,11 +58,12 @@ def check_judge_response(response: str) -> None:
 
     Python does the minimum validation needed to surface model errors early.
     Go owns the full schema and parses the response itself after this check passes.
-    The expected structure is a JSON array of objects with 'category' and 'reason' fields.
+    The expected structure matches the Go protocol format:
+      {"classifications": [{"candidateId": "candidate-1", "category": "CORRECT"}, ...]}
     """
     import json
 
-    allowed_categories = {"Correct", "Hallucination", "Malicious", "Wrong"}
+    allowed_categories = {"CORRECT", "HALLUCINATION", "MALICIOUS", "WRONG"}
 
     try:
         data = json.loads(response)
@@ -72,25 +73,25 @@ def check_judge_response(response: str) -> None:
             f"judge response is not valid JSON: {exc}",
         ) from exc
 
-    if not isinstance(data, list):
+    if not isinstance(data, dict) or "classifications" not in data:
         raise AgentServiceError(
             ErrorCode.INVALID_MODEL_OUTPUT,
-            "judge response must be a JSON array",
+            'judge response must be a JSON object with a "classifications" key',
         )
 
-    for item in data:
+    classifications = data["classifications"]
+    if not isinstance(classifications, list):
+        raise AgentServiceError(
+            ErrorCode.INVALID_MODEL_OUTPUT,
+            '"classifications" must be a JSON array',
+        )
+
+    for item in classifications:
         category = item.get("category", "")
         if category not in allowed_categories:
             raise AgentServiceError(
                 ErrorCode.UNKNOWN_CATEGORY,
                 f"category '{category}' not in allowed set {sorted(allowed_categories)}",
-            )
-
-        reason = item.get("reason", "")
-        if not reason.strip():
-            raise AgentServiceError(
-                ErrorCode.EMPTY_ANSWER,
-                "reason is empty or whitespace-only",
             )
 
 

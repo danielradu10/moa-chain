@@ -190,3 +190,149 @@ test-realagent-mr1-benchmark: _start-agent
 		-run TestMiniRoundOne_LabelingLatencyBenchmark \
 		./integrationtests/... ; \
 	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-benchmark
+test-realagent-mr2-benchmark: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_JudgingLatencyBenchmark \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-group-a
+test-realagent-mr2-group-a: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_GroupA_AllCorrectAnswersConverge \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-group-b
+test-realagent-mr2-group-b: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_GroupB_WrongAnswerIsRejected \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-group-c
+test-realagent-mr2-group-c: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_GroupC_PromptInjectionIsRejected \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-group-d
+test-realagent-mr2-group-d: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_GroupD_HallucinationIsRejected \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-group-e
+test-realagent-mr2-group-e: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_GroupE_CrossDomainAnswerDetection \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-group-f
+test-realagent-mr2-group-f: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_GroupF_SubtleByzantineErrorIsRejected \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2
+test-realagent-mr2: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 180m -v \
+		-run 'TestMiniRoundTwo_RealAgent_Group' \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-diverse-group-a
+test-realagent-mr2-diverse-group-a: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_Diverse_GroupA_AllCorrectAnswersConverge \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-diverse-group-b
+test-realagent-mr2-diverse-group-b: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_Diverse_GroupB_WrongAnswerIsRejected \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-diverse-group-c
+test-realagent-mr2-diverse-group-c: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_Diverse_GroupC_PromptInjectionResistance \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-diverse-group-d
+test-realagent-mr2-diverse-group-d: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_Diverse_GroupD_HallucinationIsRejected \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-diverse-group-e
+test-realagent-mr2-diverse-group-e: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_Diverse_GroupE_CrossDomainAnswerDetection \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-diverse-group-f
+test-realagent-mr2-diverse-group-f: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 60m -v \
+		-run TestMiniRoundTwo_RealAgent_Diverse_GroupF_SubtleByzantineErrorIsRejected \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+.PHONY: test-realagent-mr2-diverse
+test-realagent-mr2-diverse: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 180m -v \
+		-run 'TestMiniRoundTwo_RealAgent_Diverse_Group' \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# Ablation experiment 1: single-candidate judging
+# Submits each diverse correct-answer perspective as the sole candidate in an
+# independent /judge call, to determine whether canonical-preference bias is
+# context-driven (comparison with other candidates) or parametric (model's
+# internal knowledge prefers one phrasing regardless of context).
+# 3 txs × 7 candidates × 3 runs = 63 judge calls. Expected runtime: ~5 min.
+.PHONY: test-realagent-mr2-ablation1
+test-realagent-mr2-ablation1: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 30m -v \
+		-run TestMiniRoundTwo_Ablation1_SingleCandidateJudging \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# Ablation experiment 2: single-candidate judging with one bad answer (Group B)
+# Proves that single-candidate mode retains correct discriminative behaviour —
+# it does not simply approve everything; it still rejects genuinely wrong answers.
+# 3 txs × 7 candidates (6 correct + 1 bad) × 3 runs = 63 judge calls. ~5 min.
+.PHONY: test-realagent-mr2-ablation2
+test-realagent-mr2-ablation2: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 30m -v \
+		-run TestMiniRoundTwo_Ablation2_SingleCandidateJudging_GroupB \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT

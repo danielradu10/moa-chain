@@ -14,11 +14,14 @@ def judge_client(client: TestClient):
     return client, fake
 
 
-def _valid_response(*categories: str) -> str:
-    return json.dumps([
-        {"category": cat, "reason": f"Reason for {cat}."}
-        for cat in categories
-    ])
+def _valid_response(*candidate_ids: str) -> str:
+    categories = ["CORRECT", "HALLUCINATION", "MALICIOUS", "WRONG"]
+    return json.dumps({
+        "classifications": [
+            {"candidateId": cid, "category": categories[i % len(categories)]}
+            for i, cid in enumerate(candidate_ids)
+        ]
+    })
 
 
 VALID_REQUEST = {
@@ -29,7 +32,7 @@ VALID_REQUEST = {
 
 def test_judge_valid_response_passes_through(judge_client) -> None:
     client, fake = judge_client
-    raw = _valid_response("Correct", "Wrong")
+    raw = _valid_response("candidate-1", "candidate-2")
     fake.set_raw_response(raw)
     resp = client.post("/judge", json=VALID_REQUEST)
     assert resp.status_code == 200
@@ -44,25 +47,33 @@ def test_judge_invalid_json_from_model(judge_client) -> None:
     assert resp.json()["error"] == "INVALID_MODEL_OUTPUT"
 
 
+def test_judge_array_instead_of_object(judge_client) -> None:
+    client, fake = judge_client
+    fake.set_raw_response(json.dumps([{"candidateId": "candidate-1", "category": "CORRECT"}]))
+    resp = client.post("/judge", json=VALID_REQUEST)
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "INVALID_MODEL_OUTPUT"
+
+
+def test_judge_missing_classifications_key(judge_client) -> None:
+    client, fake = judge_client
+    fake.set_raw_response(json.dumps({"results": []}))
+    resp = client.post("/judge", json=VALID_REQUEST)
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "INVALID_MODEL_OUTPUT"
+
+
 def test_judge_unknown_category(judge_client) -> None:
     client, fake = judge_client
-    fake.set_raw_response(json.dumps([{"category": "Uncertain", "reason": "Not sure."}]))
+    fake.set_raw_response(json.dumps({"classifications": [{"candidateId": "candidate-1", "category": "Uncertain"}]}))
     resp = client.post("/judge", json=VALID_REQUEST)
     assert resp.status_code == 400
     assert resp.json()["error"] == "UNKNOWN_CATEGORY"
 
 
-def test_judge_empty_reason(judge_client) -> None:
-    client, fake = judge_client
-    fake.set_raw_response(json.dumps([{"category": "Correct", "reason": "   "}]))
-    resp = client.post("/judge", json=VALID_REQUEST)
-    assert resp.status_code == 400
-    assert resp.json()["error"] == "EMPTY_ANSWER"
-
-
 def test_judge_empty_system_prompt(judge_client) -> None:
     client, fake = judge_client
-    fake.set_raw_response(_valid_response("Correct"))
+    fake.set_raw_response(_valid_response("candidate-1"))
     resp = client.post("/judge", json={**VALID_REQUEST, "system_prompt": "   "})
     assert resp.status_code == 400
     assert resp.json()["error"] == "INVALID_REQUEST"
@@ -70,7 +81,7 @@ def test_judge_empty_system_prompt(judge_client) -> None:
 
 def test_judge_empty_user_prompt(judge_client) -> None:
     client, fake = judge_client
-    fake.set_raw_response(_valid_response("Correct"))
+    fake.set_raw_response(_valid_response("candidate-1"))
     resp = client.post("/judge", json={**VALID_REQUEST, "user_prompt": ""})
     assert resp.status_code == 400
     assert resp.json()["error"] == "INVALID_REQUEST"
@@ -78,7 +89,7 @@ def test_judge_empty_user_prompt(judge_client) -> None:
 
 def test_judge_all_valid_categories_accepted(judge_client) -> None:
     client, fake = judge_client
-    raw = _valid_response("Correct", "Hallucination", "Malicious", "Wrong")
+    raw = _valid_response("candidate-1", "candidate-2", "candidate-3", "candidate-4")
     fake.set_raw_response(raw)
     resp = client.post("/judge", json=VALID_REQUEST)
     assert resp.status_code == 200

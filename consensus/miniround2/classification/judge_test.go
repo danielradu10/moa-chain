@@ -41,7 +41,7 @@ func TestBuildAnswerJudgeRequests(t *testing.T) {
 func TestAnswerJudgePromptHashFixture(t *testing.T) {
 	t.Parallel()
 
-	const expectedPromptHash = "9a1a8753d2f3283be66a0b09128b74c99b947e48c9d19af6db7100dd4bb7e120"
+	const expectedPromptHash = "c3529e924085dc0967f839302ff32b6456571ed26911de4d5d366cc7cf28902f"
 
 	require.Equal(t, expectedPromptHash, hex.EncodeToString(AnswerJudgePromptHash()))
 }
