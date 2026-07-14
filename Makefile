@@ -310,3 +310,29 @@ test-realagent-mr2-diverse: _start-agent
 		-run 'TestMiniRoundTwo_RealAgent_Diverse_Group' \
 		./integrationtests/... ; \
 	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# Ablation experiment 1: single-candidate judging
+# Submits each diverse correct-answer perspective as the sole candidate in an
+# independent /judge call, to determine whether canonical-preference bias is
+# context-driven (comparison with other candidates) or parametric (model's
+# internal knowledge prefers one phrasing regardless of context).
+# 3 txs × 7 candidates × 3 runs = 63 judge calls. Expected runtime: ~5 min.
+.PHONY: test-realagent-mr2-ablation1
+test-realagent-mr2-ablation1: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 30m -v \
+		-run TestMiniRoundTwo_Ablation1_SingleCandidateJudging \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# Ablation experiment 2: single-candidate judging with one bad answer (Group B)
+# Proves that single-candidate mode retains correct discriminative behaviour —
+# it does not simply approve everything; it still rejects genuinely wrong answers.
+# 3 txs × 7 candidates (6 correct + 1 bad) × 3 runs = 63 judge calls. ~5 min.
+.PHONY: test-realagent-mr2-ablation2
+test-realagent-mr2-ablation2: _start-agent
+	@MOA_AGENT_BASE_URL=$(MOA_AGENT_BASE_URL) \
+	go test -tags integration -timeout 30m -v \
+		-run TestMiniRoundTwo_Ablation2_SingleCandidateJudging_GroupB \
+		./integrationtests/... ; \
+	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT

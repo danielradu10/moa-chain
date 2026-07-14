@@ -836,3 +836,208 @@ A 70B-parameter or frontier model (GPT-4, Claude-class) has sufficient semantic
 breadth to recognise that "regression safety", "fast feedback", and "executable
 specification" are all valid correct framings of the same question. This is the
 production-quality fix, at higher inference cost per call.
+
+---
+
+## Ablation 1 — Single-Candidate Judging (all-correct diverse, Group A)
+
+**Date:** 2026-07-14 (re-run with randomized call order: same date)  
+**Test:** `TestMiniRoundTwo_Ablation1_SingleCandidateJudging`  
+**Make target:** `make test-realagent-mr2-ablation1`  
+**Raw data:** `judge_classification_records.jsonl` (group `ablation_g1/single_candidate`, round 40)
+
+### Motivation
+
+The diverse Group A test (round 30) established that when 7 semantically
+diverse but equally correct candidates are submitted in a single batch, the
+model marks only 1–2 as CORRECT. The v3 prompt attempt ("evaluate each
+candidate INDEPENDENTLY") produced no improvement. Two hypotheses remained:
+
+1. **Context-driven bias:** the model compares candidates against each other
+   (or anchors on the first one in the list), picks one as "canonical", and
+   rejects all others as deviating from it. Removing the other candidates from
+   the request would eliminate the bias.
+
+2. **Parametric bias:** the model has a narrow internal representation of the
+   correct answer from pre-training. It compares each candidate against that
+   stored representation independently — no cross-candidate comparison needed
+   — and rejects phrasings that do not closely match its internal form. This
+   bias cannot be fixed by changing what is in the request; it is in the weights.
+
+### Method
+
+Each of the 7 candidate answers from the Group A diverse evidence was submitted
+to the judge as the **sole candidate in an independent HTTP request**. The system
+prompt (`answer-judge-v3`), user-prompt JSON schema, and answer texts are
+identical to the batch test. The only change: one candidate per call instead of
+seven. Each candidate was evaluated 3 times to quantify run-to-run variance.
+Call order within each run was randomised (`rand.Perm`) to prevent temporal
+effects (model warm/cool state, system load) from systematically favouring
+any particular candidate. Total: 3 txs × 7 candidates × 3 runs = 63 judge calls.
+
+### Results
+
+| TX | Perspectives tested | Single-candidate CORRECT (≥1 run) | Single-candidate CORRECT (all 3 runs) | Batch baseline (Group A diverse) |
+|----|--------------------|------------------------------------|----------------------------------------|----------------------------------|
+| control-before (unit tests) | 7 (6 distinct + 1 repeat) | **7/7** | **6/7** ¹ | 1/7 |
+| target (signatures) | 7 (6 distinct + 1 repeat) | **7/7** | **7/7** | 2/7 |
+| control-after (ordering) | 7 (6 distinct + 1 repeat) | **7/7** | **7/7** | 1/7 |
+
+¹ One HTTP 400 transient error (Python agent validation failure, not a
+classification decision) on candidate-4 in run 3. The same candidate returned
+CORRECT in the other 2 runs. Effective: 62/63 calls completed, 62/62 returned
+CORRECT. The same transient error pattern was observed in the first run (before
+randomization was added), confirming it is unrelated to call order.
+
+**Per-perspective correct counts across 3 runs (all three txs):**
+
+| | P1 | P2 | P3 | P4 | P5 | P6 | P7(=P1) |
+|-|----|----|----|----|----|----|----|
+| control-before | 3 | 3 | 3 | 2 ¹ | 3 | 3 | 3 |
+| target | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| control-after | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+
+### Interpretation
+
+The result is unambiguous. When isolated from other candidates, the judge
+correctly classifies every diverse perspective as CORRECT with near-100%
+reliability across all three questions and all three runs.
+
+**The canonical-preference bias is entirely context-driven, not parametric.**
+
+When the model sees all 7 candidates simultaneously, something in the in-context
+processing — cross-candidate comparison, positional anchoring on candidate-1, or
+implicit "pick a winner" pressure — causes it to select one phrasing as correct
+and reject the others. When each candidate is evaluated without the others
+present, the model applies its parametric knowledge correctly and accepts every
+valid phrasing. The model *knows* these answers are correct; it just fails to
+recognise multiple of them as simultaneously correct when they appear together.
+
+The v3 prompt instruction ("evaluate each candidate INDEPENDENTLY, do NOT
+compare candidates to each other") was not enough to suppress this behaviour.
+The model reads it but reverts to comparative evaluation when generating its
+output, because the comparative strategy is more strongly reinforced by its
+training than the explicit constraint.
+
+### Comparison: batch vs. single-candidate
+
+| Mode | Calls per tx per validator | CORRECT rate (Group A diverse) |
+|------|--------------------------|--------------------------------|
+| Batch (all 7 candidates) | 1 | 14–29% (1–2 of 7) |
+| Single-candidate | 7 | **~100%** (7 of 7) |
+
+### Protocol implication
+
+The architectural fix (Option A from the prompt-engineering section) is
+confirmed to be both necessary and sufficient. Sending one candidate per judge
+call completely eliminates the bias at the cost of 7× more LLM calls per
+transaction per validator.
+
+For the current model (qwen2.5-coder:7b) and hardware, the per-candidate
+latency in single-call mode is ~960ms warm (vs. ~425ms/candidate in batch mode,
+from Experiment E). The total judging time per transaction under single-candidate
+mode is therefore ~6.7s (7 × 960ms) vs. ~3.3s in batch mode. With 5
+transactions per block, per-validator judging cost grows from ~16.5s to ~33.5s.
+This is within the range of a configurable timeout and is acceptable given that
+the alternative (batch mode) produces incorrect protocol outcomes for all-honest
+diverse evidence.
+
+**Remaining open question:** whether the same fix applies at the *protocol
+level*. The ablation was run as a standalone benchmark (one HTTP client, no
+consensus round). A follow-up experiment should verify that running the full
+MR2 diverse Group A round with single-candidate judge calls actually produces
+`READY_FOR_MINI_ROUND_THREE` across all validators, confirming that the
+classification votes converge to quorum under single-candidate mode.
+
+---
+
+## Ablation 2 — Single-Candidate Judging with One Bad Answer (Group B)
+
+**Date:** 2026-07-14  
+**Test:** `TestMiniRoundTwo_Ablation2_SingleCandidateJudging_GroupB`  
+**Make target:** `make test-realagent-mr2-ablation2`  
+**Raw data:** `judge_classification_records.jsonl` (group `ablation_g2/single_candidate`, round 41)
+
+### Motivation
+
+Ablation 1 proved that single-candidate mode correctly accepts all diverse
+correct perspectives. A remaining concern is that the mode might simply be
+permissive — approving every answer regardless of content — rather than
+genuinely discriminating. Ablation 2 closes this gap by mixing one genuinely
+wrong answer among the 6 correct ones and testing whether the judge still
+rejects it when evaluated in isolation.
+
+### Method
+
+7 candidates per tx, each evaluated as a sole candidate in an independent
+request: perspectives 1–6 (the 6 diverse correct answers from
+`mr2RADiverseAnswers`) plus the Group B bad answer as candidate 7. Call order
+within each run was randomised so the bad answer did not always occupy the same
+position in the sequence. Each candidate evaluated 3 times.
+Total: 3 txs × 7 candidates × 3 runs = 63 judge calls.
+
+**Group B bad answers (same as batch diverse Group B, round 31):**
+- *Unit tests:* "Unit tests are primarily useful for documentation. They cannot
+  catch logical errors because they only verify that the code compiles without
+  throwing exceptions…"
+- *Signatures:* "Validators verify signatures to prevent bandwidth exhaustion.
+  Without signature verification, nodes would flood the network with duplicate
+  messages…"
+- *Ordering:* "Deterministic ordering makes log files easier to read during
+  debugging. Without a fixed order, stack traces appear in random sequences…"
+
+### Results
+
+**Correct candidates (perspectives 1–6):**
+
+| TX | CORRECT in all 3 runs | Batch baseline (Group B diverse) |
+|----|----------------------|----------------------------------|
+| control-before (unit tests) | **6/6** | 2–4/7 (mixed with false positives) |
+| target (signatures) | **6/6** | 2–4/7 |
+| control-after (ordering) | **6/6** | 2–4/7 |
+
+**Bad candidate (candidate 7, wrong factual answer):**
+
+| TX | WRONG | HTTP error | CORRECT |
+|----|-------|-----------|---------|
+| control-before | 3/3 | 0 | 0 |
+| target | 2/2 ¹ | 1 | 0 |
+| control-after | 3/3 | 0 | 0 |
+
+¹ One HTTP 400 transient error on the bad candidate in run 2 (same sporadic
+Python agent validation failure seen in Ablation 1). The bad answer was
+correctly classified WRONG in the 2 runs that completed.
+
+### Interpretation
+
+Single-candidate mode is not permissive — it correctly rejects genuinely wrong
+answers even when they are the only candidate in the request.
+
+The results confirm both directions of the discriminative property:
+- **6/6 correct perspectives → CORRECT** (all three txs, all three runs)
+- **Bad answer → WRONG** (every completed call, regardless of its randomised
+  position in the sequence)
+
+The randomised call order eliminates the possibility that the bad answer
+benefited from or was penalised by its position in the sequence. The verdict
+is position-independent: the model evaluates factual correctness against the
+prompt, not against the other candidates.
+
+### Combined conclusion (Ablation 1 + Ablation 2)
+
+| Candidate type | Batch mode (7 per call) | Single-candidate mode |
+|---------------|------------------------|-----------------------|
+| Diverse correct (6 perspectives) | 1–2 CORRECT, 4–5 WRONG (false positives) | **6/6 CORRECT** |
+| Wrong factual answer | mixed with false positives — indistinguishable | **WRONG** (100%) |
+
+The batch mode produces two distinct failure modes simultaneously: false
+rejections of correct answers and uninterpretable signal for bad answers (they
+disappear into the noise of false positives). Single-candidate mode eliminates
+both problems. Each verdict is clean and causal — the model is judging the
+answer against the question, not against the other candidates.
+
+The architectural fix is confirmed to be both **necessary** (the v3 prompt
+instruction alone was insufficient) and **sufficient** (single-candidate mode
+achieves near-perfect discrimination on both axes). The cost is 7× more LLM
+calls per transaction per validator, approximately doubling per-validator
+judging time from ~16.5s to ~33.5s for a 5-transaction block.
