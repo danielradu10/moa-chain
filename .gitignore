@@ -37,10 +37,8 @@ testresults/*.json
 testresults/*.log
 testresults/agent-logs/
 
-# Cluster infrastructure — contain internal IPs and key paths
+# Cluster infrastructure — contains internal IPs in machine table
 DISTRIBUTED_TESTING.md
-scripts/collect-logs.sh
-scripts/sync-to-master.sh
 
 # Dissertation PDF
 _BCCA_2026__Blockchain_AI-v8.pdf
