@@ -129,8 +129,8 @@ func TestClient_LabelBatch(t *testing.T) {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"error_code": "PROMPT_VERSION_MISMATCH",
-				"message":    "loaded version is labeler_v1, got labeler_v99",
+				"error": "PROMPT_VERSION_MISMATCH",
+				"detail":    "loaded version is labeler_v1, got labeler_v99",
 			})
 		}))
 		defer server.Close()
@@ -149,8 +149,8 @@ func TestClient_LabelBatch(t *testing.T) {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"error_code": "COVERAGE_MISMATCH",
-				"message":    "tx_hash missing from response",
+				"error": "COVERAGE_MISMATCH",
+				"detail":    "tx_hash missing from response",
 			})
 		}))
 		defer server.Close()
@@ -272,8 +272,8 @@ func TestClient_AnswerBatch(t *testing.T) {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"error_code": "EMPTY_ANSWER",
-				"message":    "answer is empty after trimming",
+				"error": "EMPTY_ANSWER",
+				"detail":    "answer is empty after trimming",
 			})
 		}))
 		defer server.Close()
@@ -340,8 +340,8 @@ func TestClient_JudgeTransactionAnswers(t *testing.T) {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"error_code": "INVALID_REQUEST",
-				"message":    "system_prompt is empty",
+				"error": "INVALID_REQUEST",
+				"detail":    "system_prompt is empty",
 			})
 		}))
 		defer server.Close()
@@ -360,8 +360,8 @@ func TestClient_JudgeTransactionAnswers(t *testing.T) {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"error_code": "PROVIDER_ERROR",
-				"message":    "ollama returned 503",
+				"error": "PROVIDER_ERROR",
+				"detail":    "ollama returned 503",
 			})
 		}))
 		defer server.Close()

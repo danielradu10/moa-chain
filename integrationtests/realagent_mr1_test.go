@@ -45,7 +45,7 @@ func realAgentClient() *httpclient.Client {
 	return httpclient.New(httpclient.Config{
 		BaseURL:             agentBaseURLForTest(),
 		TimeoutSeconds:      720,
-		LabelPromptVersion:  "labeler_v2",
+		LabelPromptVersion:  "labeler_v3",
 		LabelPromptHash:     "",
 		AnswerPromptVersion: "answerer_v1",
 		AnswerPromptHash:    "",

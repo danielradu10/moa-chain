@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 lint-install:
 ifeq (,$(wildcard test -f bin/golangci-lint))
 	@echo "Installing golint"
@@ -336,3 +338,68 @@ test-realagent-mr2-ablation2: _start-agent
 		-run TestMiniRoundTwo_Ablation2_SingleCandidateJudging_GroupB \
 		./integrationtests/... ; \
 	EXIT=$$?; $(MAKE) _stop-agent; exit $$EXIT
+
+# ── Distributed cluster integration tests ─────────────────────────────────────
+#
+# Ensures all cluster agents are healthy (starting them if needed), runs the
+# distributed MR1 test, then stops all agents — regardless of test outcome.
+#
+# Override cluster config path:
+#   make test-distributed-mr1 CLUSTER_CONFIG=configs/cluster.json
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+CLUSTER_CONFIG ?= $(CURDIR)/configs/cluster.json
+N              ?= 5
+
+.PHONY: test-distributed-mr1
+test-distributed-mr1:
+	@mkdir -p testresults
+	@bash scripts/health-check.sh || bash scripts/start-cluster.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	go test -tags integration -timeout 30m -v \
+		-run TestDistributedMR1 \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr1-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-cluster.sh; \
+	exit $$exit_code
+
+.PHONY: test-distributed-mr1-trials
+test-distributed-mr1-trials:
+	@mkdir -p testresults
+	@echo "Running $(N) MR1 trials — cluster restarted between each run..."
+	@START=$$(date +%s); \
+	for i in $$(seq 1 $(N)); do \
+		echo ""; \
+		echo "=== Trial $$i / $(N) ==="; \
+		bash scripts/stop-cluster.sh 2>/dev/null || true; \
+		bash scripts/start-cluster.sh; \
+		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+		go test -tags integration -timeout 30m \
+			-run TestDistributedMR1 \
+			./integrationtests/... || true; \
+	done; \
+	bash scripts/stop-cluster.sh 2>/dev/null || true; \
+	echo ""; \
+	echo "=== Trial Summary (N=$(N)) ==="; \
+	python3 -c " \
+import json,glob,os,sys; \
+start=$$START; \
+files=sorted(f for f in glob.glob('$(CURDIR)/testresults/distributed-mr1-*.json') if os.path.getmtime(f)>=start); \
+results=[json.load(open(f)) for f in files]; \
+results or sys.exit(print('No results found.') or 0); \
+p=[r for r in results if r['passed']]; \
+d=[r['duration_seconds'] for r in results]; \
+print(f'Trials  : {len(results)}'); \
+print(f'Passed  : {len(p)}/{len(results)}'); \
+print(f'Duration: min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s'); \
+ms={}; \
+[ms.update({k:ms.get(k,0)+1}) for r in p for k in [json.dumps(r.get('subdomains_frequencies',{}),sort_keys=True)]]; \
+print(f'Subdomain maps: {len(ms)} unique across {len(p)} passed trial(s)'); \
+[print(f'  ({c}x) {m}') for m,c in ms.items()] \
+"
+

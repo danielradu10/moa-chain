@@ -13,18 +13,45 @@ import (
 
 const miniRoundTwoWeightScale = uint64(100)
 
+// CommitteeStrategy controls how many validators are selected into the consensus committee.
+type CommitteeStrategy int
+
+const (
+	// CommitteeStrategyHalf selects len(validators)/2 nodes — the default behaviour.
+	CommitteeStrategyHalf CommitteeStrategy = iota
+	// CommitteeStrategyFull selects all len(validators) nodes.
+	// Used when every registered validator should participate in every round,
+	// for example in distributed integration tests where each node runs its own agent.
+	CommitteeStrategyFull
+)
+
 type consensusSelector struct {
 	currentConsensusGroup []string
 	currentLeader         string
+	strategy              CommitteeStrategy
 	logger                *slog.Logger
 }
 
 func NewConsensusSelector(loggers ...*slog.Logger) *consensusSelector {
+	return NewConsensusSelectorWithStrategy(CommitteeStrategyHalf, loggers...)
+}
+
+// NewConsensusSelectorWithStrategy creates a selector with an explicit committee strategy.
+// Use CommitteeStrategyFull to include all registered validators in every committee.
+func NewConsensusSelectorWithStrategy(strategy CommitteeStrategy, loggers ...*slog.Logger) *consensusSelector {
 	return &consensusSelector{
 		currentConsensusGroup: make([]string, 0),
 		currentLeader:         "",
+		strategy:              strategy,
 		logger:                logging.FromOptional(loggers...),
 	}
+}
+
+func (c *consensusSelector) committeeSize(numValidators int) int {
+	if c.strategy == CommitteeStrategyFull {
+		return numValidators
+	}
+	return numValidators / 2
 }
 
 // SelectConsensusGroupMiniRoundOne selects the consensus group for the first mini-round one.
@@ -64,7 +91,7 @@ func (c *consensusSelector) selectConsensusGroupMiniRoundOne(validators []*Valid
 		"numValidatorGroups", countValidatorGroups(expandedList),
 	)
 
-	consensusGroupDimension := len(validators) / 2
+	consensusGroupDimension := c.committeeSize(len(validators))
 	consensusGroup, err := c.selectUniqueFromExpandedList(selectionSeed, expandedList, uint64(consensusGroupDimension))
 	if err != nil {
 		c.logger.Error("validators.SelectConsensusGroup failed to select consensus group", "roundKey", roundKey, "groupSize", consensusGroupDimension, "error", err)
@@ -132,7 +159,7 @@ func (c *consensusSelector) selectConsensusGroupMiniRoundTwo(validators []*Valid
 		weights[subdomain] = frequency * miniRoundTwoWeightScale / totalFreq
 	}
 
-	consensusGroupDimension := len(validators) / 2
+	consensusGroupDimension := c.committeeSize(len(validators))
 	expandedList := c.createExpandedListMiniRoundTwo(validators, weights)
 	consensusGroup, err := c.selectUniqueFromExpandedList(selectionSeed, expandedList, uint64(consensusGroupDimension))
 	if err != nil {
