@@ -18,9 +18,19 @@ import (
 // Config holds the connection parameters and expected prompt identifiers for
 // the Python agent service. Empty prompt version / hash strings skip the
 // corresponding response verification check.
+//
+// Per-operation timeouts (LabelTimeoutSeconds, AnswerTimeoutSeconds,
+// JudgeTimeoutSeconds) override TimeoutSeconds for their respective endpoints.
+// Set TimeoutSeconds as the default and override only the operations that need
+// a different budget.
 type Config struct {
 	BaseURL        string
-	TimeoutSeconds int
+	TimeoutSeconds int // fallback for any operation that has no specific timeout set
+
+	LabelTimeoutSeconds  int // 0 = use TimeoutSeconds
+	AnswerTimeoutSeconds int // 0 = use TimeoutSeconds
+	JudgeTimeoutSeconds  int // 0 = use TimeoutSeconds
+
 	// These are compared against the returned prompt_version / prompt_hash in
 	// every /label and /answer response as a defense-in-depth check.
 	LabelPromptVersion  string
@@ -31,12 +41,21 @@ type Config struct {
 
 // Client implements agent.BatchAgent by calling the Python service over HTTP.
 type Client struct {
-	httpClient        http.Client
+	labelHTTP         http.Client
+	answerHTTP        http.Client
+	judgeHTTP         http.Client
 	config            Config
 	allowedSubdomains []string // sorted; derived from data.PossibleSubDomains at construction
 }
 
 var _ agent.BatchAgent = (*Client)(nil)
+
+func operationTimeout(specific, fallback int) time.Duration {
+	if specific > 0 {
+		return time.Duration(specific) * time.Second
+	}
+	return time.Duration(fallback) * time.Second
+}
 
 // New builds a Client from cfg. The allowed subdomain list is derived once from
 // data.PossibleSubDomains and sorted for deterministic request serialization.
@@ -48,7 +67,9 @@ func New(cfg Config) *Client {
 	sort.Strings(subdomains)
 
 	return &Client{
-		httpClient:        http.Client{Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second},
+		labelHTTP:         http.Client{Timeout: operationTimeout(cfg.LabelTimeoutSeconds, cfg.TimeoutSeconds)},
+		answerHTTP:        http.Client{Timeout: operationTimeout(cfg.AnswerTimeoutSeconds, cfg.TimeoutSeconds)},
+		judgeHTTP:         http.Client{Timeout: operationTimeout(cfg.JudgeTimeoutSeconds, cfg.TimeoutSeconds)},
 		config:            cfg,
 		allowedSubdomains: subdomains,
 	}
@@ -72,7 +93,7 @@ func (c *Client) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error)
 	}
 
 	var resp labelResponse
-	if err := c.post("/label", req, &resp); err != nil {
+	if err := c.post(&c.labelHTTP, "/label", req, &resp); err != nil {
 		return nil, err
 	}
 
@@ -114,7 +135,7 @@ func (c *Client) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, erro
 	}
 
 	var resp answerResponse
-	if err := c.post("/answer", req, &resp); err != nil {
+	if err := c.post(&c.answerHTTP, "/answer", req, &resp); err != nil {
 		return nil, err
 	}
 
@@ -143,20 +164,20 @@ func (c *Client) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (stri
 	}
 
 	var resp judgeResponseJSON
-	if err := c.post("/judge", req, &resp); err != nil {
+	if err := c.post(&c.judgeHTTP, "/judge", req, &resp); err != nil {
 		return "", err
 	}
 
 	return resp.Response, nil
 }
 
-func (c *Client) post(path string, body any, out any) error {
+func (c *Client) post(hc *http.Client, path string, body any, out any) error {
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("httpclient: marshal request: %w", err)
 	}
 
-	resp, err := c.httpClient.Post(c.config.BaseURL+path, "application/json", bytes.NewReader(encoded))
+	resp, err := hc.Post(c.config.BaseURL+path, "application/json", bytes.NewReader(encoded))
 	if err != nil {
 		if isTimeout(err) {
 			return ErrProviderTimeout

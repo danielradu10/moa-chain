@@ -566,3 +566,53 @@ print(f'Unique maps    : {len(ms)} across {len(p)} passed trial(s)'); \
 [print(f'  ({c}x) {m}') for m,c in ms.items()] \
 "
 
+# ── Distributed MR2 diverse tests ─────────────────────────────────────────────
+
+.PHONY: test-distributed-mr2-diverse-group-a
+test-distributed-mr2-diverse-group-a:
+	@mkdir -p testresults
+	@bash scripts/health-check.sh || bash scripts/start-cluster.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	go test -tags integration -timeout 5m -v \
+		-run TestDistributedMR2_Diverse_GroupA \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr2-diverse-group-a-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-cluster.sh; \
+	exit $$exit_code
+
+.PHONY: test-distributed-mr2-diverse-group-a-trials
+test-distributed-mr2-diverse-group-a-trials:
+	@mkdir -p testresults
+	@echo "Running $(N) distributed MR2 Diverse Group A trials — cluster restarted between each run..."
+	@START=$$(date +%s); \
+	for i in $$(seq 1 $(N)); do \
+		echo ""; \
+		echo "=== Trial $$i / $(N) ==="; \
+		bash scripts/stop-cluster.sh 2>/dev/null || true; \
+		bash scripts/start-cluster.sh; \
+		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+		go test -tags integration -timeout 5m \
+			-run TestDistributedMR2_Diverse_GroupA \
+			./integrationtests/... || true; \
+	done; \
+	bash scripts/stop-cluster.sh 2>/dev/null || true; \
+	echo ""; \
+	echo "=== MR2 Diverse Group A Trial Summary (N=$(N)) ==="; \
+	python3 -c " \
+import json,glob,os,sys; \
+start=$$START; \
+files=sorted(f for f in glob.glob('$(CURDIR)/testresults/distributed-mr2-diverse-group_a-*.json') if os.path.getmtime(f)>=start); \
+results=[json.load(open(f)) for f in files]; \
+results or sys.exit(print('No results found.') or 0); \
+fin=[r for r in results if r['finalized']]; \
+d=[r['duration_seconds'] for r in results]; \
+print(f'Trials     : {len(results)}'); \
+print(f'Finalized  : {len(fin)}/{len(results)}'); \
+print(f'Duration   : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s'); \
+[print('  tx %s: status=%s correct=%d wrong=%d hallucination=%d malicious=%d'%(t['tx_hash'],t['status'],t['correct'],t['wrong'],t['hallucination'],t['malicious'])) for t in (fin[0] if fin else {}).get('tx_results',[])] \
+"
+
