@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @router.post("/label", response_model=LabelResponse)
 async def label(body: LabelRequest, request: Request) -> LabelResponse:
     state = request.app.state
-    prompt = state.prompts["labeler_v2"]
+    prompt = state.prompts["labeler_v3"]
 
     check_prompt_version(body.prompt_version, prompt.version)
 

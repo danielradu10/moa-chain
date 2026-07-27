@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     # If a file is missing this raises immediately — fail fast rather than
     # serving requests with a broken prompt.
     app.state.prompts = {
-        "labeler_v2": load_protocol_prompt("labeler_v2"),
+        "labeler_v3": load_protocol_prompt("labeler_v3"),
         "answerer_v1": load_protocol_prompt("answerer_v1"),
     }
 
