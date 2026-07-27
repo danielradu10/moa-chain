@@ -23,7 +23,7 @@ def _result(tx_hash: str, subdomain: str, confidence: float = 0.9) -> LabelResul
 
 
 VALID_REQUEST = {
-    "prompt_version": "labeler_v2",
+    "prompt_version": "labeler_v3",
     "allowed_subdomains": ["databases", "security", "non_related"],
     "transactions": [{"tx_hash": "0xabc", "prompt": "Design a rate-limited API."}],
 }
@@ -35,7 +35,7 @@ def test_label_valid_single_transaction(label_client) -> None:
     resp = client.post("/label", json=VALID_REQUEST)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["prompt_version"] == "labeler_v2"
+    assert data["prompt_version"] == "labeler_v3"
     assert len(data["prompt_hash"]) == 64
     assert len(data["results"]) == 1
     assert data["results"][0]["tx_hash"] == "0xabc"
@@ -52,7 +52,7 @@ def test_label_valid_multiple_transactions(label_client) -> None:
     fake.structured_chat = per_tx
 
     resp = client.post("/label", json={
-        "prompt_version": "labeler_v2",
+        "prompt_version": "labeler_v3",
         "allowed_subdomains": ["databases", "non_related"],
         "transactions": [
             {"tx_hash": "0xaaa", "prompt": "Prompt A"},
@@ -113,7 +113,7 @@ def test_label_output_order_matches_input_order(label_client) -> None:
     fake.structured_chat = delayed_per_tx
 
     resp = client.post("/label", json={
-        "prompt_version": "labeler_v2",
+        "prompt_version": "labeler_v3",
         "allowed_subdomains": ["databases", "non_related"],
         "transactions": [
             {"tx_hash": "0x000", "prompt": "Prompt 0"},
@@ -193,7 +193,7 @@ def test_label_more_than_three_subdomains_is_truncated_to_top_3_by_confidence(la
         ],
     ))
     resp = client.post("/label", json={
-        "prompt_version": "labeler_v2",
+        "prompt_version": "labeler_v3",
         "allowed_subdomains": allowed,
         "transactions": [{"tx_hash": "0xabc", "prompt": "Build a full-stack system."}],
     })
