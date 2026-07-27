@@ -367,6 +367,21 @@ test-distributed-mr1:
 	bash scripts/stop-cluster.sh; \
 	exit $$exit_code
 
+.PHONY: test-distributed-mr1-byzantine-k3
+test-distributed-mr1-byzantine-k3:
+	@mkdir -p testresults
+	@bash scripts/health-check.sh || bash scripts/start-cluster.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	go test -tags integration -timeout 30m -v \
+		-run TestDistributedMR1_Byzantine_K3 \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr1-byzantine-k3-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-cluster.sh; \
+	exit $$exit_code
+
 .PHONY: test-distributed-mr1-trials
 test-distributed-mr1-trials:
 	@mkdir -p testresults
@@ -400,6 +415,154 @@ print(f'Duration: min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s
 ms={}; \
 [ms.update({k:ms.get(k,0)+1}) for r in p for k in [json.dumps(r.get('subdomains_frequencies',{}),sort_keys=True)]]; \
 print(f'Subdomain maps: {len(ms)} unique across {len(p)} passed trial(s)'); \
+[print(f'  ({c}x) {m}') for m,c in ms.items()] \
+"
+
+.PHONY: test-distributed-mr1-byzantine-k3-trials
+test-distributed-mr1-byzantine-k3-trials:
+	@mkdir -p testresults
+	@echo "Running $(N) Byzantine-k3 MR1 trials — cluster restarted between each run..."
+	@START=$$(date +%s); \
+	for i in $$(seq 1 $(N)); do \
+		echo ""; \
+		echo "=== Trial $$i / $(N) ==="; \
+		bash scripts/stop-cluster.sh 2>/dev/null || true; \
+		bash scripts/start-cluster.sh; \
+		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+		go test -tags integration -timeout 30m \
+			-run TestDistributedMR1_Byzantine_K3 \
+			./integrationtests/... || true; \
+	done; \
+	bash scripts/stop-cluster.sh 2>/dev/null || true; \
+	echo ""; \
+	echo "=== Byzantine-k3 Trial Summary (N=$(N)) ==="; \
+	python3 -c " \
+import json,glob,os,sys; \
+start=$$START; \
+files=sorted(f for f in glob.glob('$(CURDIR)/testresults/distributed-mr1-*.json') if os.path.getmtime(f)>=start and json.load(open(f)).get('num_byzantine',0)>0); \
+results=[json.load(open(f)) for f in files]; \
+results or sys.exit(print('No results found.') or 0); \
+p=[r for r in results if r['passed']]; \
+d=[r['duration_seconds'] for r in results]; \
+print(f'Trials        : {len(results)}'); \
+print(f'Passed        : {len(p)}/{len(results)}'); \
+print(f'Byzantine     : {results[0].get(\"num_byzantine\")} validators returning \"{results[0].get(\"byzantine_label\")}\"'); \
+print(f'Duration      : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s'); \
+bl=results[0].get('byzantine_label',''); \
+leaked=[r for r in p if bl in r.get('subdomains_frequencies',{})]; \
+print(f'Byzantine label leaked into map: {len(leaked)}/{len(p)} trials (expected 0)'); \
+ms={}; \
+[ms.update({k:ms.get(k,0)+1}) for r in p for k in [json.dumps(r.get('subdomains_frequencies',{}),sort_keys=True)]]; \
+print(f'Subdomain maps: {len(ms)} unique across {len(p)} passed trial(s)'); \
+[print(f'  ({c}x) {m}') for m,c in ms.items()] \
+"
+
+# ── Test 3: Non-related transactions ──────────────────────────────────────────
+
+.PHONY: test-distributed-mr1-non-related
+test-distributed-mr1-non-related:
+	@mkdir -p testresults
+	@bash scripts/health-check.sh || bash scripts/start-cluster.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	go test -tags integration -timeout 30m -v \
+		-run TestDistributedMR1_NonRelated \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr1-non-related-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-cluster.sh; \
+	exit $$exit_code
+
+.PHONY: test-distributed-mr1-non-related-trials
+test-distributed-mr1-non-related-trials:
+	@mkdir -p testresults
+	@echo "Running $(N) non-related MR1 trials — cluster restarted between each run..."
+	@START=$$(date +%s); \
+	for i in $$(seq 1 $(N)); do \
+		echo ""; \
+		echo "=== Trial $$i / $(N) ==="; \
+		bash scripts/stop-cluster.sh 2>/dev/null || true; \
+		bash scripts/start-cluster.sh; \
+		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+		go test -tags integration -timeout 30m \
+			-run TestDistributedMR1_NonRelated \
+			./integrationtests/... || true; \
+	done; \
+	bash scripts/stop-cluster.sh 2>/dev/null || true; \
+	echo ""; \
+	echo "=== Non-Related Trial Summary (N=$(N)) ==="; \
+	python3 -c " \
+import json,glob,os,sys; \
+start=$$START; \
+files=sorted(f for f in glob.glob('$(CURDIR)/testresults/distributed-mr1-non-related-*.json') if os.path.getmtime(f)>=start); \
+results=[json.load(open(f)) for f in files]; \
+results or sys.exit(print('No results found.') or 0); \
+p=[r for r in results if r['passed']]; \
+d=[r['duration_seconds'] for r in results]; \
+print(f'Trials         : {len(results)}'); \
+print(f'Passed         : {len(p)}/{len(results)}'); \
+nr=[r['non_related_count'] for r in p]; \
+print(f'Non-related    : min={min(nr)}  avg={sum(nr)/len(nr):.1f}  max={max(nr)} (expected 2)'); \
+print(f'Duration       : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s'); \
+ms={}; \
+[ms.update({k:ms.get(k,0)+1}) for r in p for k in [json.dumps(r.get('subdomains_frequencies',{}),sort_keys=True)]]; \
+print(f'Subdomain maps : {len(ms)} unique across {len(p)} passed trial(s)'); \
+[print(f'  ({c}x) {m}') for m,c in ms.items()] \
+"
+
+# ── Test 4: Ambiguous / borderline prompts ─────────────────────────────────────
+
+.PHONY: test-distributed-mr1-ambiguous
+test-distributed-mr1-ambiguous:
+	@mkdir -p testresults
+	@bash scripts/health-check.sh || bash scripts/start-cluster.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	go test -tags integration -timeout 30m -v \
+		-run TestDistributedMR1_Ambiguous \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr1-ambiguous-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-cluster.sh; \
+	exit $$exit_code
+
+.PHONY: test-distributed-mr1-ambiguous-trials
+test-distributed-mr1-ambiguous-trials:
+	@mkdir -p testresults
+	@echo "Running $(N) ambiguous MR1 trials — cluster restarted between each run..."
+	@START=$$(date +%s); \
+	for i in $$(seq 1 $(N)); do \
+		echo ""; \
+		echo "=== Trial $$i / $(N) ==="; \
+		bash scripts/stop-cluster.sh 2>/dev/null || true; \
+		bash scripts/start-cluster.sh; \
+		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+		go test -tags integration -timeout 30m \
+			-run TestDistributedMR1_Ambiguous \
+			./integrationtests/... || true; \
+	done; \
+	bash scripts/stop-cluster.sh 2>/dev/null || true; \
+	echo ""; \
+	echo "=== Ambiguous Trial Summary (N=$(N)) ==="; \
+	python3 -c " \
+import json,glob,os,sys; \
+start=$$START; \
+files=sorted(f for f in glob.glob('$(CURDIR)/testresults/distributed-mr1-ambiguous-*.json') if os.path.getmtime(f)>=start); \
+results=[json.load(open(f)) for f in files]; \
+results or sys.exit(print('No results found.') or 0); \
+p=[r for r in results if r['passed']]; \
+d=[r['duration_seconds'] for r in results]; \
+print(f'Trials         : {len(results)}'); \
+print(f'Passed         : {len(p)}/{len(results)}'); \
+print(f'Duration       : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s'); \
+ms={}; \
+[ms.update({k:ms.get(k,0)+1}) for r in p for k in [json.dumps(r.get('subdomains_frequencies',{}),sort_keys=True)]]; \
+print(f'Unique maps    : {len(ms)} across {len(p)} passed trial(s)'); \
 [print(f'  ({c}x) {m}') for m,c in ms.items()] \
 "
 
