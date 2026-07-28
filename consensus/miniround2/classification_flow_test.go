@@ -25,6 +25,7 @@ func TestHandleAnswerEvidenceSendsSignedVoteToLeader(t *testing.T) {
 	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 
 	require.NoError(t, err)
+	context.handler.judgeWg.Wait()
 	require.Len(t, judge.inputs, 2)
 	for _, input := range judge.inputs {
 		require.NotContains(t, input.UserPrompt, "validator-a")
@@ -73,11 +74,10 @@ func TestHandleAnswerEvidenceStoresLeaderVoteThroughHandler(t *testing.T) {
 	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 
 	require.NoError(t, err)
+	// classificationLeaderVote waits for the goroutine and drains selfInbox.
+	vote := classificationLeaderVote(t, context)
 	require.Nil(t, context.broadcaster.SentClassificationVoteMessage)
-	votes, err := context.roundState.GetAnswerClassificationVotes(context.roundKey)
-	require.NoError(t, err)
-	require.Len(t, votes, 1)
-	require.Equal(t, "leader", votes[0].JudgeID)
+	require.Equal(t, "leader", vote.JudgeID)
 	require.Equal(t, 1, context.signer.signCalls)
 }
 
@@ -106,6 +106,7 @@ func TestHandleAnswerEvidenceDiscardsPartialJudgeResultWithoutFailingRound(t *te
 	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 
 	require.NoError(t, err)
+	context.handler.judgeWg.Wait()
 	require.Len(t, judge.inputs, 2)
 	require.Equal(t, 0, context.signer.signCalls)
 	require.Nil(t, context.broadcaster.SentClassificationVoteMessage)
@@ -147,6 +148,7 @@ type classificationProductionContext struct {
 	registry      *testscommon.ValidatorRegistryStub
 	broadcaster   *testscommon.BroadcasterStub
 	roundState    state.RoundState
+	selfInbox     chan data.RoundEvent
 }
 
 func newClassificationProductionContext(
@@ -174,6 +176,7 @@ func newClassificationProductionContext(
 	recordingSigner := &recordingMessageSigner{delegate: producerSigners[myID]}
 	roundState := state.NewRoundState()
 	broadcaster := &testscommon.BroadcasterStub{}
+	selfInbox := make(chan data.RoundEvent, 32)
 	registry := &testscommon.ValidatorRegistryStub{
 		RegisteredValidators:    map[string]bool{"leader": true, "validator-a": true, "validator-b": true},
 		ConsensusValidators:     map[string]bool{"leader": true, "validator-a": true, "validator-b": true},
@@ -192,7 +195,9 @@ func newClassificationProductionContext(
 		broadcaster:        broadcaster,
 		blockFinalizer:     createSeededFinalizer(t, finalizedBlock),
 		validatorRegistry:  registry,
+		selfInbox:          selfInbox,
 	})
+	t.Cleanup(func() { handler.judgeWg.Wait() })
 
 	return classificationProductionContext{
 		roundKey:      roundKey,
@@ -204,6 +209,7 @@ func newClassificationProductionContext(
 		registry:      registry,
 		broadcaster:   broadcaster,
 		roundState:    roundState,
+		selfInbox:     selfInbox,
 	}
 }
 
@@ -393,11 +399,21 @@ func classificationLeaderVote(
 	context classificationProductionContext,
 ) *data.AnswerClassificationVote {
 	t.Helper()
-
+	// Wait for the async judge goroutine to finish and inject its result.
+	context.handler.judgeWg.Wait()
+	// Drain the leader's own vote from selfInbox and store it via the handler.
+	select {
+	case event := <-context.selfInbox:
+		require.Equal(t, data.ConsensusMessageEvent, event.Type)
+		require.Equal(t, data.AnswerClassificationVoteConsensusMessage, event.Message.ConsensusMessageType)
+		err := context.handler.HandleAnswerClassificationVote(context.roundKey, event.Message.AnswerClassificationVote)
+		require.NoError(t, err)
+	default:
+		t.Fatal("expected leader vote in selfInbox after judge goroutine completed")
+	}
 	votes, err := context.roundState.GetAnswerClassificationVotes(context.roundKey)
 	require.NoError(t, err)
 	require.Len(t, votes, 1)
-
 	return votes[0]
 }
 
@@ -575,6 +591,7 @@ func classificationCertificateReceiver(
 		blockFinalizer:    finalizer,
 		validatorRegistry: leaderContext.registry,
 	})
+	t.Cleanup(func() { handler.judgeWg.Wait() })
 	require.NoError(t, handler.HandleAnswerEvidence(leaderContext.roundKey, leaderContext.evidence))
 
 	return handler, finalizer
@@ -586,18 +603,16 @@ func TestMiniRoundTwoHandler_HandleAnswerClassificationVote(t *testing.T) {
 	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
 	err := context.handler.HandleAnswerEvidence(context.roundKey, context.evidence)
 	require.NoError(t, err)
-	votes, err := context.roundState.GetAnswerClassificationVotes(context.roundKey)
-	require.NoError(t, err)
-	require.Len(t, votes, 1)
+	leaderVote := classificationLeaderVote(t, context)
 
-	err = context.handler.HandleAnswerClassificationVote(context.roundKey, votes[0])
+	err = context.handler.HandleAnswerClassificationVote(context.roundKey, leaderVote)
 	require.ErrorIs(t, err, state.ErrAnswerClassificationVoteAlreadyExistsForJudge)
 	require.ErrorIs(t,
 		context.handler.HandleAnswerClassificationVote(context.roundKey, nil),
 		ErrNilAnswerClassificationVote,
 	)
 
-	wrongRoundVote := *votes[0]
+	wrongRoundVote := *leaderVote
 	wrongRoundVote.Round++
 	require.ErrorIs(t,
 		context.handler.HandleAnswerClassificationVote(context.roundKey, &wrongRoundVote),

@@ -15,7 +15,15 @@ import (
 
 	"moa-chain/agent/httpclient"
 	"moa-chain/data"
+	"moa-chain/validators"
 )
+
+func committeeStrategyFromConfig(cfg clusterConfig) validators.CommitteeStrategy {
+	if cfg.CommitteeStrategy == "full" {
+		return validators.CommitteeStrategyFull
+	}
+	return validators.CommitteeStrategyHalf
+}
 
 // ── Results ────────────────────────────────────────────────────────────────────
 
@@ -114,12 +122,12 @@ func runDistributedMR2DiverseRound(
 		judgeClient := httpclient.New(httpclient.Config{
 			BaseURL:             entry.URL,
 			TimeoutSeconds:      720,
-			JudgeTimeoutSeconds: 90,
+			JudgeTimeoutSeconds: 150,
 			LabelPromptVersion:  "labeler_v3",
 			AnswerPromptVersion: "answerer_v1",
 		})
 
-		nodes[i] = createNode(
+		nodes[i] = createNodeWithCommitteeStrategy(
 			t,
 			fmt.Sprintf("validator-%d", i+1),
 			privateKeys[i],
@@ -134,6 +142,7 @@ func runDistributedMR2DiverseRound(
 			},
 			false,
 			0,
+			committeeStrategyFromConfig(cfg),
 		)
 	}
 
@@ -171,7 +180,7 @@ func runDistributedMR2DiverseRound(
 			}
 		}
 		return true
-	}, 3*time.Minute, 5*time.Second)
+	}, 6*time.Minute, 5*time.Second)
 
 	roundDuration := time.Since(roundStart)
 
@@ -181,9 +190,8 @@ func runDistributedMR2DiverseRound(
 
 	if !finalized {
 		t.Logf("[distributed-mr2-diverse-%s] FINDING: round %d did not finalize within %s — "+
-			"validators produced inconsistent judge classifications and quorum was never reached. "+
-			"Canonical-preference bias: the model treats one correct phrasing as authoritative "+
-			"and rejects valid alternatives, preventing BFT agreement.",
+			"check validator and agent logs to determine root cause "+
+			"(judge HTTP timeout, leader vote collection failure, or classification disagreement).",
 			group, roundNumber, roundDuration.Round(time.Second))
 		saveDistributedMR2DiverseResult(t, distributedMR2DiverseRunResult{
 			Timestamp:       time.Now().UTC().Format(time.RFC3339),
@@ -246,5 +254,7 @@ func runDistributedMR2DiverseRound(
 func TestDistributedMR2_Diverse_GroupA_CanonicalPreferenceBias(t *testing.T) {
 	cfg := loadClusterConfig(t)
 	pingClusterOrSkip(t, cfg)
-	runDistributedMR2DiverseRound(t, cfg, "group_a", nil, 201)
+	// Use the current Unix timestamp as the round number so that the leader
+	// selection seed changes between trials, rotating the leader across runs.
+	runDistributedMR2DiverseRound(t, cfg, "group_a", nil, uint64(time.Now().Unix()))
 }

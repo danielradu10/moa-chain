@@ -92,3 +92,7 @@ func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsMessage(roundKey data.
 
 	return stub.HandleExecutedPromptsMessageErr
 }
+
+func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsCollectionTimeout(_ data.RoundKey) error {
+	return nil
+}

@@ -1,4 +1,6 @@
 import json
+import logging
+import time
 from typing import TypeVar
 
 import httpx
@@ -6,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 
 from errors import AgentServiceError, ErrorCode
 
+logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -71,6 +74,7 @@ class OllamaProvider:
         system_prompt: str,
         user_message: str,
         timeout_seconds: float,
+        json_format: bool = False,
     ) -> str:
         """Call Ollama and return the raw response string without parsing.
 
@@ -80,7 +84,7 @@ class OllamaProvider:
             system_prompt=system_prompt,
             user_message=user_message,
             timeout_seconds=timeout_seconds,
-            json_format=False,
+            json_format=json_format,
         )
 
     async def ping(self) -> bool:
@@ -116,6 +120,15 @@ class OllamaProvider:
         if json_format:
             payload["format"] = "json"
 
+        logger.info(
+            "ollama_chat_start model=%s temperature=%.2f timeout_s=%.1f json_format=%s",
+            self.model,
+            self.temperature,
+            timeout_seconds,
+            json_format,
+        )
+        t0 = time.perf_counter()
+
         try:
             response = await self._client.post(
                 "/api/chat",
@@ -124,6 +137,12 @@ class OllamaProvider:
             )
 
         except httpx.TimeoutException as exc:
+            logger.error(
+                "ollama_chat_timeout model=%s elapsed_s=%.3f timeout_s=%.1f",
+                self.model,
+                time.perf_counter() - t0,
+                timeout_seconds,
+            )
             raise AgentServiceError(
                 ErrorCode.PROVIDER_TIMEOUT,
                 f"ollama request timed out after {timeout_seconds}s",
@@ -131,13 +150,27 @@ class OllamaProvider:
             ) from exc
 
         except httpx.RequestError as exc:
+            logger.error(
+                "ollama_chat_error model=%s elapsed_s=%.3f error=%s",
+                self.model,
+                time.perf_counter() - t0,
+                exc,
+            )
             raise AgentServiceError(
                 ErrorCode.PROVIDER_ERROR,
                 f"ollama request failed: {exc}",
                 status_code=502,
             ) from exc
 
+        elapsed = time.perf_counter() - t0
+
         if response.status_code != 200:
+            logger.error(
+                "ollama_chat_http_error model=%s status=%d elapsed_s=%.3f",
+                self.model,
+                response.status_code,
+                elapsed,
+            )
             raise AgentServiceError(
                 ErrorCode.PROVIDER_ERROR,
                 f"ollama returned HTTP {response.status_code}",
@@ -147,6 +180,7 @@ class OllamaProvider:
         try:
             data = response.json()
         except json.JSONDecodeError as exc:
+            logger.error("ollama_chat_invalid_json model=%s elapsed_s=%.3f", self.model, elapsed)
             raise AgentServiceError(
                 ErrorCode.PROVIDER_ERROR,
                 f"ollama response is not valid JSON: {exc}",
@@ -156,10 +190,12 @@ class OllamaProvider:
         # Extract the assistant message content from the Ollama response envelope.
         content: str = data.get("message", {}).get("content", "")
         if not content:
+            logger.error("ollama_chat_empty_content model=%s elapsed_s=%.3f", self.model, elapsed)
             raise AgentServiceError(
                 ErrorCode.PROVIDER_ERROR,
                 "ollama returned an empty message content",
                 status_code=502,
             )
 
+        logger.info("ollama_chat_done model=%s elapsed_s=%.3f content_len=%d", self.model, elapsed, len(content))
         return content

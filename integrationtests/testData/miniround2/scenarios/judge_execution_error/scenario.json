@@ -121,7 +121,10 @@
       "member-3",
       "member-4",
       "member-5",
-      "member-6"
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
     ],
     "classificationVoters": [
       "leader",
@@ -135,7 +138,7 @@
     "transactions": [
       {
         "txHash": "scenario-05-control-before",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -143,7 +146,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -152,7 +155,7 @@
       },
       {
         "txHash": "scenario-05-target",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -160,7 +163,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -169,7 +172,7 @@
       },
       {
         "txHash": "scenario-05-control-after",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -177,7 +180,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0

@@ -598,6 +598,12 @@ test-distributed-mr2-diverse-group-a-trials:
 		go test -tags integration -timeout 5m \
 			-run TestDistributedMR2_Diverse_GroupA \
 			./integrationtests/... || true; \
+		TRIAL_LOG_DIR=$(CURDIR)/testresults/agent-logs/trial-$$i; \
+		mkdir -p $$TRIAL_LOG_DIR; \
+		echo "  Collecting agent logs -> $$TRIAL_LOG_DIR"; \
+		for m in $$(python3 -c "import json; [print(a['machine']) for a in json.load(open('$(CLUSTER_CONFIG)'))['agents']]"); do \
+			ssh -o ConnectTimeout=5 $$m "cat /tmp/agent.log" > $$TRIAL_LOG_DIR/$$m-agent.log 2>/dev/null || echo "  [$$m] no log"; \
+		done; \
 	done; \
 	bash scripts/stop-cluster.sh 2>/dev/null || true; \
 	echo ""; \

@@ -31,6 +31,7 @@ class LLMProvider(Protocol):
         system_prompt: str,
         user_message: str,
         timeout_seconds: float,
+        json_format: bool = False,
     ) -> str:
         """Call the LLM and return the raw response string.
 

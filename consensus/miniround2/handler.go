@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"sort"
+	"sync"
 
 	"moa-chain/agent"
 	"moa-chain/blockprocessing"
@@ -32,6 +33,20 @@ type miniRoundTwoHandler struct {
 	answerJudge        agent.AnswersJudge
 	judgeModelMetadata string
 	logger             *slog.Logger
+
+	// selfInbox is the owning event loop's inbox channel. The judge goroutine
+	// uses it to re-inject its signed vote as a ConsensusMessageEvent so that
+	// round-state mutations always happen on the single event-loop goroutine.
+	//
+	// TODO: selfInbox is a pragmatic coupling between the handler and the event
+	// loop internals. A cleaner design would give the handler a typed callback or
+	// a dedicated result channel that the round loop subscribes to, removing the
+	// need to pass the raw inbox down into the handler layer.
+	selfInbox chan<- data.RoundEvent
+
+	// judgeWg tracks in-flight judge goroutines. Tests call Wait() for
+	// deterministic assertions; production code can use it for graceful shutdown.
+	judgeWg sync.WaitGroup
 }
 
 // MiniRoundTwoHandlerArgs contains the node-local dependencies used by both the
@@ -49,6 +64,10 @@ type MiniRoundTwoHandlerArgs struct {
 	AnswerJudge        agent.AnswersJudge
 	JudgeModelMetadata string
 	Logger             *slog.Logger
+
+	// SelfInbox is the node's own event-loop inbox. Required so the judge
+	// goroutine can route its result back through the event loop.
+	SelfInbox chan<- data.RoundEvent
 }
 
 // NewMiniRoundTwoHandler creates a new mini-round two handler.
@@ -65,6 +84,7 @@ func NewMiniRoundTwoHandler(args MiniRoundTwoHandlerArgs) *miniRoundTwoHandler {
 		answerJudge:        args.AnswerJudge,
 		judgeModelMetadata: args.JudgeModelMetadata,
 		logger:             args.Logger,
+		selfInbox:          args.SelfInbox,
 	}
 }
 
@@ -130,6 +150,20 @@ func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleBlockExecution failed when executing the prompts", "err", err)
 		return err
+	}
+
+	handler.logger.Info("miniround2.HandleBlockExecution prompts executed", "roundKey", roundKey, "validatorID", handler.myID, "numResults", len(executionResult.TxsResults))
+	for _, txResult := range executionResult.TxsResults {
+		preview := txResult.Answer
+		if len(preview) > 80 {
+			preview = preview[:80]
+		}
+		handler.logger.Info("miniround2.HandleBlockExecution answer",
+			"roundKey", roundKey,
+			"validatorID", handler.myID,
+			"txHash", string(txResult.TxHash),
+			"answerPreview", preview,
+		)
 	}
 
 	leader, err := handler.validatorRegistry.LeaderOfConsensusGroup()
@@ -237,28 +271,22 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 		return err
 	}
 
-	if uint64(len(answers)) < (2*consensusGroupSize)/3+1 || handler.roundState.IsCertificateSet(roundKey) {
+	// Wait for all G committee members before building the evidence certificate, so that
+	// every validator's answer is visible to the judge — the same pattern as MR1 vote collection.
+	// HandleExecutedPromptsCollectionTimeout provides the quorum fallback when the deadline fires.
+	if uint64(len(answers)) < consensusGroupSize || handler.roundState.IsCertificateSet(roundKey) {
 		handler.logger.Info(
-			"miniround2.HandleExecutedPromptsMessage leader waiting for more votes or certificate already set",
+			"miniround2.HandleExecutedPromptsMessage leader waiting for all committee members or certificate already set",
 			"roundKey", roundKey,
 			"numNodesWhichSentExecutionResults", len(answers),
 			"consensusGroupSize", consensusGroupSize,
-			"quorum", (2*consensusGroupSize)/3+1,
 			"certificateSet", handler.roundState.IsCertificateSet(roundKey),
 		)
 
 		return nil
 	}
 
-	// From this point the leader has enough independently verified execution results to build
-	// the mini-round two certificate. The certificate is evidence only; the finalized
-	// txHash -> answers view is derived locally after the certificate is broadcast.
-	// TODO: Define whether any valid execution-result quorum must lead to the
-	// same mini-round-two transaction eligibility decisions, or whether the
-	// protocol explicitly accepts leader/network timing as choosing the evidence
-	// quorum. If eligibility must be invariant, replace first-quorum finalization
-	// with a canonical or threshold-stable evidence selection rule.
-	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader reached quorum", "roundKey", roundKey, "numNodesWhichSentExecutionResults", len(answers), "consensusGroupSize", consensusGroupSize)
+	handler.logger.Info("miniround2.HandleExecutedPromptsMessage leader collected all committee execution results", "roundKey", roundKey, "numNodesWhichSentExecutionResults", len(answers), "consensusGroupSize", consensusGroupSize)
 
 	answerEvidence, err := handler.createAnswerEvidence(roundKey, answers)
 	if err != nil {
@@ -293,6 +321,58 @@ func (handler *miniRoundTwoHandler) HandleExecutedPromptsMessage(roundKey data.R
 
 	// The evidence broadcast no longer finalizes mini-round two. The leader judges
 	// the same verified evidence locally and enters classification vote collection.
+	return handler.HandleAnswerEvidence(roundKey, answerEvidence)
+}
+
+// HandleExecutedPromptsCollectionTimeout is called when the execution-results collection
+// deadline expires before all G committee members have responded. If at least a BFT quorum
+// of answers is present the leader proceeds; otherwise the round cannot be finalized.
+func (handler *miniRoundTwoHandler) HandleExecutedPromptsCollectionTimeout(roundKey data.RoundKey) error {
+	if handler.roundState.IsCertificateSet(roundKey) {
+		handler.logger.Info("miniround2.HandleExecutedPromptsCollectionTimeout certificate already set, nothing to do", "roundKey", roundKey)
+		return nil
+	}
+
+	answers, err := handler.roundState.GetExecutedPromptsMessages(roundKey)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsCollectionTimeout failed to get executed prompts messages", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	consensusGroupSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsCollectionTimeout failed to get consensus group size", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	quorum := (2*consensusGroupSize)/3 + 1
+	if uint64(len(answers)) < quorum {
+		handler.logger.Info("miniround2.HandleExecutedPromptsCollectionTimeout insufficient execution results to finalize",
+			"roundKey", roundKey, "numAnswers", len(answers), "quorum", quorum)
+		return ErrNotEnoughExecutionResults
+	}
+
+	handler.logger.Info("miniround2.HandleExecutedPromptsCollectionTimeout aggregating with available execution results",
+		"roundKey", roundKey, "numAnswers", len(answers), "quorum", quorum, "consensusGroupSize", consensusGroupSize)
+
+	answerEvidence, err := handler.createAnswerEvidence(roundKey, answers)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsCollectionTimeout failed to aggregate execution results", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	consensusMessage := &data.ConsensusMessage{
+		ConsensusMessageType: data.AnswerEvidenceConsensusMessage,
+		AnswerEvidence:       answerEvidence,
+	}
+
+	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
+	err = handler.broadcaster.BroadcastAnswerEvidence(consensusMessage, handler.myID, validatorsIDs)
+	if err != nil {
+		handler.logger.Error("miniround2.HandleExecutedPromptsCollectionTimeout failed to broadcast answer evidence", "roundKey", roundKey, "error", err)
+		return err
+	}
+
 	return handler.HandleAnswerEvidence(roundKey, answerEvidence)
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "insufficient_correct_answers",
-  "description": "One target answer is unanimously WRONG, leaving only six independently produced correct answers while both control transactions remain ready.",
+  "description": "Four target answers are unanimously WRONG, leaving only six correct answers below the classification quorum while both control transactions remain ready.",
   "network": {
     "registeredNodes": 20,
     "committeeSize": 10,
@@ -78,6 +78,30 @@
         "scenario-02-target": "Signature verification makes network messages arrive faster.",
         "scenario-02-control-after": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs."
       }
+    },
+    {
+      "role": "member-7",
+      "answers": {
+        "scenario-02-control-before": "Unit tests detect regressions early and make behavior safer to change.",
+        "scenario-02-target": "Signature verification makes network messages arrive faster.",
+        "scenario-02-control-after": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs."
+      }
+    },
+    {
+      "role": "member-8",
+      "answers": {
+        "scenario-02-control-before": "Unit tests detect regressions early and make behavior safer to change.",
+        "scenario-02-target": "Signature verification makes network messages arrive faster.",
+        "scenario-02-control-after": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs."
+      }
+    },
+    {
+      "role": "member-9",
+      "answers": {
+        "scenario-02-control-before": "Unit tests detect regressions early and make behavior safer to change.",
+        "scenario-02-target": "Signature verification makes network messages arrive faster.",
+        "scenario-02-control-after": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs."
+      }
     }
   ],
   "judges": [
@@ -130,7 +154,10 @@
       "member-3",
       "member-4",
       "member-5",
-      "member-6"
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
     ],
     "classificationVoters": [
       "leader",
@@ -144,7 +171,7 @@
     "transactions": [
       {
         "txHash": "scenario-02-control-before",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -152,7 +179,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -161,7 +188,7 @@
       },
       {
         "txHash": "scenario-02-target",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -177,19 +204,46 @@
               "malicious": 0,
               "wrong": 7
             }
+          },
+          {
+            "producerRole": "member-7",
+            "counts": {
+              "correct": 0,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 7
+            }
+          },
+          {
+            "producerRole": "member-8",
+            "counts": {
+              "correct": 0,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 7
+            }
+          },
+          {
+            "producerRole": "member-9",
+            "counts": {
+              "correct": 0,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 7
+            }
           }
         ],
         "groups": {
           "correct": 6,
           "hallucination": 0,
           "malicious": 0,
-          "wrong": 1
+          "wrong": 4
         },
         "status": "INSUFFICIENT_CORRECT_ANSWERS"
       },
       {
         "txHash": "scenario-02-control-after",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -197,7 +251,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0

@@ -48,22 +48,51 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 		return err
 	}
 
+	// Run the judge in a separate goroutine so the event loop is not blocked
+	// while Ollama processes candidates. The goroutine re-injects its signed
+	// vote through selfInbox when finished, keeping all round-state mutations
+	// on the single event-loop goroutine.
+	handler.judgeWg.Add(1)
+	go handler.runJudgeAndDispatch(roundKey, message, requests)
+	return nil
+}
+
+// runJudgeAndDispatch executes the LLM judge for all transactions, signs the
+// resulting vote, and dispatches it. It runs in its own goroutine so
+// HandleAnswerEvidence can return immediately and the event loop stays live.
+func (handler *miniRoundTwoHandler) runJudgeAndDispatch(
+	roundKey data.RoundKey,
+	evidence *data.AggregatedExecutionResultsMessage,
+	requests []classification.TransactionAnswerJudgeRequest,
+) {
+	defer handler.judgeWg.Done()
+	handler.logger.Info("miniround2.runJudgeAndDispatch starting judge", "roundKey", roundKey, "judgeID", handler.myID, "numRequests", len(requests))
 	answersClassification, err := classification.ExecuteRequests(handler.answerJudge, requests)
 	if err != nil {
-		handler.logger.Error("miniround2.HandleAnswerEvidence judge failed", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
-		// A local judge failure means this validator cannot contribute a signed
-		// vote. The verified evidence remains stored so the node can still verify
-		// and finalize a certificate built from other valid judges.
-		return nil
+		handler.logger.Error("miniround2.runJudgeAndDispatch judge failed", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
+		return
 	}
 
-	vote, err := handler.createSignedAnswerClassificationVote(roundKey, message, requests, answersClassification)
+	handler.logger.Info("miniround2.runJudgeAndDispatch judge completed", "roundKey", roundKey, "judgeID", handler.myID, "numClassifications", len(answersClassification))
+	for _, c := range answersClassification {
+		handler.logger.Info("miniround2.runJudgeAndDispatch classification",
+			"roundKey", roundKey,
+			"judgeID", handler.myID,
+			"producerID", c.CandidateID.ProducerID,
+			"txHash", string(c.CandidateID.TxHash),
+			"category", c.Category,
+		)
+	}
+
+	vote, err := handler.createSignedAnswerClassificationVote(roundKey, evidence, requests, answersClassification)
 	if err != nil {
-		handler.logger.Error("miniround2.HandleAnswerEvidence failed to create vote", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
-		return err
+		handler.logger.Error("miniround2.runJudgeAndDispatch failed to create vote", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
+		return
 	}
 
-	return handler.dispatchAnswerClassificationVote(roundKey, vote)
+	if err = handler.dispatchAnswerClassificationVote(roundKey, vote); err != nil {
+		handler.logger.Error("miniround2.runJudgeAndDispatch failed to dispatch vote", "roundKey", roundKey, "judgeID", handler.myID, "error", err)
+	}
 }
 
 // createSignedAnswerClassificationVote validates complete candidate coverage,
@@ -156,8 +185,25 @@ func (handler *miniRoundTwoHandler) dispatchAnswerClassificationVote(
 	if err != nil {
 		return err
 	}
+
+	handler.logger.Info("miniround2.dispatchAnswerClassificationVote sending vote",
+		"roundKey", roundKey,
+		"judgeID", handler.myID,
+		"leaderID", leaderID,
+		"numClassifications", len(vote.AnswerClassifications),
+	)
+
 	if leaderID == handler.myID {
-		return handler.HandleAnswerClassificationVote(roundKey, vote)
+		// Re-inject through the event-loop inbox so round-state mutations
+		// stay on the single event-loop goroutine.
+		handler.selfInbox <- data.RoundEvent{
+			Type: data.ConsensusMessageEvent,
+			Message: data.ConsensusMessage{
+				ConsensusMessageType:     data.AnswerClassificationVoteConsensusMessage,
+				AnswerClassificationVote: vote,
+			},
+		}
+		return nil
 	}
 
 	err = handler.broadcaster.SendAnswerClassificationVoteToLeader(&data.ConsensusMessage{
@@ -263,34 +309,50 @@ func (handler *miniRoundTwoHandler) verifyAnswerClassificationVote(
 	return expectedCandidates, nil
 }
 
-// classificationCollectionCandidates uses the leader's signed local vote as
-// the trusted context established from verified answer evidence.
+// classificationCollectionCandidates derives the expected candidate set from
+// the locally verified answer evidence. Using stored evidence (written before
+// the judge call) means the leader can collect external votes even when its
+// own judge timed out or failed.
 func (handler *miniRoundTwoHandler) classificationCollectionCandidates(
 	roundKey data.RoundKey,
 	vote *data.AnswerClassificationVote,
 ) ([]data.AnswerCandidateID, error) {
-	votes, err := handler.roundState.GetAnswerClassificationVotes(roundKey)
+	evidence, err := handler.roundState.GetAnswerEvidence(roundKey)
 	if err != nil {
-		// The leader's own vote is the first vote and establishes collection context.
-		if vote.JudgeID != handler.myID {
-			return nil, ErrMissingClassificationCollectionContext
-		}
-
-		return classificationCandidateIDs(vote.AnswerClassifications), nil
+		return nil, ErrMissingClassificationCollectionContext
 	}
 
-	for _, storedVote := range votes {
-		if storedVote.JudgeID != handler.myID {
-			continue
-		}
-		if !classification.SameVoteContext(*storedVote, *vote) {
-			return nil, classification.ErrClassificationVoteContextMismatch
-		}
-
-		return classificationCandidateIDs(storedVote.AnswerClassifications), nil
+	canonicalBlock, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
+		Epoch:     roundKey.Epoch,
+		Round:     roundKey.Round,
+		MiniRound: roundKey.MiniRound - 1,
+	})
+	if err != nil {
+		return nil, ErrMissingClassificationCollectionContext
 	}
 
-	return nil, ErrMissingClassificationCollectionContext
+	requests, err := classification.BuildAnswerJudgeRequests(&canonicalBlock.Block, evidence)
+	if err != nil {
+		return nil, ErrMissingClassificationCollectionContext
+	}
+
+	candidates := judgeRequestCandidateIDs(requests)
+
+	// If the leader's own vote is already stored, verify the incoming vote uses
+	// the same evidence and prompt context (consistency guarantee).
+	votes, err := handler.roundState.GetAnswerClassificationVotes(roundKey)
+	if err == nil {
+		for _, storedVote := range votes {
+			if storedVote.JudgeID == handler.myID {
+				if !classification.SameVoteContext(*storedVote, *vote) {
+					return nil, classification.ErrClassificationVoteContextMismatch
+				}
+				break
+			}
+		}
+	}
+
+	return candidates, nil
 }
 
 // classificationCandidateIDs extracts candidate identities without trusting the
@@ -347,6 +409,13 @@ func (handler *miniRoundTwoHandler) broadcastClassificationCertificateAtQuorum(
 		return nil
 	}
 
+	handler.logger.Info("miniround2.broadcastClassificationCertificateAtQuorum quorum reached, building certificate",
+		"roundKey", roundKey,
+		"numVotes", len(votePointers),
+		"quorum", quorum,
+		"committeeSize", committeeSize,
+	)
+
 	// TODO: Decide whether transaction statuses must be invariant across all
 	// valid judge-vote quorums for the same answer evidence. Today the first
 	// quorum collected by the leader determines the certificate; if different
@@ -360,6 +429,18 @@ func (handler *miniRoundTwoHandler) broadcastClassificationCertificateAtQuorum(
 	transactions, err := classification.AggregateClassificationVotes(expectedCandidates, votes, committeeSize)
 	if err != nil {
 		return err
+	}
+
+	for _, tx := range transactions {
+		handler.logger.Info("miniround2.broadcastClassificationCertificateAtQuorum transaction result",
+			"roundKey", roundKey,
+			"txHash", string(tx.TxHash),
+			"status", tx.Status,
+			"correct", len(tx.Groups.Correct),
+			"hallucination", len(tx.Groups.Hallucination),
+			"malicious", len(tx.Groups.Malicious),
+			"wrong", len(tx.Groups.Wrong),
+		)
 	}
 
 	context := votes[0]
@@ -397,6 +478,14 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 		handler.logger.Error("miniround2.HandleAnswerClassificationCertificate received nil certificate", "roundKey", roundKey)
 		return ErrNilAnswerClassificationCertificate
 	}
+
+	handler.logger.Info("miniround2.HandleAnswerClassificationCertificate received",
+		"roundKey", roundKey,
+		"validatorID", handler.myID,
+		"senderID", certificate.SenderID,
+		"numVotes", len(certificate.Votes),
+		"numTransactions", len(certificate.Transactions),
+	)
 
 	if !classificationCertificateMatchesRound(roundKey, certificate) {
 		handler.logger.Error(
@@ -464,7 +553,19 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 		return err
 	}
 
-	handler.logger.Info("miniround2.HandleAnswerClassificationCertificate finalized classifications", "roundKey", roundKey, "numVotes", len(certificate.Votes), "numTransactions", len(certificate.Transactions))
+	for _, tx := range expectedTransactions {
+		handler.logger.Info("miniround2.HandleAnswerClassificationCertificate transaction finalized",
+			"roundKey", roundKey,
+			"validatorID", handler.myID,
+			"txHash", string(tx.TxHash),
+			"status", tx.Status,
+			"correct", len(tx.Groups.Correct),
+			"hallucination", len(tx.Groups.Hallucination),
+			"malicious", len(tx.Groups.Malicious),
+			"wrong", len(tx.Groups.Wrong),
+		)
+	}
+	handler.logger.Info("miniround2.HandleAnswerClassificationCertificate finalized classifications", "roundKey", roundKey, "validatorID", handler.myID, "numVotes", len(certificate.Votes), "numTransactions", len(certificate.Transactions))
 	return nil
 }
 

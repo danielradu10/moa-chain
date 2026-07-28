@@ -12,6 +12,7 @@ import (
 
 	"moa-chain/data"
 	"moa-chain/testscommon"
+	"moa-chain/validators"
 )
 
 // Add a scenario name here to run another fixture through the same MR1 -> MR2
@@ -243,6 +244,7 @@ func createMiniRoundTwoScenarioNodes(
 			network.BroadcasterForNode(validatorID),
 			false,
 			0,
+			validators.CommitteeStrategyHalf,
 		)
 		nodes = append(nodes, node)
 	}

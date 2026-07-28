@@ -90,6 +90,26 @@ func createNode(
 	stopAfterMiniRoundOne bool,
 	voteCollectionDeadline time.Duration,
 ) *integrationTestNode {
+	return createNodeWithCommitteeStrategy(
+		t, validatorID, privateKey, registeredValidators, inboxes, myInbox,
+		transactions, batchAgent, stopAfterMiniRoundOne, voteCollectionDeadline,
+		validators.CommitteeStrategyHalf,
+	)
+}
+
+func createNodeWithCommitteeStrategy(
+	t *testing.T,
+	validatorID string,
+	privateKey []byte,
+	registeredValidators []*validators.Validator,
+	inboxes []chan data.RoundEvent,
+	myInbox chan data.RoundEvent,
+	transactions []data.Transaction,
+	batchAgent agent.BatchAgent,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
+	strategy validators.CommitteeStrategy,
+) *integrationTestNode {
 	peersRegistry := broadcast.NewPeerRegistry()
 	for i, validator := range registeredValidators {
 		err := peersRegistry.Register(validator.PublicID(), inboxes[i])
@@ -97,16 +117,9 @@ func createNode(
 	}
 
 	return createNodeWithBroadcaster(
-		t,
-		validatorID,
-		privateKey,
-		registeredValidators,
-		myInbox,
-		transactions,
-		batchAgent,
-		broadcast.NewBroadcaster(peersRegistry),
-		stopAfterMiniRoundOne,
-		voteCollectionDeadline,
+		t, validatorID, privateKey, registeredValidators, myInbox,
+		transactions, batchAgent, broadcast.NewBroadcaster(peersRegistry),
+		stopAfterMiniRoundOne, voteCollectionDeadline, strategy,
 	)
 }
 
@@ -123,6 +136,7 @@ func createNodeWithBroadcaster(
 	broadcaster broadcast.Broadcaster,
 	stopAfterMiniRoundOne bool,
 	voteCollectionDeadline time.Duration,
+	strategy validators.CommitteeStrategy,
 ) *integrationTestNode {
 	t.Helper()
 
@@ -141,7 +155,7 @@ func createNodeWithBroadcaster(
 		require.NoError(t, err)
 	}
 
-	consensusSelector := validators.NewConsensusSelector(logger)
+	consensusSelector := validators.NewConsensusSelectorWithStrategy(strategy, logger)
 	validatorsRegistry := validators.NewValidatorRegistry(consensusSelector, logger)
 	for _, validator := range registeredValidators {
 		err = validatorsRegistry.Register(validator.PublicID(), validator)
@@ -240,6 +254,7 @@ func createRoundLoop(
 		AnswerJudge:        protocolAgent,
 		JudgeModelMetadata: "integration-deterministic-judge",
 		Logger:             logger,
+		SelfInbox:          inbox,
 	}
 
 	miniRoundTwoHandler := miniround2.NewMiniRoundTwoHandler(miniRoundTwoHandlerArgs)
