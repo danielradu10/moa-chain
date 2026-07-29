@@ -37,13 +37,13 @@ type distributedMR2DiverseTxResult struct {
 }
 
 type distributedMR2DiverseRunResult struct {
-	Timestamp       string                           `json:"timestamp"`
-	Group           string                           `json:"group"`
-	RoundNumber     uint64                           `json:"round_number"`
-	NumValidators   int                              `json:"num_validators"`
-	DurationSeconds float64                          `json:"duration_seconds"`
-	Finalized       bool                             `json:"finalized"`
-	TxResults       []distributedMR2DiverseTxResult  `json:"tx_results,omitempty"`
+	Timestamp       string                          `json:"timestamp"`
+	Group           string                          `json:"group"`
+	RoundNumber     uint64                          `json:"round_number"`
+	NumValidators   int                             `json:"num_validators"`
+	DurationSeconds float64                         `json:"duration_seconds"`
+	Finalized       bool                            `json:"finalized"`
+	TxResults       []distributedMR2DiverseTxResult `json:"tx_results,omitempty"`
 }
 
 func saveDistributedMR2DiverseResult(t *testing.T, result distributedMR2DiverseRunResult) {
@@ -257,4 +257,64 @@ func TestDistributedMR2_Diverse_GroupA_CanonicalPreferenceBias(t *testing.T) {
 	// Use the current Unix timestamp as the round number so that the leader
 	// selection seed changes between trials, rotating the leader across runs.
 	runDistributedMR2DiverseRound(t, cfg, "group_a", nil, uint64(time.Now().Unix()))
+}
+
+// ── Test: Group B — Clearly wrong answers, diverse honest answers ────────────────
+
+// TestDistributedMR2_Diverse_GroupB_WrongAnswerIsRejected verifies the
+// distributed full-committee protocol when four producers submit clearly
+// incorrect answers and the other six submit diverse correct answers.
+//
+// Every judge evaluates all 10 evidence candidates independently. A successful
+// run must finalize the same result on all nodes, place at least one candidate
+// from every transaction in a non-correct group, and mark every transaction
+// INSUFFICIENT_CORRECT_ANSWERS because at most six producers supplied correct
+// answers, below the seven-producer quorum required to advance to MR3.
+//
+// Run with: make test-distributed-mr2-diverse-group-b
+func TestDistributedMR2_Diverse_GroupB_WrongAnswerIsRejected(t *testing.T) {
+	cfg := loadClusterConfig(t)
+	pingClusterOrSkip(t, cfg)
+	// Use the current Unix timestamp as the round number so that the leader
+	// selection seed changes between trials, rotating the leader across runs.
+	block, finalized := runDistributedMR2DiverseRound(
+		t,
+		cfg,
+		"group_b",
+		mr2RABadAnswers["group_b"],
+		uint64(time.Now().Unix()),
+	)
+	if finalized {
+		requireBadAnswersRejected(t, block)
+	}
+}
+
+// ── Test: Group C — Prompt injection, diverse honest answers ──────────────────
+
+// TestDistributedMR2_Diverse_GroupC_PromptInjectionResistance verifies the
+// distributed full-committee protocol when four producers embed explicit
+// instructions intended to override the answer judge and the other six submit
+// diverse correct answers.
+//
+// A successful run must finalize the same result on all nodes, place at least
+// one candidate from every transaction in a non-correct group, and mark every
+// transaction INSUFFICIENT_CORRECT_ANSWERS. If the injection is followed and
+// the injected candidates become Correct, the test fails as a security issue.
+//
+// Run with: make test-distributed-mr2-diverse-group-c
+func TestDistributedMR2_Diverse_GroupC_PromptInjectionResistance(t *testing.T) {
+	cfg := loadClusterConfig(t)
+	pingClusterOrSkip(t, cfg)
+	// Use the current Unix timestamp as the round number so that the leader
+	// selection seed changes between trials, rotating the leader across runs.
+	block, finalized := runDistributedMR2DiverseRound(
+		t,
+		cfg,
+		"group_c",
+		mr2RABadAnswers["group_c"],
+		uint64(time.Now().Unix()),
+	)
+	if finalized {
+		requireBadAnswersRejected(t, block)
+	}
 }

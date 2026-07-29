@@ -622,3 +622,114 @@ print(f'Duration   : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1
 [print('  tx %s: status=%s correct=%d wrong=%d hallucination=%d malicious=%d'%(t['tx_hash'],t['status'],t['correct'],t['wrong'],t['hallucination'],t['malicious'])) for t in (fin[0] if fin else {}).get('tx_results',[])] \
 "
 
+.PHONY: test-distributed-mr2-diverse-group-b
+test-distributed-mr2-diverse-group-b:
+	@mkdir -p testresults
+	@bash scripts/health-check.sh || bash scripts/start-cluster.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	go test -tags integration -timeout 8m -v \
+		-run TestDistributedMR2_Diverse_GroupB \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr2-diverse-group-b-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-cluster.sh; \
+	exit $$exit_code
+
+.PHONY: test-distributed-mr2-diverse-group-b-trials
+test-distributed-mr2-diverse-group-b-trials:
+	@mkdir -p testresults
+	@echo "Running $(N) distributed MR2 Diverse Group B trials — cluster restarted between each run..."
+	@START=$$(date +%s); \
+	for i in $$(seq 1 $(N)); do \
+		echo ""; \
+		echo "=== Trial $$i / $(N) ==="; \
+		bash scripts/stop-cluster.sh 2>/dev/null || true; \
+		bash scripts/start-cluster.sh; \
+		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+		go test -tags integration -timeout 8m \
+			-run TestDistributedMR2_Diverse_GroupB \
+			./integrationtests/... || true; \
+		TRIAL_LOG_DIR=$(CURDIR)/testresults/agent-logs/group-b/trial-$$i; \
+		mkdir -p $$TRIAL_LOG_DIR; \
+		echo "  Collecting agent logs -> $$TRIAL_LOG_DIR"; \
+		for m in $$(python3 -c "import json; [print(a['machine']) for a in json.load(open('$(CLUSTER_CONFIG)'))['agents']]"); do \
+			ssh -o ConnectTimeout=5 $$m "cat /tmp/agent.log" > $$TRIAL_LOG_DIR/$$m-agent.log 2>/dev/null || echo "  [$$m] no log"; \
+		done; \
+	done; \
+	bash scripts/stop-cluster.sh 2>/dev/null || true; \
+	echo ""; \
+	echo "=== MR2 Diverse Group B Trial Summary (N=$(N)) ==="; \
+	python3 -c " \
+import json,glob,os,sys; \
+start=$$START; \
+files=sorted(f for f in glob.glob('$(CURDIR)/testresults/distributed-mr2-diverse-group_b-*.json') if os.path.getmtime(f)>=start); \
+results=[json.load(open(f)) for f in files]; \
+results or sys.exit(print('No results found.') or 0); \
+fin=[r for r in results if r['finalized']]; \
+rejected=[r for r in fin if r.get('tx_results') and all(t['status']=='INSUFFICIENT_CORRECT_ANSWERS' and t['wrong']+t['hallucination']+t['malicious']>0 for t in r['tx_results'])]; \
+d=[r['duration_seconds'] for r in results]; \
+print(f'Trials     : {len(results)}'); \
+print(f'Finalized  : {len(fin)}/{len(results)}'); \
+print(f'Rejected   : {len(rejected)}/{len(results)}'); \
+print(f'Duration   : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s'); \
+[print('  tx %s: status=%s correct=%d wrong=%d hallucination=%d malicious=%d'%(t['tx_hash'],t['status'],t['correct'],t['wrong'],t['hallucination'],t['malicious'])) for t in (fin[0] if fin else {}).get('tx_results',[])] \
+"
+
+.PHONY: test-distributed-mr2-diverse-group-c
+test-distributed-mr2-diverse-group-c:
+	@mkdir -p testresults
+	@bash scripts/health-check.sh || bash scripts/start-cluster.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	go test -tags integration -timeout 8m -v \
+		-run TestDistributedMR2_Diverse_GroupC \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr2-diverse-group-c-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-cluster.sh; \
+	exit $$exit_code
+
+.PHONY: test-distributed-mr2-diverse-group-c-trials
+test-distributed-mr2-diverse-group-c-trials:
+	@mkdir -p testresults
+	@echo "Running $(N) distributed MR2 Diverse Group C trials — cluster restarted between each run..."
+	@START=$$(date +%s); \
+	for i in $$(seq 1 $(N)); do \
+		echo ""; \
+		echo "=== Trial $$i / $(N) ==="; \
+		bash scripts/stop-cluster.sh 2>/dev/null || true; \
+		bash scripts/start-cluster.sh; \
+		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+		go test -tags integration -timeout 8m \
+			-run TestDistributedMR2_Diverse_GroupC \
+			./integrationtests/... || true; \
+		TRIAL_LOG_DIR=$(CURDIR)/testresults/agent-logs/group-c/trial-$$i; \
+		mkdir -p $$TRIAL_LOG_DIR; \
+		echo "  Collecting agent logs -> $$TRIAL_LOG_DIR"; \
+		for m in $$(python3 -c "import json; [print(a['machine']) for a in json.load(open('$(CLUSTER_CONFIG)'))['agents']]"); do \
+			ssh -o ConnectTimeout=5 $$m "cat /tmp/agent.log" > $$TRIAL_LOG_DIR/$$m-agent.log 2>/dev/null || echo "  [$$m] no log"; \
+		done; \
+	done; \
+	bash scripts/stop-cluster.sh 2>/dev/null || true; \
+	echo ""; \
+	echo "=== MR2 Diverse Group C Trial Summary (N=$(N)) ==="; \
+	python3 -c " \
+import json,glob,os,sys; \
+start=$$START; \
+files=sorted(f for f in glob.glob('$(CURDIR)/testresults/distributed-mr2-diverse-group_c-*.json') if os.path.getmtime(f)>=start); \
+results=[json.load(open(f)) for f in files]; \
+results or sys.exit(print('No results found.') or 0); \
+fin=[r for r in results if r['finalized']]; \
+resisted=[r for r in fin if r.get('tx_results') and all(t['status']=='INSUFFICIENT_CORRECT_ANSWERS' and t['wrong']+t['hallucination']+t['malicious']>0 for t in r['tx_results'])]; \
+d=[r['duration_seconds'] for r in results]; \
+print(f'Trials     : {len(results)}'); \
+print(f'Finalized  : {len(fin)}/{len(results)}'); \
+print(f'Resisted   : {len(resisted)}/{len(results)}'); \
+print(f'Duration   : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s'); \
+[print('  tx %s: status=%s correct=%d wrong=%d hallucination=%d malicious=%d'%(t['tx_hash'],t['status'],t['correct'],t['wrong'],t['hallucination'],t['malicious'])) for t in (fin[0] if fin else {}).get('tx_results',[])] \
+"
