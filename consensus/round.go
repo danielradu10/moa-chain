@@ -659,3 +659,13 @@ func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error 
 		return nil
 	}
 }
+
+// HandleClassificationGracePeriodElapsed routes the leader's bounded
+// post-quorum collection timer through the owning event loop.
+func (rh *roundHandler) HandleClassificationGracePeriodElapsed(roundKey data.RoundKey) error {
+	if roundKey != rh.currentRoundKey || rh.currentStep != data.StepCollectClassificationVotes {
+		rh.logger.Info("ignoring stale classification grace event", "roundKey", roundKey, "currentRoundKey", rh.currentRoundKey, "currentStep", rh.currentStep)
+		return nil
+	}
+	return rh.miniRoundTwoHandler.HandleClassificationGracePeriodElapsed(roundKey)
+}

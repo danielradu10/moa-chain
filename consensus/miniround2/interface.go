@@ -12,6 +12,7 @@ type MiniRoundTwoHandler interface {
 	HandleExecutedPromptsCollectionTimeout(roundKey data.RoundKey) error
 	HandleAnswerEvidence(roundKey data.RoundKey, message *data.AggregatedExecutionResultsMessage) error
 	HandleAnswerClassificationVote(roundKey data.RoundKey, vote *data.AnswerClassificationVote) error
+	HandleClassificationGracePeriodElapsed(roundKey data.RoundKey) error
 	HandleAnswerClassificationCertificate(roundKey data.RoundKey, certificate *data.AnswerClassificationCertificate) error
 	HasVerifiedAnswerEvidence(roundKey data.RoundKey) bool
 }

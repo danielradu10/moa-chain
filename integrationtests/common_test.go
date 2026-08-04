@@ -110,6 +110,27 @@ func createNodeWithCommitteeStrategy(
 	voteCollectionDeadline time.Duration,
 	strategy validators.CommitteeStrategy,
 ) *integrationTestNode {
+	return createNodeWithCommitteeStrategyAndClassificationGrace(
+		t, validatorID, privateKey, registeredValidators, inboxes, myInbox,
+		transactions, batchAgent, stopAfterMiniRoundOne, voteCollectionDeadline,
+		strategy, 0,
+	)
+}
+
+func createNodeWithCommitteeStrategyAndClassificationGrace(
+	t *testing.T,
+	validatorID string,
+	privateKey []byte,
+	registeredValidators []*validators.Validator,
+	inboxes []chan data.RoundEvent,
+	myInbox chan data.RoundEvent,
+	transactions []data.Transaction,
+	batchAgent agent.BatchAgent,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
+	strategy validators.CommitteeStrategy,
+	classificationGracePeriod time.Duration,
+) *integrationTestNode {
 	peersRegistry := broadcast.NewPeerRegistry()
 	for i, validator := range registeredValidators {
 		err := peersRegistry.Register(validator.PublicID(), inboxes[i])
@@ -119,7 +140,7 @@ func createNodeWithCommitteeStrategy(
 	return createNodeWithBroadcaster(
 		t, validatorID, privateKey, registeredValidators, myInbox,
 		transactions, batchAgent, broadcast.NewBroadcaster(peersRegistry),
-		stopAfterMiniRoundOne, voteCollectionDeadline, strategy,
+		stopAfterMiniRoundOne, voteCollectionDeadline, strategy, classificationGracePeriod,
 	)
 }
 
@@ -137,6 +158,7 @@ func createNodeWithBroadcaster(
 	stopAfterMiniRoundOne bool,
 	voteCollectionDeadline time.Duration,
 	strategy validators.CommitteeStrategy,
+	classificationGracePeriod time.Duration,
 ) *integrationTestNode {
 	t.Helper()
 
@@ -176,6 +198,7 @@ func createNodeWithBroadcaster(
 		roundState,
 		stopAfterMiniRoundOne,
 		voteCollectionDeadline,
+		classificationGracePeriod,
 		logger,
 	)
 
@@ -213,6 +236,7 @@ func createRoundLoop(
 	roundState state.RoundState,
 	stopAfterMiniRoundOne bool,
 	voteCollectionDeadline time.Duration,
+	classificationGracePeriod time.Duration,
 	logger *slog.Logger,
 ) *consensus.RoundLoop {
 	currentHeader := currentIntegrationTestHeader()
@@ -243,18 +267,19 @@ func createRoundLoop(
 	miniRoundOneHandler := miniround1.NewMiniRoundOneHandler(miniRoundOneHandlerArgs)
 
 	miniRoundTwoHandlerArgs := miniround2.MiniRoundTwoHandlerArgs{
-		MyID:               nodeID,
-		BlockProcessor:     validation.NewBlockProcessor(base),
-		RoundState:         roundState,
-		Broadcaster:        broadcaster,
-		Signer:             signing.NewSigner(nodeID, privateKey),
-		ValidatorRegistry:  validatorRegistry,
-		BlockchainState:    blockchainStateStub,
-		BlockFinalizer:     blockFinalizer,
-		AnswerJudge:        protocolAgent,
-		JudgeModelMetadata: "integration-deterministic-judge",
-		Logger:             logger,
-		SelfInbox:          inbox,
+		MyID:                      nodeID,
+		BlockProcessor:            validation.NewBlockProcessor(base),
+		RoundState:                roundState,
+		Broadcaster:               broadcaster,
+		Signer:                    signing.NewSigner(nodeID, privateKey),
+		ValidatorRegistry:         validatorRegistry,
+		BlockchainState:           blockchainStateStub,
+		BlockFinalizer:            blockFinalizer,
+		AnswerJudge:               protocolAgent,
+		JudgeModelMetadata:        "integration-deterministic-judge",
+		ClassificationGracePeriod: classificationGracePeriod,
+		Logger:                    logger,
+		SelfInbox:                 inbox,
 	}
 
 	miniRoundTwoHandler := miniround2.NewMiniRoundTwoHandler(miniRoundTwoHandlerArgs)

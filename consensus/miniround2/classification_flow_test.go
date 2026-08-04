@@ -3,6 +3,7 @@ package miniround2
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -281,6 +282,56 @@ func TestHandleAnswerClassificationVoteBroadcastsCertificateAtQuorum(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, expected, certificate.Transactions)
 	require.True(t, context.roundState.IsAnswerClassificationCertificateSet(context.roundKey))
+}
+
+func TestClassificationGracePeriodBuildsCertificateOnExpiry(t *testing.T) {
+	t.Parallel()
+
+	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
+	context.registry.ConsensusGroupSizeValue = 4
+	context.handler.classificationGracePeriod = time.Minute
+	context.handler.classificationGraceStarted = make(map[data.RoundKey]time.Time)
+	require.NoError(t, context.handler.HandleAnswerEvidence(context.roundKey, context.evidence))
+
+	leaderVote := classificationLeaderVote(t, context)
+	for _, judgeID := range []string{"validator-a", "validator-b"} {
+		vote := signedClassificationVote(t, leaderVote, judgeID, context.memberSigners[judgeID])
+		require.NoError(t, context.handler.HandleAnswerClassificationVote(context.roundKey, vote))
+	}
+	require.Nil(t, context.broadcaster.BroadcastAnswerClassificationCertificateMessage)
+
+	require.NoError(t, context.handler.HandleClassificationGracePeriodElapsed(context.roundKey))
+	certificate := context.broadcaster.BroadcastAnswerClassificationCertificateMessage.AnswerClassificationCertificate
+	require.Len(t, certificate.Votes, 3)
+}
+
+func TestClassificationGracePeriodBuildsImmediatelyWhenAllVotesArrive(t *testing.T) {
+	t.Parallel()
+
+	context := newClassificationProductionContext(t, "leader", "leader", &classificationProductionJudge{})
+	publicKey, privateKey := createTestKeyPair(t)
+	validatorCSigner := signing.NewSigner("validator-c", privateKey)
+	context.registry.RegisteredValidators["validator-c"] = true
+	context.registry.ConsensusValidators["validator-c"] = true
+	context.registry.PublicKeysByValidatorID["validator-c"] = publicKey
+	context.registry.ConsensusGroupSizeValue = 4
+	context.registry.ConsensusGroupValue = append(context.registry.ConsensusGroupValue, "validator-c")
+	context.registry.ValidatorsIDs = append(context.registry.ValidatorsIDs, "validator-c")
+	context.handler.classificationGracePeriod = time.Minute
+	context.handler.classificationGraceStarted = make(map[data.RoundKey]time.Time)
+	require.NoError(t, context.handler.HandleAnswerEvidence(context.roundKey, context.evidence))
+
+	leaderVote := classificationLeaderVote(t, context)
+	for _, judgeID := range []string{"validator-a", "validator-b"} {
+		vote := signedClassificationVote(t, leaderVote, judgeID, context.memberSigners[judgeID])
+		require.NoError(t, context.handler.HandleAnswerClassificationVote(context.roundKey, vote))
+	}
+	require.Nil(t, context.broadcaster.BroadcastAnswerClassificationCertificateMessage)
+
+	validatorCVote := signedClassificationVote(t, leaderVote, "validator-c", validatorCSigner)
+	require.NoError(t, context.handler.HandleAnswerClassificationVote(context.roundKey, validatorCVote))
+	certificate := context.broadcaster.BroadcastAnswerClassificationCertificateMessage.AnswerClassificationCertificate
+	require.Len(t, certificate.Votes, 4)
 }
 
 func TestHandleAnswerClassificationVoteIgnoresInvalidExternalVotes(t *testing.T) {

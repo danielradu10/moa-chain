@@ -7,6 +7,7 @@ const (
 	StartRoundEvent
 	ConsensusMessageEvent
 	TimeoutEvent
+	ClassificationGracePeriodElapsedEvent
 	StopEvent
 )
 

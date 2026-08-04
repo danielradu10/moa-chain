@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sort"
 	"sync"
+	"time"
 
 	"moa-chain/agent"
 	"moa-chain/blockprocessing"
@@ -23,16 +24,18 @@ import (
 type miniRoundTwoHandler struct {
 	myID string
 
-	blockProcessor     blockprocessing.BlockProcessor
-	roundState         state.RoundState
-	broadcaster        broadcast.Broadcaster
-	signer             signing.MessageSigner
-	validatorRegistry  validators.ValidatorRegistry
-	blockchainState    state.BlockchainState
-	blockFinalizer     blockFinalizer.BlockFinalizer
-	answerJudge        agent.AnswersJudge
-	judgeModelMetadata string
-	logger             *slog.Logger
+	blockProcessor             blockprocessing.BlockProcessor
+	roundState                 state.RoundState
+	broadcaster                broadcast.Broadcaster
+	signer                     signing.MessageSigner
+	validatorRegistry          validators.ValidatorRegistry
+	blockchainState            state.BlockchainState
+	blockFinalizer             blockFinalizer.BlockFinalizer
+	answerJudge                agent.AnswersJudge
+	judgeModelMetadata         string
+	classificationGracePeriod  time.Duration
+	logger                     *slog.Logger
+	classificationGraceStarted map[data.RoundKey]time.Time
 
 	// selfInbox is the owning event loop's inbox channel. The judge goroutine
 	// uses it to re-inject its signed vote as a ConsensusMessageEvent so that
@@ -63,7 +66,10 @@ type MiniRoundTwoHandlerArgs struct {
 	BlockFinalizer     blockFinalizer.BlockFinalizer
 	AnswerJudge        agent.AnswersJudge
 	JudgeModelMetadata string
-	Logger             *slog.Logger
+	// ClassificationGracePeriod keeps collecting valid classification votes
+	// after quorum. Zero preserves immediate first-quorum certification.
+	ClassificationGracePeriod time.Duration
+	Logger                    *slog.Logger
 
 	// SelfInbox is the node's own event-loop inbox. Required so the judge
 	// goroutine can route its result back through the event loop.
@@ -73,18 +79,20 @@ type MiniRoundTwoHandlerArgs struct {
 // NewMiniRoundTwoHandler creates a new mini-round two handler.
 func NewMiniRoundTwoHandler(args MiniRoundTwoHandlerArgs) *miniRoundTwoHandler {
 	return &miniRoundTwoHandler{
-		myID:               args.MyID,
-		blockProcessor:     args.BlockProcessor,
-		roundState:         args.RoundState,
-		broadcaster:        args.Broadcaster,
-		signer:             args.Signer,
-		validatorRegistry:  args.ValidatorRegistry,
-		blockchainState:    args.BlockchainState,
-		blockFinalizer:     args.BlockFinalizer,
-		answerJudge:        args.AnswerJudge,
-		judgeModelMetadata: args.JudgeModelMetadata,
-		logger:             args.Logger,
-		selfInbox:          args.SelfInbox,
+		myID:                       args.MyID,
+		blockProcessor:             args.BlockProcessor,
+		roundState:                 args.RoundState,
+		broadcaster:                args.Broadcaster,
+		signer:                     args.Signer,
+		validatorRegistry:          args.ValidatorRegistry,
+		blockchainState:            args.BlockchainState,
+		blockFinalizer:             args.BlockFinalizer,
+		answerJudge:                args.AnswerJudge,
+		judgeModelMetadata:         args.JudgeModelMetadata,
+		classificationGracePeriod:  args.ClassificationGracePeriod,
+		logger:                     args.Logger,
+		selfInbox:                  args.SelfInbox,
+		classificationGraceStarted: make(map[data.RoundKey]time.Time),
 	}
 }
 

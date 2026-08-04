@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"reflect"
 	"sort"
+	"time"
 
 	"moa-chain/blockprocessing/hashing"
 	"moa-chain/consensus/miniround2/classification"
@@ -409,12 +410,79 @@ func (handler *miniRoundTwoHandler) broadcastClassificationCertificateAtQuorum(
 		return nil
 	}
 
+	if handler.classificationGracePeriod > 0 && uint64(len(votePointers)) < committeeSize {
+		if _, started := handler.classificationGraceStarted[roundKey]; !started {
+			startedAt := time.Now()
+			handler.classificationGraceStarted[roundKey] = startedAt
+			handler.logger.Info("miniround2 classification quorum reached, starting grace period",
+				"roundKey", roundKey,
+				"numVotes", len(votePointers),
+				"quorum", quorum,
+				"gracePeriod", handler.classificationGracePeriod,
+			)
+			time.AfterFunc(handler.classificationGracePeriod, func() {
+				handler.selfInbox <- data.RoundEvent{
+					Type:     data.ClassificationGracePeriodElapsedEvent,
+					RoundKey: roundKey,
+				}
+			})
+		}
+		return nil
+	}
+
+	return handler.buildAndBroadcastClassificationCertificate(roundKey, expectedCandidates, votePointers, committeeSize, quorum)
+}
+
+// HandleClassificationGracePeriodElapsed certifies all valid votes collected
+// by the leader when the bounded post-quorum window expires.
+func (handler *miniRoundTwoHandler) HandleClassificationGracePeriodElapsed(roundKey data.RoundKey) error {
+	if err := handler.verifyClassificationCollectionLeader(roundKey); err != nil {
+		return err
+	}
+	if handler.roundState.IsAnswerClassificationCertificateSet(roundKey) {
+		return nil
+	}
+
+	votePointers, err := handler.roundState.GetAnswerClassificationVotes(roundKey)
+	if err != nil || len(votePointers) == 0 {
+		return ErrMissingClassificationCollectionContext
+	}
+	committeeSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		return err
+	}
+	quorum := classification.ClassificationQuorum(committeeSize)
+	if uint64(len(votePointers)) < quorum {
+		return ErrMissingClassificationCollectionContext
+	}
+	expectedCandidates, err := handler.classificationCollectionCandidates(roundKey, votePointers[0])
+	if err != nil {
+		return err
+	}
+	startedAt := handler.classificationGraceStarted[roundKey]
+	handler.logger.Info("miniround2 classification grace period elapsed",
+		"roundKey", roundKey,
+		"numVotes", len(votePointers),
+		"graceElapsed", time.Since(startedAt),
+	)
+	return handler.buildAndBroadcastClassificationCertificate(roundKey, expectedCandidates, votePointers, committeeSize, quorum)
+}
+
+func (handler *miniRoundTwoHandler) buildAndBroadcastClassificationCertificate(
+	roundKey data.RoundKey,
+	expectedCandidates []data.AnswerCandidateID,
+	votePointers []*data.AnswerClassificationVote,
+	committeeSize uint64,
+	quorum uint64,
+) error {
+
 	handler.logger.Info("miniround2.broadcastClassificationCertificateAtQuorum quorum reached, building certificate",
 		"roundKey", roundKey,
 		"numVotes", len(votePointers),
 		"quorum", quorum,
 		"committeeSize", committeeSize,
 	)
+	delete(handler.classificationGraceStarted, roundKey)
 
 	// TODO: Decide whether transaction statuses must be invariant across all
 	// valid judge-vote quorums for the same answer evidence. Today the first
