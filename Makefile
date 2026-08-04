@@ -733,3 +733,103 @@ print(f'Resisted   : {len(resisted)}/{len(results)}'); \
 print(f'Duration   : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1f}s'); \
 [print('  tx %s: status=%s correct=%d wrong=%d hallucination=%d malicious=%d'%(t['tx_hash'],t['status'],t['correct'],t['wrong'],t['hallucination'],t['malicious'])) for t in (fin[0] if fin else {}).get('tx_results',[])] \
 "
+
+# ── Configurable adversarial Groups D–F ──────────────────────────────────────
+# BAD_PRODUCERS controls how many of the first validators submit the group's
+# adversarial answer. Supported values: 1, 2, 3.
+
+CLASSIFICATION_GRACE_PERIOD ?= 180s
+ANSWER_JUDGE_PROMPT_VERSION ?= answer-judge-v4
+
+.PHONY: test-distributed-mr2-diverse-group-d
+test-distributed-mr2-diverse-group-d:
+	@$(MAKE) --no-print-directory _test-distributed-mr2-diverse-configurable-adversarial ADVERSARIAL_GROUP=d TEST_GROUP=GroupD BAD_PRODUCERS=$(BAD_PRODUCERS) CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD)
+
+.PHONY: test-distributed-mr2-diverse-group-e
+test-distributed-mr2-diverse-group-e:
+	@$(MAKE) --no-print-directory _test-distributed-mr2-diverse-configurable-adversarial ADVERSARIAL_GROUP=e TEST_GROUP=GroupE BAD_PRODUCERS=$(BAD_PRODUCERS) CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD)
+
+.PHONY: test-distributed-mr2-diverse-group-f
+test-distributed-mr2-diverse-group-f:
+	@$(MAKE) --no-print-directory _test-distributed-mr2-diverse-configurable-adversarial ADVERSARIAL_GROUP=f TEST_GROUP=GroupF BAD_PRODUCERS=$(BAD_PRODUCERS) CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD)
+
+.PHONY: _test-distributed-mr2-diverse-configurable-adversarial
+_test-distributed-mr2-diverse-configurable-adversarial:
+	@if ! echo "1 2 3" | grep -qw "$(BAD_PRODUCERS)"; then echo "BAD_PRODUCERS must be 1, 2, or 3"; exit 2; fi
+	@mkdir -p testresults
+	@bash scripts/health-check.sh || bash scripts/start-cluster.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	MOA_BAD_PRODUCERS=$(BAD_PRODUCERS) \
+	MOA_CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD) \
+	go test -tags integration -timeout 10m -v \
+		-run TestDistributedMR2_Diverse_ConfigurableAdversarial_$(TEST_GROUP) \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr2-diverse-adversarial-group-$(ADVERSARIAL_GROUP)-q$(BAD_PRODUCERS)-$(ANSWER_JUDGE_PROMPT_VERSION)-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-cluster.sh; \
+	exit $$exit_code
+
+.PHONY: test-distributed-mr2-diverse-group-d-trials
+test-distributed-mr2-diverse-group-d-trials:
+	@$(MAKE) --no-print-directory _test-distributed-mr2-diverse-configurable-adversarial-trials ADVERSARIAL_GROUP=d TEST_GROUP=GroupD N=$(N) BAD_PRODUCERS=$(BAD_PRODUCERS) CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD)
+
+.PHONY: test-distributed-mr2-diverse-group-e-trials
+test-distributed-mr2-diverse-group-e-trials:
+	@$(MAKE) --no-print-directory _test-distributed-mr2-diverse-configurable-adversarial-trials ADVERSARIAL_GROUP=e TEST_GROUP=GroupE N=$(N) BAD_PRODUCERS=$(BAD_PRODUCERS) CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD)
+
+.PHONY: test-distributed-mr2-diverse-group-f-trials
+test-distributed-mr2-diverse-group-f-trials:
+	@$(MAKE) --no-print-directory _test-distributed-mr2-diverse-configurable-adversarial-trials ADVERSARIAL_GROUP=f TEST_GROUP=GroupF N=$(N) BAD_PRODUCERS=$(BAD_PRODUCERS) CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD)
+
+.PHONY: _test-distributed-mr2-diverse-configurable-adversarial-trials
+_test-distributed-mr2-diverse-configurable-adversarial-trials:
+	@if ! echo "1 2 3" | grep -qw "$(BAD_PRODUCERS)"; then echo "BAD_PRODUCERS must be 1, 2, or 3"; exit 2; fi
+	@mkdir -p testresults
+	@echo "Running $(N) distributed MR2 Group $(ADVERSARIAL_GROUP) trials with BAD_PRODUCERS=$(BAD_PRODUCERS), grace=$(CLASSIFICATION_GRACE_PERIOD), prompt=$(ANSWER_JUDGE_PROMPT_VERSION)..."
+	@START=$$(date +%s); \
+	for i in $$(seq 1 $(N)); do \
+		echo ""; \
+		echo "=== Trial $$i / $(N) — Group $(ADVERSARIAL_GROUP), BAD_PRODUCERS=$(BAD_PRODUCERS) ==="; \
+		bash scripts/stop-cluster.sh 2>/dev/null || true; \
+		bash scripts/start-cluster.sh; \
+		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
+		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+		MOA_BAD_PRODUCERS=$(BAD_PRODUCERS) \
+		MOA_CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD) \
+		go test -tags integration -timeout 10m \
+			-run TestDistributedMR2_Diverse_ConfigurableAdversarial_$(TEST_GROUP) \
+			./integrationtests/... || true; \
+		TRIAL_LOG_DIR=$(CURDIR)/testresults/agent-logs/group-$(ADVERSARIAL_GROUP)/bad-producers-$(BAD_PRODUCERS)/grace-$(CLASSIFICATION_GRACE_PERIOD)/prompt-$(ANSWER_JUDGE_PROMPT_VERSION)/trial-$$i; \
+		mkdir -p $$TRIAL_LOG_DIR; \
+		echo "  Collecting agent logs -> $$TRIAL_LOG_DIR"; \
+		for m in $$(python3 -c "import json; [print(a['machine']) for a in json.load(open('$(CLUSTER_CONFIG)'))['agents']]"); do \
+			ssh -o ConnectTimeout=5 $$m "cat /tmp/agent.log" > $$TRIAL_LOG_DIR/$$m-agent.log 2>/dev/null || echo "  [$$m] no log"; \
+		done; \
+		mkdir -p $$TRIAL_LOG_DIR/validator-logs; \
+		cp integrationtests/logs/TestDistributedMR2_Diverse_ConfigurableAdversarial_$(TEST_GROUP)/validator-*.log $$TRIAL_LOG_DIR/validator-logs/ 2>/dev/null || echo "  no validator logs"; \
+	done; \
+	bash scripts/stop-cluster.sh 2>/dev/null || true; \
+	echo ""; \
+	echo "=== Group $(ADVERSARIAL_GROUP), BAD_PRODUCERS=$(BAD_PRODUCERS) Summary ==="; \
+	python3 -c "\
+import json,glob,os,sys; \
+start=$$START; \
+files=sorted(f for f in glob.glob('$(CURDIR)/testresults/distributed-mr2-diverse-adversarial-group_$(ADVERSARIAL_GROUP)-q$(BAD_PRODUCERS)-*.json') if os.path.getmtime(f)>=start); \
+results=[json.load(open(f)) for f in files]; \
+results or sys.exit(print('No results found.') or 0); \
+fin=[r for r in results if r['finalized']]; equal=[r for r in fin if r['all_nodes_equal']]; \
+safe=[r for r in equal if all(not ({c['producer_id'] for c in t['correct_candidates']} & set(r['bad_producer_ids'])) for t in r['tx_results'])]; \
+ready=sum(t['status']=='READY_FOR_MINI_ROUND_THREE' for r in equal for t in r['tx_results']); total=sum(len(r['tx_results']) for r in equal); \
+d=[r['duration_seconds'] for r in results]; \
+print(f'Trials                 : {len(results)}'); \
+print(f'Finalized              : {len(fin)}/{len(results)}'); \
+print(f'All nodes equal        : {len(equal)}/{len(results)}'); \
+print(f'No canonical bad accept: {len(safe)}/{len(results)}'); \
+print(f'Ready transactions     : {ready}/{total}'); \
+print('Prompt versions        : %s'%sorted(set(r.get('prompt_version','unknown') for r in results))); \
+print('Certificate vote counts: %s'%[r.get('certificate_vote_count',0) for r in equal]); \
+print(f'Duration               : min={min(d):.1f}s avg={sum(d)/len(d):.1f}s max={max(d):.1f}s'); \
+[print('  trial round=%s: %s'%(r['round_number'], ', '.join('%s=%s C%d/W%d/H%d/M%d'%(t['tx_hash'],t['status'],t['correct'],t['wrong'],t['hallucination'],t['malicious']) for t in r.get('tx_results',[])))) for r in results] \
+"
