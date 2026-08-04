@@ -59,8 +59,3 @@ func (s *signer) Verify(publicKey []byte, message []byte, signature []byte) erro
 
 	return nil
 }
-
-// IsInterfaceNil checks for nil interface
-func (s *signer) IsInterfaceNil() bool {
-	return s == nil
-}

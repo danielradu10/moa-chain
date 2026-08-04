@@ -472,8 +472,6 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 	require.Len(t, firstBlock.Block.Body.Transactions, len(transactions))
 	require.NotEmpty(t, firstBlock.SubdomainsFrequencies)
 
-	appendConsensusFrequenciesResult(t, firstBlock.SubdomainsFrequencies)
-
 	consensusGroup := selectedConsensusGroupForRound(t, registeredValidators, roundKey)
 	requireFinalizedFrequenciesFromValidQuorum(
 		t,
@@ -920,35 +918,4 @@ func subdomainsFrequenciesEqual(left data.SubdomainsFrequency, right data.Subdom
 	}
 
 	return true
-}
-
-func appendConsensusFrequenciesResult(t *testing.T, frequencies data.SubdomainsFrequency) {
-	t.Helper()
-
-	result := struct {
-		TestName    string                   `json:"testName"`
-		Timestamp   string                   `json:"timestamp"`
-		Frequencies data.SubdomainsFrequency `json:"frequencies"`
-	}{
-		TestName:    t.Name(),
-		Timestamp:   time.Now().UTC().Format(time.RFC3339Nano),
-		Frequencies: frequencies,
-	}
-
-	encodedResult, err := json.Marshal(result)
-	require.NoError(t, err)
-
-	outputPath := filepath.Join("testData", "miniround1", "results", "consensus_frequencies_results.jsonl")
-	err = os.MkdirAll(filepath.Dir(outputPath), 0o755)
-	require.NoError(t, err)
-
-	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	require.NoError(t, err)
-	defer func() {
-		err = outputFile.Close()
-		require.NoError(t, err)
-	}()
-
-	_, err = outputFile.Write(append(encodedResult, '\n'))
-	require.NoError(t, err)
 }

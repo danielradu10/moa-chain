@@ -58,7 +58,3 @@ func writeUint64(hasher hash.Hash, value uint64) {
 	binary.BigEndian.PutUint64(buff[:], value)
 	hasher.Write(buff[:])
 }
-
-func (rp *randomnessProvider) IsInterfaceNil() bool {
-	return rp == nil
-}

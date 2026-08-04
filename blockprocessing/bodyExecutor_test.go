@@ -183,11 +183,3 @@ func createBodyExecutorTestTransaction(txHash string) data.Transaction {
 	tx.SetTxHash([]byte(txHash))
 	return tx
 }
-
-func createTransactionResult(tx data.Transaction, answer string, consumption uint64) *data.TransactionResult {
-	return &data.TransactionResult{
-		TxHash:            tx.GetTxHash(),
-		Answer:            answer,
-		ActualConsumption: consumption,
-	}
-}
