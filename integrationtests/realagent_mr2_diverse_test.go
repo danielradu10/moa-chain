@@ -82,7 +82,6 @@ func runRealAgentMR2DiverseRound(
 	const committeeSize = 10
 
 	judgeClient := realAgentClient()
-	recorder := newMR2Recorder(t, group+"/diverse", roundNumber)
 
 	publicKeys, privateKeys := generateScenarioKeys(t, registeredNodes)
 	registeredValidators := createScenarioValidators(publicKeys)
@@ -125,10 +124,9 @@ func runRealAgentMR2DiverseRound(
 			inboxes[i],
 			cloneTransactions(transactions),
 			&realAgentMR2Agent{
-				labels:   mr2RATxLabels,
-				answers:  answers,
-				judge:    judgeClient,
-				recorder: recorder,
+				labels:  mr2RATxLabels,
+				answers: answers,
+				judge:   judgeClient,
 			},
 			false,
 			0,

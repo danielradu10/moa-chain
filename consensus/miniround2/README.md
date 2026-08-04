@@ -14,6 +14,17 @@ votes is the consensus-visible result.
 Mini-round two does not create the final answer. It only determines which
 independently produced answers are eligible inputs for mini-round three.
 
+## Round boundary
+
+Answer generation is intentionally performed **off-round**, before the timed
+classification round begins. Model execution has variable and potentially long
+latency; including it in the consensus timeout would make liveness depend on the
+slowest producer. Producers therefore prepare and sign answers outside the
+round, while mini-round two covers the bounded protocol work of verifying answer
+evidence, judging candidates, collecting signed classifications, and finalizing
+their deterministic aggregate. Answer signatures and evidence hashes bind the
+off-round work to the transactions later classified in consensus.
+
 ## Terminology
 
 - **Answer producer**: a selected mini-round-two validator that executes the

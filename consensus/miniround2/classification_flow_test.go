@@ -249,10 +249,6 @@ func (signer *recordingMessageSigner) Verify(publicKey []byte, message []byte, s
 	return signer.delegate.Verify(publicKey, message, signature)
 }
 
-func (signer *recordingMessageSigner) IsInterfaceNil() bool {
-	return signer == nil
-}
-
 func TestHandleAnswerClassificationVoteBroadcastsCertificateAtQuorum(t *testing.T) {
 	t.Parallel()
 
