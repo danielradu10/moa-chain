@@ -3,27 +3,29 @@ package mempool
 import (
 	"bytes"
 	"sync"
+
+	"moa-chain/data"
 )
 
 type txList struct {
 	mutTxList       sync.RWMutex
-	transactionList []Transaction
+	transactionList []data.Transaction
 }
 
 func newTxList() *txList {
 	return &txList{
-		transactionList: make([]Transaction, 0),
+		transactionList: make([]data.Transaction, 0),
 	}
 }
 
 // add adds a new transaction and keeps the transactions sorted
-func (txl *txList) add(tx Transaction) {
+func (txl *txList) add(tx data.Transaction) {
 	txl.mutTxList.Lock()
 	defer txl.mutTxList.Unlock()
 
 	insertionPlace := txl.findInsertionPlaceNoLock(tx)
 
-	updatedList := make([]Transaction, 0, len(txl.transactionList)+1)
+	updatedList := make([]data.Transaction, 0, len(txl.transactionList)+1)
 	updatedList = append(updatedList, txl.transactionList[:insertionPlace]...)
 	updatedList = append(updatedList, tx)
 	updatedList = append(updatedList, txl.transactionList[insertionPlace:]...)
@@ -33,7 +35,7 @@ func (txl *txList) add(tx Transaction) {
 
 // findInsertionPlaceNoLock finds the insertion place of a transaction.
 // The method has to be called under a mutex protection
-func (txl *txList) findInsertionPlaceNoLock(tx Transaction) uint64 {
+func (txl *txList) findInsertionPlaceNoLock(tx data.Transaction) uint64 {
 	left := 0
 	right := len(txl.transactionList)
 
@@ -51,7 +53,7 @@ func (txl *txList) findInsertionPlaceNoLock(tx Transaction) uint64 {
 }
 
 // shouldComeBefore returns true if transactionA should be placed before transactionB
-func shouldComeBefore(transactionA Transaction, transactionB Transaction) bool {
+func shouldComeBefore(transactionA data.Transaction, transactionB data.Transaction) bool {
 	// the most important criteria: nonce
 	if transactionA.GetNonce() != transactionB.GetNonce() {
 		return transactionA.GetNonce() < transactionB.GetNonce()
@@ -74,7 +76,7 @@ func (txl *txList) numTransactions() int {
 	return len(txl.transactionList)
 }
 
-func (txl *txList) getTxByIndex(index uint64) Transaction {
+func (txl *txList) getTxByIndex(index uint64) data.Transaction {
 	txl.mutTxList.RLock()
 	defer txl.mutTxList.RUnlock()
 
@@ -89,7 +91,7 @@ func (txl *txList) snapshot() *txList {
 	txl.mutTxList.RLock()
 	defer txl.mutTxList.RUnlock()
 
-	transactionListCopy := make([]Transaction, len(txl.transactionList))
+	transactionListCopy := make([]data.Transaction, len(txl.transactionList))
 	copy(transactionListCopy, txl.transactionList)
 
 	return &txList{

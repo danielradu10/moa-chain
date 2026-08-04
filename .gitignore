@@ -2,6 +2,7 @@
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
 #
 # Binaries for programs and plugins
+bin/
 *.exe
 *.exe~
 *.dll
@@ -26,7 +27,33 @@ go.work.sum
 
 # env file
 .env
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# Local service process files
+.agent.pid
+.ollama.pid
+
+# Generated integration-test validator logs
+integrationtests/logs/
+integrationtests/testData/**/results/*.jsonl
+integrationtests/testData/miniround2/scenarios/*/result.json
+
+# Distributed test results — ignore raw logs and JSON summaries, keep analysis docs
+testresults/*.json
+testresults/*.log
+testresults/agent-logs/
+
+# Cluster infrastructure — contains internal IPs in machine table
+DISTRIBUTED_TESTING.md
+
+# Dissertation PDFs
+_BCAA_2026__Blockchain_AI.pdf
+_BCCA_2026__Blockchain_AI*.pdf
 
 # Editor/IDE
-# .idea/
+.DS_Store
+.idea/
 # .vscode/

@@ -13,13 +13,17 @@ type transaction struct {
 	txHash           []byte
 
 	// to be computed fields
-	domainLabel          []byte
+	domainLabels         []string
 	numInputTokens       uint64
 	userOutputDimension  string
 	thinkingMode         string // we can have four basic thinking modes:fast, standard, thinking, deep research.
 	estimatedConsumption uint64 // we will estimate the consumption by taking into consideration the fields from above.
 	estimatedFee         uint64
 	estimatedScore       uint64
+}
+
+func NewTransaction() *transaction {
+	return &transaction{}
 }
 
 func (tx *transaction) GetNonce() uint64 {
@@ -78,8 +82,8 @@ func (tx *transaction) IsInterfaceNil() bool {
 	return tx == nil
 }
 
-func (tx *transaction) GetDomainLabel() []byte {
-	return tx.domainLabel
+func (tx *transaction) GetDomainLabels() []string {
+	return tx.domainLabels
 }
 
 func (tx *transaction) GetThinkingMode() string {
@@ -118,8 +122,8 @@ func (tx *transaction) SetTxHash(txHash []byte) {
 	tx.txHash = txHash
 }
 
-func (tx *transaction) SetDomainLabel(domainLabel []byte) {
-	tx.domainLabel = domainLabel
+func (tx *transaction) SetDomainLabels(domainLabels []string) {
+	tx.domainLabels = domainLabels
 }
 
 func (tx *transaction) SetNumInputTokens(numInputTokens uint64) {

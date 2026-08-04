@@ -37,7 +37,7 @@ func (ass *AccountStateStub) UpdateAccount(address string, nonce uint64, balance
 func (ass *AccountStateStub) GetNonceByAddress(address string) (uint64, error) {
 	account, ok := ass.users[address]
 	if !ok {
-		return 0, errors.New("missing nonce")
+		return 0, errors.New("missing Nonce")
 	}
 
 	return account.nonce, nil

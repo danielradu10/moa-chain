@@ -1,0 +1,192 @@
+{
+  "name": "judge_execution_error",
+  "description": "One selected non-leader judge fails while processing the target transaction, sends no partial vote, and seven other judges finalize unanimous-correct classifications.",
+  "network": {
+    "registeredNodes": 20,
+    "committeeSize": 10,
+    "quorum": 7
+  },
+  "transactions": [
+    {
+      "role": "control-before",
+      "sender": "alice",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 90,
+      "timestamp": 1,
+      "txHash": "scenario-05-control-before",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "What is the main benefit of unit tests?",
+      "labels": [
+        "test_engineering_and_qa_automation",
+        "back_end_with_apis",
+        "systems_programming"
+      ]
+    },
+    {
+      "role": "scenario-target",
+      "sender": "bob",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 80,
+      "timestamp": 2,
+      "txHash": "scenario-05-target",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "Why must validators verify message signatures?",
+      "labels": [
+        "security",
+        "blockchain_engineering",
+        "systems_programming"
+      ]
+    },
+    {
+      "role": "control-after",
+      "sender": "carol",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 70,
+      "timestamp": 3,
+      "txHash": "scenario-05-control-after",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "Why does deterministic ordering matter in consensus?",
+      "labels": [
+        "blockchain_engineering",
+        "systems_programming",
+        "test_engineering_and_qa_automation"
+      ]
+    }
+  ],
+  "executors": [
+    {
+      "role": "default",
+      "answers": {
+        "scenario-05-control-before": "Unit tests detect regressions early and make behavior safer to change.",
+        "scenario-05-target": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+        "scenario-05-control-after": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs."
+      }
+    }
+  ],
+  "judges": [
+    {
+      "role": "default",
+      "mode": "valid",
+      "defaultCategory": "CORRECT"
+    },
+    {
+      "role": "member-1",
+      "mode": "execution_error",
+      "errorTxHash": "scenario-05-target",
+      "defaultCategory": "CORRECT"
+    }
+  ],
+  "delivery": {
+    "producerOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "judgeOrder": [
+      "leader",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-1",
+      "member-8",
+      "member-9"
+    ]
+  },
+  "expected": {
+    "roundFinalized": true,
+    "finalizedNodes": 20,
+    "answerEvidenceProducers": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "classificationVoters": [
+      "leader",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7"
+    ],
+    "transactions": [
+      {
+        "txHash": "scenario-05-control-before",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "groups": {
+          "correct": 10,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "status": "READY_FOR_MINI_ROUND_THREE"
+      },
+      {
+        "txHash": "scenario-05-target",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "groups": {
+          "correct": 10,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "status": "READY_FOR_MINI_ROUND_THREE"
+      },
+      {
+        "txHash": "scenario-05-control-after",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "groups": {
+          "correct": 10,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "status": "READY_FOR_MINI_ROUND_THREE"
+      }
+    ]
+  }
+}

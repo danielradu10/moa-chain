@@ -1,0 +1,85 @@
+{
+  "agent": "claude_sonnet_4.6_agent",
+  "labeledTransactions": [
+    {
+      "txHash": "txHash1",
+      "labels": [
+        "back_end_with_apis",
+        "databases",
+        "security"
+      ]
+    },
+    {
+      "txHash": "txHash2",
+      "labels": [
+        "web_front_end",
+        "back_end_with_apis",
+        "databases"
+      ]
+    },
+    {
+      "txHash": "txHash3",
+      "labels": [
+        "data_engineering",
+        "databases",
+        "cloud_engineering"
+      ]
+    },
+    {
+      "txHash": "txHash4",
+      "labels": [
+        "blockchain_engineering",
+        "security",
+        "back_end_with_apis"
+      ]
+    },
+    {
+      "txHash": "txHash5",
+      "labels": [
+        "mobile_dev",
+        "back_end_with_apis",
+        "databases"
+      ]
+    },
+    {
+      "txHash": "txHash6",
+      "labels": [
+        "dev_ops",
+        "cloud_engineering",
+        "back_end_with_apis"
+      ]
+    },
+    {
+      "txHash": "txHash7",
+      "labels": [
+        "ml_ai_engineering",
+        "data_engineering",
+        "security"
+      ]
+    },
+    {
+      "txHash": "txHash8",
+      "labels": [
+        "test_engineering_and_qa_automation",
+        "back_end_with_apis",
+        "databases"
+      ]
+    },
+    {
+      "txHash": "txHash9",
+      "labels": [
+        "systems_programming",
+        "back_end_with_apis",
+        "test_engineering_and_qa_automation"
+      ]
+    },
+    {
+      "txHash": "txHash10",
+      "labels": [
+        "cloud_engineering",
+        "security",
+        "databases"
+      ]
+    }
+  ]
+}

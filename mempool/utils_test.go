@@ -113,6 +113,16 @@ func consumptionToThinkingMode(estimatedConsumption uint64) string {
 	}
 }
 
+// addTxDirect inserts a transaction into the mempool without running the precompute
+// step. Use this in tests that need full control over estimatedConsumption.
+func addTxDirect(mp *memPool, tx *transaction) {
+	mp.mempoolMutex.Lock()
+	defer mp.mempoolMutex.Unlock()
+	mp.addTxByHashNoLock(tx)
+	mp.senders.add(string(tx.sender), tx)
+	mp.transactionsCount++
+}
+
 func countPromptTokensForTest(t *testing.T, prompt string) uint64 {
 	t.Helper()
 

@@ -1,9 +1,12 @@
 package mempool
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"moa-chain/data"
 )
 
 func TestMemPool_AddTransaction(t *testing.T) {
@@ -179,7 +182,7 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 			balance uint64
 		}{})
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
 		require.Empty(t, selectedTransactions)
 	})
@@ -205,9 +208,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx2, tx3, tx1}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx2, tx3, tx1}, selectedTransactions)
 	})
 
 	t.Run("should use estimated consumption as tie breaker when scores are equal", func(t *testing.T) {
@@ -228,9 +231,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx2, tx1}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx2, tx1}, selectedTransactions)
 	})
 
 	t.Run("should use tx hash as tie breaker when score and consumption are equal", func(t *testing.T) {
@@ -251,9 +254,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx1, tx2}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx1, tx2}, selectedTransactions)
 	})
 
 	t.Run("should stop when next best transaction exceeds max block consumption", func(t *testing.T) {
@@ -268,15 +271,36 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 			"bob":   {nonce: 0, balance: 100},
 		})
 
-		tx1 := createSelectionTx(0, "alice", 100, 9000, 10, []byte("txHash1"))
-		tx2 := createSelectionTx(0, "bob", 90, 2000, 10, []byte("txHash2"))
+		tx1 := &transaction{nonce: 0, sender: []byte("alice"), txHash: []byte("txHash1"), tip: 900000, estimatedConsumption: 9000, estimatedScore: 100, transferredValue: 10}
+		tx2 := &transaction{nonce: 0, sender: []byte("bob"), txHash: []byte("txHash2"), tip: 180000, estimatedConsumption: 2000, estimatedScore: 90, transferredValue: 10}
 
-		require.NoError(t, mempool.AddTransaction(tx1))
-		require.NoError(t, mempool.AddTransaction(tx2))
+		addTxDirect(mempool, tx1)
+		addTxDirect(mempool, tx2)
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx1}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx1}, selectedTransactions)
+	})
+
+	t.Run("should stop when max number of transactions is reached", func(t *testing.T) {
+		t.Parallel()
+
+		mempool := newTestMemPool()
+		accountsState := createAccountsStateWithAccounts(t, map[string]struct {
+			nonce   uint64
+			balance uint64
+		}{})
+
+		for i := 0; i < maxNumTransactions+5; i++ {
+			sender := fmt.Sprintf("sender-%d", i)
+			require.NoError(t, accountsState.AddAccount(sender, 0, 100000))
+			tx := createSelectionTx(0, sender, 10, 10, 10, []byte(fmt.Sprintf("hash-%d", i)))
+			require.NoError(t, mempool.AddTransaction(tx))
+		}
+
+		selectedTransactions := mempool.SelectTransactions(accountsState)
+
+		require.Len(t, selectedTransactions, maxNumTransactions)
 	})
 
 	t.Run("should skip sender when first transaction has initial nonce gap", func(t *testing.T) {
@@ -297,9 +321,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx2}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx2}, selectedTransactions)
 	})
 
 	t.Run("should skip transaction when balance is insufficient", func(t *testing.T) {
@@ -320,9 +344,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx1))
 		require.NoError(t, mempool.AddTransaction(tx2))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx2}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx2}, selectedTransactions)
 	})
 
 	t.Run("should select multiple valid consecutive transactions from same sender", func(t *testing.T) {
@@ -345,9 +369,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx1, tx2, tx3}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx1, tx2, tx3}, selectedTransactions)
 	})
 
 	t.Run("should skip second transaction from sender when accumulated transferred value exceeds balance", func(t *testing.T) {
@@ -370,9 +394,9 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 		require.NoError(t, mempool.AddTransaction(tx2))
 		require.NoError(t, mempool.AddTransaction(tx3))
 
-		selectedTransactions := mempool.SelectTransactions(accountsState, isTransactionMoreValuable)
+		selectedTransactions := mempool.SelectTransactions(accountsState)
 
-		require.Equal(t, []Transaction{tx1, tx3}, selectedTransactions)
+		require.Equal(t, []data.Transaction{tx1, tx3}, selectedTransactions)
 	})
 }
 
@@ -385,7 +409,10 @@ func TestMemPool_calculateNumTokensFromPrompt(t *testing.T) {
 
 	expectedTokens := countPromptTokensForTest(t, prompt)
 
-	require.Equal(t, expectedTokens, mp.calculateNumTokensFromPrompt(tx))
+	calculatedTokens, err := mp.calculateNumTokensFromPrompt(tx)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedTokens, calculatedTokens)
 }
 
 func TestMemPool_calculateNumTokensFromPromptShouldIncreaseForLongerRealPrompt(t *testing.T) {
@@ -398,7 +425,13 @@ func TestMemPool_calculateNumTokensFromPromptShouldIncreaseForLongerRealPrompt(t
 	shortTx := &transaction{prompt: []byte(shortPrompt)}
 	longTx := &transaction{prompt: []byte(longPrompt)}
 
-	require.Greater(t, mp.calculateNumTokensFromPrompt(longTx), mp.calculateNumTokensFromPrompt(shortTx))
+	longRes, err := mp.calculateNumTokensFromPrompt(longTx)
+	require.NoError(t, err)
+
+	shortRes, err := mp.calculateNumTokensFromPrompt(shortTx)
+	require.NoError(t, err)
+
+	require.Greater(t, longRes, shortRes)
 }
 
 func TestMemPool_estimateNumTokens(t *testing.T) {
@@ -414,7 +447,9 @@ func TestMemPool_estimateNumTokens(t *testing.T) {
 
 	expectedTokens := countPromptTokensForTest(t, prompt) + mp.tokensConfig["medium"] + mp.tokensConfig["standard"]
 
-	require.Equal(t, expectedTokens, mp.estimateNumTokens(tx))
+	actualRes, err := mp.estimateNumTokens(tx)
+	require.NoError(t, err)
+	require.Equal(t, expectedTokens, actualRes)
 }
 
 func TestMemPool_precomputeTxFields(t *testing.T) {
@@ -429,7 +464,8 @@ func TestMemPool_precomputeTxFields(t *testing.T) {
 		thinkingMode:        "thinking",
 	}
 
-	mp.precomputeTxFields(tx)
+	err := mp.precomputeTxFields(tx)
+	require.NoError(t, err)
 
 	expectedConsumption := countPromptTokensForTest(t, prompt) + mp.tokensConfig["long"] + mp.tokensConfig["thinking"]
 	require.Equal(t, expectedConsumption, tx.GetEstimatedConsumption())

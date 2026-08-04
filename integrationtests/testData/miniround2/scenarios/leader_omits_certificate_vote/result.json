@@ -1,0 +1,115 @@
+{
+  "scenario": "leader_omits_certificate_vote",
+  "passed": true,
+  "network": {
+    "registeredNodes": 20,
+    "committeeSize": 10,
+    "quorum": 7
+  },
+  "committees": {
+    "miniRoundOne": [
+      {
+        "role": "leader",
+        "validatorId": "validator-10"
+      },
+      {
+        "role": "member-1",
+        "validatorId": "validator-16"
+      },
+      {
+        "role": "member-2",
+        "validatorId": "validator-12"
+      },
+      {
+        "role": "member-3",
+        "validatorId": "validator-17"
+      },
+      {
+        "role": "member-4",
+        "validatorId": "validator-18"
+      },
+      {
+        "role": "member-5",
+        "validatorId": "validator-6"
+      },
+      {
+        "role": "member-6",
+        "validatorId": "validator-2"
+      },
+      {
+        "role": "member-7",
+        "validatorId": "validator-20"
+      },
+      {
+        "role": "member-8",
+        "validatorId": "validator-3"
+      },
+      {
+        "role": "member-9",
+        "validatorId": "validator-19"
+      }
+    ],
+    "miniRoundTwo": [
+      {
+        "role": "leader",
+        "validatorId": "validator-2"
+      },
+      {
+        "role": "member-1",
+        "validatorId": "validator-9"
+      },
+      {
+        "role": "member-2",
+        "validatorId": "validator-12"
+      },
+      {
+        "role": "member-3",
+        "validatorId": "validator-13"
+      },
+      {
+        "role": "member-4",
+        "validatorId": "validator-14"
+      },
+      {
+        "role": "member-5",
+        "validatorId": "validator-7"
+      },
+      {
+        "role": "member-6",
+        "validatorId": "validator-4"
+      },
+      {
+        "role": "member-7",
+        "validatorId": "validator-11"
+      },
+      {
+        "role": "member-8",
+        "validatorId": "validator-16"
+      },
+      {
+        "role": "member-9",
+        "validatorId": "validator-3"
+      }
+    ]
+  },
+  "miniRoundOne": {
+    "finalizedNodes": 20,
+    "subdomainFrequencies": {
+      "back_end_with_apis": 10,
+      "blockchain_engineering": 20,
+      "security": 10,
+      "systems_programming": 30,
+      "test_engineering_and_qa_automation": 20
+    }
+  },
+  "miniRoundTwo": {
+    "finalizedNodes": 0,
+    "answerEvidence": {
+      "leaderId": "",
+      "producers": null,
+      "signaturesVerified": false
+    },
+    "classificationVotes": null,
+    "transactions": null
+  }
+}
