@@ -27,11 +27,21 @@ type MiniRoundTwoHandlerStub struct {
 	HandleAnswerClassificationVoteValue  *data.AnswerClassificationVote
 	HandleAnswerClassificationVoteErr    error
 
+	HandleClassificationGracePeriodElapsedCalled bool
+	HandleClassificationGracePeriodElapsedKey    data.RoundKey
+	HandleClassificationGracePeriodElapsedErr    error
+
 	HandleAnswerClassificationCertificateCalled bool
 	HandleAnswerClassificationCertificateKey    data.RoundKey
 	HandleAnswerClassificationCertificateValue  *data.AnswerClassificationCertificate
 	HandleAnswerClassificationCertificateErr    error
 	HasVerifiedAnswerEvidenceValue              bool
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleClassificationGracePeriodElapsed(roundKey data.RoundKey) error {
+	stub.HandleClassificationGracePeriodElapsedCalled = true
+	stub.HandleClassificationGracePeriodElapsedKey = roundKey
+	return stub.HandleClassificationGracePeriodElapsedErr
 }
 
 func (stub *MiniRoundTwoHandlerStub) HasVerifiedAnswerEvidence(_ data.RoundKey) bool {
@@ -91,4 +101,8 @@ func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsMessage(roundKey data.
 	stub.HandleExecutedPromptsMessageMessage = message
 
 	return stub.HandleExecutedPromptsMessageErr
+}
+
+func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsCollectionTimeout(_ data.RoundKey) error {
+	return nil
 }

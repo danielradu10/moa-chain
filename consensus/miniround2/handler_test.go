@@ -200,6 +200,7 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 		roundKey := createTestRoundKey()
 		broadcaster := &testscommon.BroadcasterStub{}
 		finalizer := createSeededFinalizer(t, finalizedBlock)
+		selfInbox := make(chan data.RoundEvent, 32)
 		handler := createTestMiniRoundTwoHandler(testMiniRoundTwoHandlerArgs{
 			myID:           "validator-1",
 			signer:         signer,
@@ -207,6 +208,7 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 			roundState:     roundState,
 			broadcaster:    broadcaster,
 			blockFinalizer: finalizer,
+			selfInbox:      selfInbox,
 			validatorRegistry: &testscommon.ValidatorRegistryStub{
 				LeaderID: "validator-1",
 				RegisteredValidators: map[string]bool{
@@ -223,6 +225,7 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 				ValidatorsIDs:           []string{"validator-1"},
 			},
 		})
+		t.Cleanup(func() { handler.judgeWg.Wait() })
 
 		err := handler.HandleExecutedPromptsMessage(roundKey, message)
 
@@ -241,6 +244,14 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 		require.Equal(t, [][]byte{message.BlockHash}, answerEvidence.BlockHashes)
 		require.Equal(t, [][]byte{message.BlockSignature}, answerEvidence.BlockSignatures)
 		require.Equal(t, []data.AnswersTxMessage{message.Answers}, answerEvidence.Answers)
+
+		// The judge runs asynchronously. Wait for it then process the leader's own
+		// vote through the handler (simulating the event loop draining selfInbox).
+		handler.judgeWg.Wait()
+		event := <-selfInbox
+		require.Equal(t, data.ConsensusMessageEvent, event.Type)
+		require.Equal(t, data.AnswerClassificationVoteConsensusMessage, event.Message.ConsensusMessageType)
+		require.NoError(t, handler.HandleAnswerClassificationVote(roundKey, event.Message.AnswerClassificationVote))
 
 		finalizedBlockInMRTwo, err := finalizer.GetFinalizedBlockInMRTwo(roundKey)
 		require.NoError(t, err)
@@ -523,6 +534,7 @@ type testMiniRoundTwoHandlerArgs struct {
 	broadcaster        *testscommon.BroadcasterStub
 	blockFinalizer     blockFinalizer.BlockFinalizer
 	validatorRegistry  validators.ValidatorRegistry
+	selfInbox          chan data.RoundEvent
 }
 
 func createTestMiniRoundTwoHandler(args testMiniRoundTwoHandlerArgs) *miniRoundTwoHandler {
@@ -536,6 +548,7 @@ func createTestMiniRoundTwoHandler(args testMiniRoundTwoHandlerArgs) *miniRoundT
 		blockFinalizer:     args.blockFinalizer,
 		validatorRegistry:  args.validatorRegistry,
 		logger:             slog.Default(),
+		selfInbox:          (chan<- data.RoundEvent)(args.selfInbox),
 	}
 }
 

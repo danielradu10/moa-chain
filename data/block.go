@@ -8,9 +8,14 @@ type Block struct {
 
 // BlockOnChain defines the block that is finalized on chain.
 type BlockOnChain struct {
-	Block                      Block
-	SubdomainsFrequencies      SubdomainsFrequency
-	AggregatedExecutionResults AggregatedExecutionResults
+	Block                 Block
+	SubdomainsFrequencies SubdomainsFrequency
+	// NonRelatedTransactionHashes contains the tx hashes of transactions whose
+	// dominant quorum label was non_related. These transactions are excluded from
+	// mini-round two answer collection and carry a NonRelatedTransaction status.
+	// The slice is sorted for deterministic finalization.
+	NonRelatedTransactionHashes   []string
+	AggregatedExecutionResults    AggregatedExecutionResults
 	// AnswerEvidence is verified in mini-round two and retained so later rounds
 	// can audit the producer answers behind every classification.
 	AnswerEvidence *AggregatedExecutionResultsMessage

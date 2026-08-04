@@ -15,6 +15,7 @@ import (
 
 const (
 	maxBlockConsumption = 10000
+	maxNumTransactions  = 32
 )
 
 // memPool is a data structure containing our transactions, grouped by sender and sorted by nonce and cached by TxHash
@@ -208,6 +209,16 @@ func (mp *memPool) SelectTransactions(
 				"accumulatedConsumption", accumulatedConsumption,
 				"nextEstimatedConsumption", estimatedConsumption,
 				"maxBlockConsumption", maxBlockConsumption,
+			)
+			break
+		}
+
+		if uint64(len(selectedTransactions)) >= maxNumTransactions {
+			mp.logger.Info(
+				"mempool.SelectTransactions stopped at transaction count limit",
+				"txHash", string(currentBestTransaction.GetTxHash()),
+				"selectedCount", len(selectedTransactions),
+				"maxNumTransactions", maxNumTransactions,
 			)
 			break
 		}

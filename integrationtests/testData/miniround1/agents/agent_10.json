@@ -6,10 +6,7 @@
       "labels": [
         "back_end_with_apis",
         "databases",
-        "security",
-        "systems_programming",
-        "test_engineering_and_qa_automation",
-        "dev_ops"
+        "security"
       ]
     },
     {
@@ -17,10 +14,7 @@
       "labels": [
         "web_front_end",
         "cloud_engineering",
-        "dev_ops",
-        "data_engineering",
-        "test_engineering_and_qa_automation",
-        "security"
+        "dev_ops"
       ]
     },
     {
@@ -28,10 +22,7 @@
       "labels": [
         "data_engineering",
         "cloud_engineering",
-        "databases",
-        "dev_ops",
-        "back_end_with_apis",
-        "test_engineering_and_qa_automation"
+        "databases"
       ]
     },
     {
@@ -39,10 +30,7 @@
       "labels": [
         "blockchain_engineering",
         "security",
-        "systems_programming",
-        "back_end_with_apis",
-        "test_engineering_and_qa_automation",
-        "databases"
+        "systems_programming"
       ]
     },
     {
@@ -50,10 +38,7 @@
       "labels": [
         "mobile_dev",
         "back_end_with_apis",
-        "cloud_engineering",
-        "databases",
-        "dev_ops",
-        "security"
+        "cloud_engineering"
       ]
     },
     {
@@ -61,10 +46,7 @@
       "labels": [
         "dev_ops",
         "cloud_engineering",
-        "systems_programming",
-        "back_end_with_apis",
-        "test_engineering_and_qa_automation",
-        "security"
+        "systems_programming"
       ]
     },
     {
@@ -72,10 +54,7 @@
       "labels": [
         "ml_ai_engineering",
         "data_engineering",
-        "security",
-        "databases",
-        "back_end_with_apis",
-        "cloud_engineering"
+        "security"
       ]
     },
     {
@@ -83,10 +62,7 @@
       "labels": [
         "test_engineering_and_qa_automation",
         "back_end_with_apis",
-        "databases",
-        "cloud_engineering",
-        "dev_ops",
-        "security"
+        "databases"
       ]
     },
     {
@@ -94,10 +70,7 @@
       "labels": [
         "systems_programming",
         "cloud_engineering",
-        "dev_ops",
-        "security",
-        "test_engineering_and_qa_automation",
-        "back_end_with_apis"
+        "dev_ops"
       ]
     },
     {
@@ -105,10 +78,7 @@
       "labels": [
         "cloud_engineering",
         "security",
-        "databases",
-        "dev_ops",
-        "back_end_with_apis",
-        "data_engineering"
+        "databases"
       ]
     }
   ]

@@ -39,7 +39,7 @@ func requireScenarioFinalizedState(
 	rolesByValidator := scenarioRolesByValidator(committees.miniRoundTwo)
 	for _, vote := range classificationVotes {
 		actualVoters = append(actualVoters, vote.JudgeID)
-		require.Len(t, vote.AnswerClassifications, scenario.Network.Quorum*len(scenario.Transactions))
+		require.Len(t, vote.AnswerClassifications, scenario.Network.CommitteeSize*len(scenario.Transactions))
 		requireScenarioVoteMatchesJudgeProfile(t, scenario, vote, rolesByValidator, firstMiniRoundTwoBlock.AnswerEvidence)
 	}
 	require.Equal(t, expectedVoters, actualVoters)

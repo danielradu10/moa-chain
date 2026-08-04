@@ -32,6 +32,18 @@ __pycache__/
 # Generated integration-test validator logs
 integrationtests/logs/
 
+# Distributed test results — ignore raw logs and JSON summaries, keep analysis docs
+testresults/*.json
+testresults/*.log
+testresults/agent-logs/
+
+# Cluster infrastructure — contains internal IPs in machine table
+DISTRIBUTED_TESTING.md
+
+# Dissertation PDF
+_BCCA_2026__Blockchain_AI-v8.pdf
+
 # Editor/IDE
-# .idea/
+.DS_Store
+.idea/
 # .vscode/

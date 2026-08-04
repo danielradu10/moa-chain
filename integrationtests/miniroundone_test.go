@@ -54,6 +54,8 @@ func TestMiniRoundOne_NoErrorsDuringRound(t *testing.T) {
 			inboxes[i],
 			nil,
 			&testscommon.LabelerStub{},
+			true,
+			0,
 		)
 
 		nodes = append(nodes, node)
@@ -144,6 +146,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 			inboxes[i],
 			nil,
 			&testscommon.LabelerStub{},
+			true,
+			0,
 		)
 
 		nodes = append(nodes, node)
@@ -248,16 +252,18 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 	transactions := createTransactions()
 
 	labelerStub := &testscommon.LabelerStub{
-		LabelCalled: func(tx data.Transaction) ([]string, error) {
-			labels := tx.GetDomainLabels()
-			if len(labels) == 0 {
-				return nil, errors.New("transaction has no precomputed labels")
+		LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
+			results := make([]agent.LabelResult, 0, len(txs))
+			for _, tx := range txs {
+				labels := tx.GetDomainLabels()
+				if len(labels) == 0 {
+					return nil, errors.New("transaction has no precomputed labels")
+				}
+				copiedLabels := make([]string, len(labels))
+				copy(copiedLabels, labels)
+				results = append(results, agent.LabelResult{TxHash: tx.GetTxHash(), Labels: copiedLabels})
 			}
-
-			copiedLabels := make([]string, len(labels))
-			copy(copiedLabels, labels)
-
-			return copiedLabels, nil
+			return results, nil
 		},
 	}
 
@@ -274,6 +280,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 			inboxes[i],
 			cloneTransactions(transactions),
 			labelerStub,
+			true,
+			0,
 		)
 
 		nodes = append(nodes, node)
@@ -399,6 +407,8 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 			inboxes[i],
 			cloneTransactions(transactions),
 			labelerStub,
+			true,
+			0,
 		)
 
 		nodes = append(nodes, node)
@@ -506,9 +516,6 @@ func createTransactions() []data.Transaction {
 				"back_end_with_apis",
 				"databases",
 				"security",
-				"cloud_engineering",
-				"dev_ops",
-				"test_engineering_and_qa_automation",
 			},
 		),
 		createTransaction(
@@ -521,9 +528,6 @@ func createTransactions() []data.Transaction {
 				"web_front_end",
 				"test_engineering_and_qa_automation",
 				"mobile_dev",
-				"security",
-				"back_end_with_apis",
-				"databases",
 			},
 		),
 		createTransaction(
@@ -536,9 +540,6 @@ func createTransactions() []data.Transaction {
 				"data_engineering",
 				"databases",
 				"cloud_engineering",
-				"ml_ai_engineering",
-				"dev_ops",
-				"back_end_with_apis",
 			},
 		),
 		createTransaction(
@@ -551,9 +552,6 @@ func createTransactions() []data.Transaction {
 				"blockchain_engineering",
 				"security",
 				"systems_programming",
-				"databases",
-				"cloud_engineering",
-				"dev_ops",
 			},
 		),
 		createTransaction(
@@ -566,9 +564,6 @@ func createTransactions() []data.Transaction {
 				"mobile_dev",
 				"back_end_with_apis",
 				"cloud_engineering",
-				"web_front_end",
-				"security",
-				"databases",
 			},
 		),
 		createTransaction(
@@ -581,9 +576,6 @@ func createTransactions() []data.Transaction {
 				"dev_ops",
 				"cloud_engineering",
 				"test_engineering_and_qa_automation",
-				"systems_programming",
-				"security",
-				"data_engineering",
 			},
 		),
 	}
@@ -627,19 +619,24 @@ func createTransaction(
 }
 
 func expectedSubdomains() data.SubdomainsFrequency {
+	// The consensus group and quorum are selected deterministically from the 10
+	// registered validators for round key {Epoch:0, Round:2, MiniRound:0}.
+	// The protocol now collects all G=5 votes before aggregating; the quorum
+	// threshold Q=4 is still used to decide which labels pass. Each validator
+	// contributes 1 vote per label per transaction, so labels appearing in N
+	// transactions contribute N×5 to the block-level frequency map.
 	return data.SubdomainsFrequency{
-		"back_end_with_apis":                 16,
-		"databases":                          20,
-		"security":                           20,
-		"web_front_end":                      8,
-		"test_engineering_and_qa_automation": 12,
-		"data_engineering":                   8,
-		"cloud_engineering":                  20,
-		"blockchain_engineering":             4,
-		"systems_programming":                8,
-		"mobile_dev":                         8,
-		"dev_ops":                            16,
-		"ml_ai_engineering":                  4,
+		"back_end_with_apis":                 10, // alice + eveline
+		"databases":                          10, // alice + carol
+		"security":                           10, // alice + david
+		"web_front_end":                      5,  // bob
+		"test_engineering_and_qa_automation": 10, // bob + frank
+		"mobile_dev":                         10, // bob + eveline
+		"data_engineering":                   5,  // carol
+		"cloud_engineering":                  15, // carol + eveline + frank
+		"blockchain_engineering":             5,  // david
+		"systems_programming":                5,  // david
+		"dev_ops":                            5,  // frank
 	}
 }
 
@@ -712,28 +709,21 @@ func loadAgentLabelsFixture(t *testing.T, path string) agentLabelsByTxHash {
 	}
 }
 
-func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.Agent {
+func createAgentBackedLabeler(agentLabels agentLabelsByTxHash) agent.BatchAgent {
 	return &testscommon.LabelerStub{
-		LabelCalled: func(tx data.Transaction) ([]string, error) {
-			txHash := string(tx.GetTxHash())
+		LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
+			results := make([]agent.LabelResult, 0, len(txs))
+			for _, tx := range txs {
+				txHash := string(tx.GetTxHash())
 
-			labels, ok := agentLabels.labelsByTxHash[txHash]
-			if !ok {
-				return nil, fmt.Errorf("agent %s has no labels for txHash %s", agentLabels.agent, txHash)
+				labels, ok := agentLabels.labelsByTxHash[txHash]
+				if !ok {
+					return nil, fmt.Errorf("agent %s has no labels for txHash %s", agentLabels.agent, txHash)
+				}
+
+				results = append(results, agent.LabelResult{TxHash: tx.GetTxHash(), Labels: copyStringSlice(labels)})
 			}
-
-			if len(labels) != 6 {
-				return nil, fmt.Errorf(
-					"agent %s has invalid labels count for txHash %s: got %d, expected 6",
-					agentLabels.agent,
-					txHash,
-					len(labels),
-				)
-			}
-
-			copiedLabels := copyStringSlice(labels)
-
-			return copiedLabels, nil
+			return results, nil
 		},
 	}
 }
@@ -757,7 +747,8 @@ func validateAgentLabelsFixtures(
 			labels, ok := agentLabels.labelsByTxHash[txHash]
 			require.Truef(t, ok, "agent %s has no labels for txHash %s", agentLabels.agent, txHash)
 
-			require.Lenf(t, labels, 6, "agent %s has invalid labels count for txHash %s", agentLabels.agent, txHash)
+			require.Truef(t, len(labels) >= 1 && len(labels) <= 3,
+				"agent %s has invalid labels count for txHash %s: got %d, want 1–3", agentLabels.agent, txHash, len(labels))
 
 			seenLabels := make(map[string]struct{}, len(labels))
 			for _, label := range labels {
@@ -815,41 +806,57 @@ func requireFinalizedFrequenciesFromValidQuorum(
 	quorumSize := consensusQuorum(len(consensusGroup))
 	require.LessOrEqual(t, quorumSize, len(consensusGroup))
 
-	leaderID := consensusGroup[0]
-	remainingValidators := consensusGroup[1:]
-	requiredFollowers := quorumSize - 1
-
-	var matchingQuorum []string
-	var visit func(start int, selected []string)
-	visit = func(start int, selected []string) {
-		if matchingQuorum != nil {
+	// The protocol now waits for all G votes before aggregating (with Q threshold
+	// applied to determine which labels pass). Try subsets from largest (G) down
+	// to smallest valid (Q), so the normal G-vote path is checked first.
+	for subsetSize := len(consensusGroup); subsetSize >= quorumSize; subsetSize-- {
+		if findExplainingSubset(t, actual, consensusGroup, agents, transactions, subsetSize, quorumSize) {
 			return
-		}
-
-		if len(selected) == requiredFollowers {
-			quorum := append([]string{leaderID}, selected...)
-			expected := aggregateAgentLabelFrequencies(t, quorum, agents, transactions, uint64(quorumSize))
-			if subdomainsFrequenciesEqual(actual, expected) {
-				matchingQuorum = copyStringSlice(quorum)
-			}
-			return
-		}
-
-		remainingSlots := requiredFollowers - len(selected)
-		for i := start; i <= len(remainingValidators)-remainingSlots; i++ {
-			visit(i+1, append(selected, remainingValidators[i]))
 		}
 	}
 
-	visit(0, nil)
-
-	require.NotNilf(
+	require.Failf(
 		t,
-		matchingQuorum,
+		"frequencies not explainable by any valid quorum",
 		"finalized subdomain frequencies are not explainable by any quorum of the selected consensus group; consensusGroup=%v actual=%v",
 		consensusGroup,
 		actual,
 	)
+}
+
+// findExplainingSubset returns true if some subsetSize-member subset of
+// consensusGroup explains actual when labels are filtered at quorumThreshold.
+func findExplainingSubset(
+	t *testing.T,
+	actual data.SubdomainsFrequency,
+	consensusGroup []string,
+	agents []agentLabelsByTxHash,
+	transactions []data.Transaction,
+	subsetSize int,
+	quorumThreshold int,
+) bool {
+	t.Helper()
+
+	found := false
+	var visit func(start int, selected []string)
+	visit = func(start int, selected []string) {
+		if found {
+			return
+		}
+		if len(selected) == subsetSize {
+			expected := aggregateAgentLabelFrequencies(t, selected, agents, transactions, uint64(quorumThreshold))
+			if subdomainsFrequenciesEqual(actual, expected) {
+				found = true
+			}
+			return
+		}
+		remaining := subsetSize - len(selected)
+		for i := start; i <= len(consensusGroup)-remaining; i++ {
+			visit(i+1, append(selected, consensusGroup[i]))
+		}
+	}
+	visit(0, nil)
+	return found
 }
 
 func aggregateAgentLabelFrequencies(

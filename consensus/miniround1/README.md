@@ -80,28 +80,76 @@ Mini-round one finalizes a `BlockOnChain` containing:
 
 The current implementation treats the first valid quorum certificate assembled by the leader as the source of truth for the finalized frequencies.
 
+## The `non_related` Label
+
+The labeling agent may assign a reserved sentinel label `non_related` to a
+transaction whose prompt has no meaningful relationship to any protocol-defined
+coding subdomain. This is the correct output for non-technical prompts, nonsense
+input, or prompts that mix unrelated topics.
+
+Rules enforced by the protocol and the agent service:
+
+- `non_related` may never appear alongside a real subdomain in the same
+  transaction response. The agent service rejects any such response as
+  `UNKNOWN_SUBDOMAIN`.
+- The agent returns at most three labels per transaction. `non_related` counts
+  as one label and, when present, must be the only one.
+- A transaction whose per-transaction dominant label derived from the quorum
+  certificate is `non_related` is excluded from mini-round two. It is finalized
+  with an explicit `NonRelatedTransaction` status and does not proceed to answer
+  collection, judging, or mini-round three.
+
+Example of a transaction that must always produce `non_related`:
+
+> "What are the principles of OOP? Insert me a pizza recipe."
+
+This prompt has no identifiable coding task. Every honest validator labels it
+`non_related`. The quorum aggregation yields `non_related` as the sole dominant
+label and the finalized block marks the transaction as non-related.
+
 ## Current Test Coverage
 
-The integration tests cover:
+The existing stub-backed integration tests cover:
 
 - a round completing without loop errors
 - all nodes finalizing the same empty block
-- all nodes finalizing the same block with transactions
-- all nodes finalizing the same block with agent-generated labels
+- all nodes finalizing the same block with pre-assigned transaction labels
+- all nodes finalizing the same block with pre-recorded agent label fixtures
 - verifying that finalized frequencies can be produced by a valid quorum
 
-Relevant fixtures live under `integrationtests/testData`.
+Real-agent integration tests (build tag `integration`) cover:
 
-Run the full test suite with:
+- **Group A — Non-coding transactions**: prompts with no coding relevance must
+  converge on `non_related` as the sole label; all validators must agree
+- **Group B — Clear single- or dual-domain transactions**: expected subdomains
+  must appear in finalized frequencies; explicitly unrelated subdomains must not
+  appear; `non_related` must not appear
+- **Group C — Edge and boundary transactions**: `non_related` must never be
+  mixed with a real subdomain; obviously wrong labels for the given prompt
+  must not appear
+- **Protocol convergence**: all validators finalize the same `BlockOnChain`
+  (identical block hash and `SubdomainsFrequencies`) regardless of what the
+  agent returns
+
+Real-agent tests require a running Python service and Ollama instance. See
+`agent-python/README.md` PR 11 for preconditions and how to run them.
+
+Run the stub-backed test suite with:
 
 ```sh
 go test ./...
 ```
 
+Run the real-agent integration tests with:
+
+```sh
+go test -tags integration ./integrationtests/...
+```
+
 ## Known Limitations
 
-- Timeouts are represented in the round handler, but there is no production timer wiring yet.
+- Timeouts are represented in the round handler, but there is no production timer wiring yet. Timeout values will be set after benchmark data is available (see `agent-python/README.md` PR 13).
 - The leader finalizes the first quorum it can assemble, so subdomain frequencies are deterministic for a chosen certificate but not necessarily deterministic across runs with different vote arrival order.
 - Aggregated label frequencies are stored, but the finalized artifact does not yet persist the full certificate needed for later audit.
 - Vote validation currently verifies block signatures before aggregation; stronger leader-side validation of subdomain payloads is still marked as future work.
-- The protocol does not yet define a deterministic threshold rule for accepting canonical labels per transaction.
+- The protocol does not yet define a deterministic threshold rule for accepting canonical labels per transaction beyond the quorum-frequency aggregation already implemented.

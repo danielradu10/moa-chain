@@ -5,14 +5,12 @@ import (
 	"moa-chain/data"
 )
 
+// LabelerStub implements agent.BatchAgent.
+// Tests configure responses via the *Called hook functions.
 type LabelerStub struct {
-	Err                error
-	AnswerErr          error
-	LabelsByTxHash     map[string][]string
-	AnswersByTxHash    map[string]string
-	LabelCalled        func(tx data.Transaction) ([]string, error)
-	AnswerCalled       func(tx data.Transaction) (string, error)
 	JudgeAnswersCalled func(request agent.AnswerJudgeRequest) (string, error)
+	LabelBatchCalled   func(txs []data.Transaction) ([]agent.LabelResult, error)
+	AnswerBatchCalled  func(txs []data.Transaction) ([]agent.AnswerResult, error)
 }
 
 func (tl *LabelerStub) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
@@ -23,36 +21,26 @@ func (tl *LabelerStub) JudgeTransactionAnswers(request agent.AnswerJudgeRequest)
 	return "", agent.ErrNotImplemented
 }
 
-func (tl *LabelerStub) Label(tx data.Transaction) ([]string, error) {
-	if tl.LabelCalled != nil {
-		return tl.LabelCalled(tx)
+func (tl *LabelerStub) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error) {
+	if tl.LabelBatchCalled != nil {
+		return tl.LabelBatchCalled(txs)
 	}
 
-	if tl.Err != nil {
-		return nil, tl.Err
+	results := make([]agent.LabelResult, len(txs))
+	for i, tx := range txs {
+		results[i] = agent.LabelResult{TxHash: tx.GetTxHash(), Labels: []string{}}
 	}
-
-	labels, ok := tl.LabelsByTxHash[string(tx.GetTxHash())]
-	if !ok {
-		return []string{}, nil
-	}
-
-	return labels, nil
+	return results, nil
 }
 
-func (tl *LabelerStub) Answer(tx data.Transaction) (string, error) {
-	if tl.AnswerCalled != nil {
-		return tl.AnswerCalled(tx)
+func (tl *LabelerStub) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, error) {
+	if tl.AnswerBatchCalled != nil {
+		return tl.AnswerBatchCalled(txs)
 	}
 
-	if tl.AnswerErr != nil {
-		return "", tl.AnswerErr
+	results := make([]agent.AnswerResult, len(txs))
+	for i, tx := range txs {
+		results[i] = agent.AnswerResult{TxHash: tx.GetTxHash(), Answer: ""}
 	}
-
-	answer, ok := tl.AnswersByTxHash[string(tx.GetTxHash())]
-	if !ok {
-		return "", nil
-	}
-
-	return answer, nil
+	return results, nil
 }

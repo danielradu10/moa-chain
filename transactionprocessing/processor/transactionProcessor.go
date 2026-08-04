@@ -3,7 +3,6 @@ package processor
 import (
 	"bytes"
 
-	"moa-chain/agent"
 	"moa-chain/data"
 	"moa-chain/mempool"
 	"moa-chain/state"
@@ -14,19 +13,16 @@ type txProcessor struct {
 	accountsProvider state.AccountsProvider
 	accountState     state.AccountsState
 	mempool          mempool.Mempool
-	labeler          agent.Agent
 }
 
 func NewTxProcessor(
 	accountsProvider state.AccountsProvider,
 	accountState state.AccountsState,
-	labeler agent.Agent,
 	mempool mempool.Mempool,
 ) (*txProcessor, error) {
 	return &txProcessor{
 		accountsProvider: accountsProvider,
 		accountState:     accountState,
-		labeler:          labeler,
 		mempool:          mempool,
 	}, nil
 }
@@ -111,10 +107,6 @@ func (tp *txProcessor) validateTransactionBalance(
 	}
 
 	return nil
-}
-
-func (tp *txProcessor) LabelTransaction(tx data.Transaction) ([]string, error) {
-	return tp.labeler.Label(tx)
 }
 
 func (tp *txProcessor) computeReservedBudget(tx data.Transaction) uint64 {

@@ -17,5 +17,10 @@ type BlockProcessor interface {
 
 type LabelsValidator interface {
 	ValidateLabels(labelsSubdomains data.Subdomains) error
-	AggregateLabels(aggregatedSubdomains []data.Subdomains, consensusGroupSize uint64) (data.SubdomainsFrequency, error)
+	// AggregateLabels derives the block-level subdomain frequency map, the set of
+	// transaction hashes whose dominant quorum label is non_related, and the
+	// per-transaction dominant labels (quorum-agreed, for each tx that reached
+	// quorum on at least one real subdomain or on non_related).
+	// Non-related transactions are excluded from mini-round two.
+	AggregateLabels(aggregatedSubdomains []data.Subdomains, consensusGroupSize uint64) (data.SubdomainsFrequency, []string, map[string][]string, error)
 }

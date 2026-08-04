@@ -45,6 +45,9 @@ func (rl *RoundLoop) Run() {
 		case data.TimeoutEvent:
 			err = rl.handler.OnTimeout(event.Timeout.RoundKey, event.Timeout.Step)
 
+		case data.ClassificationGracePeriodElapsedEvent:
+			err = rl.handler.HandleClassificationGracePeriodElapsed(event.RoundKey)
+
 		case data.StopEvent:
 			rl.logger.Info("consensus.RoundLoop.Run received stop event")
 			return

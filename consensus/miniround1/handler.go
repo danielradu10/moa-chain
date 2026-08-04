@@ -323,22 +323,62 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		return err
 	}
 
-	if uint64(len(votes)) < (2*consensusGroupSize)/3+1 || handler.roundState.IsCertificateSet(roundKey) {
+	// Wait for all G consensus-group members to vote so that Byzantine validators
+	// that respond instantly cannot crowd out honest validators in a smaller pool.
+	// HandleVoteCollectionTimeout provides the fallback when the deadline fires.
+	if uint64(len(votes)) < consensusGroupSize || handler.roundState.IsCertificateSet(roundKey) {
 		handler.logger.Info(
 			"leader waiting for more votes or certificate already set",
 			"roundKey", roundKey,
 			"numVotes", len(votes),
 			"consensusGroupSize", consensusGroupSize,
-			"quorum", (2*consensusGroupSize)/3+1,
 			"certificateSet", handler.roundState.IsCertificateSet(roundKey),
 		)
 		return nil
 	}
-	handler.logger.Info("miniround1.HandleBlockVote leader reached quorum", "roundKey", roundKey, "numVotes", len(votes), "consensusGroupSize", consensusGroupSize)
+	handler.logger.Info("miniround1.HandleBlockVote leader collected all consensus-group votes", "roundKey", roundKey, "numVotes", len(votes))
 
+	return handler.aggregateAndFinalize(roundKey, votes, consensusGroupSize)
+}
+
+// HandleVoteCollectionTimeout is called when the vote-collection deadline expires
+// before all G consensus-group members have voted. If at least Q votes are present
+// the leader aggregates with what it has; otherwise the round cannot be finalized.
+func (handler *handler) HandleVoteCollectionTimeout(roundKey data.RoundKey) error {
+	if handler.roundState.IsCertificateSet(roundKey) {
+		handler.logger.Info("vote-collection timeout: certificate already set, nothing to do", "roundKey", roundKey)
+		return nil
+	}
+
+	votes, err := handler.roundState.GetVotes(roundKey)
+	if err != nil {
+		handler.logger.Error("vote-collection timeout: failed to get votes", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	consensusGroupSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		handler.logger.Error("vote-collection timeout: failed to get consensus group size", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	quorum := (2*consensusGroupSize)/3 + 1
+	if uint64(len(votes)) < quorum {
+		handler.logger.Info("vote-collection timeout: insufficient votes to finalize",
+			"roundKey", roundKey, "numVotes", len(votes), "quorum", quorum)
+		return ErrNotEnoughVotesAfterTimeout
+	}
+
+	handler.logger.Info("vote-collection timeout: aggregating with available votes",
+		"roundKey", roundKey, "numVotes", len(votes), "quorum", quorum, "consensusGroupSize", consensusGroupSize)
+
+	return handler.aggregateAndFinalize(roundKey, votes, consensusGroupSize)
+}
+
+func (handler *handler) aggregateAndFinalize(roundKey data.RoundKey, votes []*data.ValidatorVote, consensusGroupSize uint64) error {
 	currentProposedBlock, err := handler.roundState.GetProposedBlock(roundKey)
 	if err != nil {
-		handler.logger.Error("leader failed to get proposed block after quorum", "roundKey", roundKey, "error", err)
+		handler.logger.Error("leader failed to get proposed block for aggregation", "roundKey", roundKey, "error", err)
 		return err
 	}
 	hash := currentProposedBlock.Header.HeaderHash
@@ -375,24 +415,34 @@ func (handler *handler) HandleBlockVote(roundKey data.RoundKey, vote *data.Block
 		handler.logger.Error("leader failed to set round certificate", "roundKey", roundKey, "error", err)
 		return err
 	}
-	handler.logger.Info("miniround1.HandleBlockVote leader set round certificate", "roundKey", roundKey, "numSigners", len(aggVotes.Signers))
+	handler.logger.Info("leader set round certificate", "roundKey", roundKey, "numSigners", len(aggVotes.Signers))
 
-	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains, consensusGroupSize)
+	subdomainsFrequencies, nonRelatedTxHashes, dominantLabelsPerTx, err := handler.labelsValidator.AggregateLabels(aggVotes.Subdomains, consensusGroupSize)
 	if err != nil {
 		handler.logger.Error("leader failed to aggregate labels", "roundKey", roundKey, "error", err)
 		return err
 	}
-	handler.logger.Info("miniround1.HandleBlockVote leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies)
+	handler.logger.Info("leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
 
-	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{Block: *currentProposedBlock, SubdomainsFrequencies: subdomainsFrequencies})
+	for _, tx := range currentProposedBlock.Body.Transactions {
+		if labels, ok := dominantLabelsPerTx[string(tx.GetTxHash())]; ok {
+			tx.SetDomainLabels(labels)
+		}
+	}
+
+	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
+		Block:                       *currentProposedBlock,
+		SubdomainsFrequencies:       subdomainsFrequencies,
+		NonRelatedTransactionHashes: nonRelatedTxHashes,
+	})
 	if err != nil {
 		handler.logger.Error("leader failed to finalize block", "roundKey", roundKey, "error", err)
 		return err
 	}
-	handler.logger.Info("miniround1.HandleBlockVote leader finalized block", "roundKey", roundKey, "numFrequencies", len(subdomainsFrequencies))
+	handler.logger.Info("leader finalized block", "roundKey", roundKey, "numFrequencies", len(subdomainsFrequencies))
 
 	validatorsIDs := handler.validatorRegistry.GetValidatorsIDs()
-	handler.logger.Info("miniround1.HandleBlockVote leader broadcasting aggregated votes", "roundKey", roundKey, "numReceivers", len(validatorsIDs))
+	handler.logger.Info("leader broadcasting aggregated votes", "roundKey", roundKey, "numReceivers", len(validatorsIDs))
 
 	return handler.broadcaster.BroadcastAggregatedVotes(consensusMessage, handler.myID, validatorsIDs)
 }
@@ -525,14 +575,24 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 		return err
 	}
 
-	subdomainsFrequencies, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains, consensusGroupSize)
+	subdomainsFrequencies, nonRelatedTxHashes, dominantLabelsPerTx, err := handler.labelsValidator.AggregateLabels(aggregatedSubdomains, consensusGroupSize)
 	if err != nil {
 		handler.logger.Error("failed to aggregate labels from aggregated votes", "roundKey", roundKey, "error", err)
 		return err
 	}
-	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies)
+	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
 
-	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{Block: *block, SubdomainsFrequencies: subdomainsFrequencies})
+	for _, tx := range block.Body.Transactions {
+		if labels, ok := dominantLabelsPerTx[string(tx.GetTxHash())]; ok {
+			tx.SetDomainLabels(labels)
+		}
+	}
+
+	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
+		Block:                       *block,
+		SubdomainsFrequencies:       subdomainsFrequencies,
+		NonRelatedTransactionHashes: nonRelatedTxHashes,
+	})
 	if err != nil {
 		handler.logger.Error("failed to finalize block from aggregated votes", "roundKey", roundKey, "error", err)
 		return err

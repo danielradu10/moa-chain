@@ -22,10 +22,7 @@
       "labels": [
         "test_engineering_and_qa_automation",
         "back_end_with_apis",
-        "systems_programming",
-        "security",
-        "dev_ops",
-        "databases"
+        "systems_programming"
       ]
     },
     {
@@ -43,10 +40,7 @@
       "labels": [
         "security",
         "blockchain_engineering",
-        "systems_programming",
-        "back_end_with_apis",
-        "databases",
-        "dev_ops"
+        "systems_programming"
       ]
     },
     {
@@ -64,10 +58,7 @@
       "labels": [
         "blockchain_engineering",
         "systems_programming",
-        "test_engineering_and_qa_automation",
-        "back_end_with_apis",
-        "databases",
-        "security"
+        "test_engineering_and_qa_automation"
       ]
     }
   ],
@@ -119,12 +110,15 @@
     "finalizedNodes": 20,
     "answerEvidenceProducers": [
       "leader",
-      "member-6",
-      "member-2",
-      "member-8",
       "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
       "member-5",
-      "member-3"
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
     ],
     "classificationVoters": [
       "leader",
@@ -138,7 +132,7 @@
     "transactions": [
       {
         "txHash": "scenario-08-control-before",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -146,7 +140,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -155,7 +149,7 @@
       },
       {
         "txHash": "scenario-08-target",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -163,7 +157,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -172,7 +166,7 @@
       },
       {
         "txHash": "scenario-08-control-after",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -180,7 +174,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0

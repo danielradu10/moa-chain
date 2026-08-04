@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -85,7 +86,50 @@ func createNode(
 	inboxes []chan data.RoundEvent,
 	myInbox chan data.RoundEvent,
 	transactions []data.Transaction,
-	labeler agent.Agent,
+	batchAgent agent.BatchAgent,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
+) *integrationTestNode {
+	return createNodeWithCommitteeStrategy(
+		t, validatorID, privateKey, registeredValidators, inboxes, myInbox,
+		transactions, batchAgent, stopAfterMiniRoundOne, voteCollectionDeadline,
+		validators.CommitteeStrategyHalf,
+	)
+}
+
+func createNodeWithCommitteeStrategy(
+	t *testing.T,
+	validatorID string,
+	privateKey []byte,
+	registeredValidators []*validators.Validator,
+	inboxes []chan data.RoundEvent,
+	myInbox chan data.RoundEvent,
+	transactions []data.Transaction,
+	batchAgent agent.BatchAgent,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
+	strategy validators.CommitteeStrategy,
+) *integrationTestNode {
+	return createNodeWithCommitteeStrategyAndClassificationGrace(
+		t, validatorID, privateKey, registeredValidators, inboxes, myInbox,
+		transactions, batchAgent, stopAfterMiniRoundOne, voteCollectionDeadline,
+		strategy, 0,
+	)
+}
+
+func createNodeWithCommitteeStrategyAndClassificationGrace(
+	t *testing.T,
+	validatorID string,
+	privateKey []byte,
+	registeredValidators []*validators.Validator,
+	inboxes []chan data.RoundEvent,
+	myInbox chan data.RoundEvent,
+	transactions []data.Transaction,
+	batchAgent agent.BatchAgent,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
+	strategy validators.CommitteeStrategy,
+	classificationGracePeriod time.Duration,
 ) *integrationTestNode {
 	peersRegistry := broadcast.NewPeerRegistry()
 	for i, validator := range registeredValidators {
@@ -94,14 +138,9 @@ func createNode(
 	}
 
 	return createNodeWithBroadcaster(
-		t,
-		validatorID,
-		privateKey,
-		registeredValidators,
-		myInbox,
-		transactions,
-		labeler,
-		broadcast.NewBroadcaster(peersRegistry),
+		t, validatorID, privateKey, registeredValidators, myInbox,
+		transactions, batchAgent, broadcast.NewBroadcaster(peersRegistry),
+		stopAfterMiniRoundOne, voteCollectionDeadline, strategy, classificationGracePeriod,
 	)
 }
 
@@ -114,8 +153,12 @@ func createNodeWithBroadcaster(
 	registeredValidators []*validators.Validator,
 	myInbox chan data.RoundEvent,
 	transactions []data.Transaction,
-	labeler agent.Agent,
+	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
+	strategy validators.CommitteeStrategy,
+	classificationGracePeriod time.Duration,
 ) *integrationTestNode {
 	t.Helper()
 
@@ -134,7 +177,7 @@ func createNodeWithBroadcaster(
 		require.NoError(t, err)
 	}
 
-	consensusSelector := validators.NewConsensusSelector(logger)
+	consensusSelector := validators.NewConsensusSelectorWithStrategy(strategy, logger)
 	validatorsRegistry := validators.NewValidatorRegistry(consensusSelector, logger)
 	for _, validator := range registeredValidators {
 		err = validatorsRegistry.Register(validator.PublicID(), validator)
@@ -150,9 +193,12 @@ func createNodeWithBroadcaster(
 		validatorsRegistry,
 		myInbox,
 		finalizer,
-		labeler,
+		batchAgent,
 		broadcaster,
 		roundState,
+		stopAfterMiniRoundOne,
+		voteCollectionDeadline,
+		classificationGracePeriod,
 		logger,
 	)
 
@@ -185,9 +231,12 @@ func createRoundLoop(
 	validatorRegistry validators.ValidatorRegistry,
 	inbox chan data.RoundEvent,
 	blockFinalizer blockFinalizer.BlockFinalizer,
-	labeler agent.Agent,
+	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
 	roundState state.RoundState,
+	stopAfterMiniRoundOne bool,
+	voteCollectionDeadline time.Duration,
+	classificationGracePeriod time.Duration,
 	logger *slog.Logger,
 ) *consensus.RoundLoop {
 	currentHeader := currentIntegrationTestHeader()
@@ -199,7 +248,7 @@ func createRoundLoop(
 		CurrentEpochValue:       currentHeader.Epoch,
 	}
 
-	protocolAgent := integrationProtocolAgent{delegate: labeler}
+	protocolAgent := integrationProtocolAgent{delegate: batchAgent}
 	base := createBlockBase(txPool, blockchainStateStub, protocolAgent, logger)
 	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
 		MyID:              nodeID,
@@ -218,29 +267,34 @@ func createRoundLoop(
 	miniRoundOneHandler := miniround1.NewMiniRoundOneHandler(miniRoundOneHandlerArgs)
 
 	miniRoundTwoHandlerArgs := miniround2.MiniRoundTwoHandlerArgs{
-		MyID:               nodeID,
-		BlockProcessor:     validation.NewBlockProcessor(base),
-		RoundState:         roundState,
-		Broadcaster:        broadcaster,
-		Signer:             signing.NewSigner(nodeID, privateKey),
-		ValidatorRegistry:  validatorRegistry,
-		BlockchainState:    blockchainStateStub,
-		BlockFinalizer:     blockFinalizer,
-		AnswerJudge:        protocolAgent,
-		JudgeModelMetadata: "integration-deterministic-judge",
-		Logger:             logger,
+		MyID:                      nodeID,
+		BlockProcessor:            validation.NewBlockProcessor(base),
+		RoundState:                roundState,
+		Broadcaster:               broadcaster,
+		Signer:                    signing.NewSigner(nodeID, privateKey),
+		ValidatorRegistry:         validatorRegistry,
+		BlockchainState:           blockchainStateStub,
+		BlockFinalizer:            blockFinalizer,
+		AnswerJudge:               protocolAgent,
+		JudgeModelMetadata:        "integration-deterministic-judge",
+		ClassificationGracePeriod: classificationGracePeriod,
+		Logger:                    logger,
+		SelfInbox:                 inbox,
 	}
 
 	miniRoundTwoHandler := miniround2.NewMiniRoundTwoHandler(miniRoundTwoHandlerArgs)
 
 	roundHandlerArgs := consensus.RoundHandlerArgs{
-		SelfID:              nodeID,
-		CurrentStep:         data.StepIdle,
-		CurrentRoundKey:     data.RoundKey{},
-		MiniRoundOneHandler: miniRoundOneHandler,
-		MiniRoundTwoHandler: miniRoundTwoHandler,
-		BlockFinalizer:      blockFinalizer,
-		Logger:              logger,
+		SelfID:                 nodeID,
+		CurrentStep:            data.StepIdle,
+		CurrentRoundKey:        data.RoundKey{},
+		MiniRoundOneHandler:    miniRoundOneHandler,
+		MiniRoundTwoHandler:    miniRoundTwoHandler,
+		BlockFinalizer:         blockFinalizer,
+		StopAfterMiniRoundOne:  stopAfterMiniRoundOne,
+		Logger:                 logger,
+		Inbox:                  inbox,
+		VoteCollectionDeadline: voteCollectionDeadline,
 	}
 
 	roundHandler := consensus.NewRoundHandler(roundHandlerArgs)
@@ -251,20 +305,26 @@ func createRoundLoop(
 // integrationProtocolAgent supplies deterministic non-empty answers and judge
 // output so integration tests exercise the complete classification protocol.
 type integrationProtocolAgent struct {
-	delegate agent.Agent
+	delegate agent.BatchAgent
 }
 
-func (testAgent integrationProtocolAgent) Label(tx data.Transaction) ([]string, error) {
-	return testAgent.delegate.Label(tx)
+func (testAgent integrationProtocolAgent) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error) {
+	return testAgent.delegate.LabelBatch(txs)
 }
 
-func (testAgent integrationProtocolAgent) Answer(tx data.Transaction) (string, error) {
-	answer, err := testAgent.delegate.Answer(tx)
-	if err != nil || answer != "" {
-		return answer, err
+func (testAgent integrationProtocolAgent) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, error) {
+	results, err := testAgent.delegate.AnswerBatch(txs)
+	if err != nil {
+		return nil, err
 	}
 
-	return "integration answer for " + string(tx.GetTxHash()), nil
+	for i, r := range results {
+		if r.Answer == "" {
+			results[i].Answer = "integration answer for " + string(r.TxHash)
+		}
+	}
+
+	return results, nil
 }
 
 func (testAgent integrationProtocolAgent) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
@@ -303,7 +363,7 @@ func (testAgent integrationProtocolAgent) JudgeTransactionAnswers(request agent.
 func createBlockBase(
 	mempool mempool.Mempool,
 	blockchainState state.BlockchainState,
-	labelerCalled agent.Agent,
+	batchAgent agent.BatchAgent,
 	logger *slog.Logger,
 ) blockprocessing.Base {
 	aliceAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
@@ -345,7 +405,7 @@ func createBlockBase(
 	return blockprocessing.Base{
 		AccountsSnapshotFactory: &accountSnapshotFactoryMock,
 		BlockchainState:         blockchainState,
-		Agent:                   labelerCalled,
+		BatchAgent:              batchAgent,
 		AccountState:            accountStateStub,
 		Mempool:                 mempool,
 		Logger:                  logger,
@@ -442,6 +502,7 @@ func writeTestString(
 }
 
 var possibleSubDomains = map[string]struct{}{
+	"non_related":                        {},
 	"systems_programming":                {},
 	"web_front_end":                      {},
 	"back_end_with_apis":                 {},

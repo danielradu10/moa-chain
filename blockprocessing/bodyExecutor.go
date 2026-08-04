@@ -1,29 +1,32 @@
 package blockprocessing
 
 import (
-	"bytes"
 	"log/slog"
 
+	"moa-chain/agent"
 	"moa-chain/blockprocessing/hashing"
 	"moa-chain/data"
 	"moa-chain/logging"
 	"moa-chain/transactionprocessing"
+	"moa-chain/transactionprocessing/processor"
 )
 
 const MaxBlockConsumption = 1000
 
 type bodyExecutor struct {
-	logger *slog.Logger
+	logger     *slog.Logger
+	batchAgent agent.BatchAgent
 }
 
-func NewBodyExecutor(loggers ...*slog.Logger) *bodyExecutor {
+func NewBodyExecutor(batchAgent agent.BatchAgent, loggers ...*slog.Logger) *bodyExecutor {
 	return &bodyExecutor{
-		logger: logging.FromOptional(loggers...),
+		logger:     logging.FromOptional(loggers...),
+		batchAgent: batchAgent,
 	}
 }
 
 // ExecuteBlockBodyMiniRoundOne executes the block body in mini-round one.
-// This means that each transaction is executed economically and labeled.
+// Each transaction is executed economically and then all are labeled via a single batch call.
 func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundOne(
 	blockBody *data.BlockBody,
 	transactionProcessor transactionprocessing.TxProcessor,
@@ -32,7 +35,6 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundOne(
 
 	blockConsumption := uint64(0)
 	uniqueTxHashes := make(map[string]struct{})
-	labels := map[string][]string{}
 
 	txs := blockBody.Transactions
 	for i, tx := range txs {
@@ -61,21 +63,11 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundOne(
 			}
 		}
 
-		// TODO txs in block should be sent only by hash? should we take the actual tx from mempool
-		//  if not present in mempool, from another sync component
 		estimatedConsumption, err := transactionProcessor.ProcessTransactionEconomically(tx, data.MiniRoundOne)
 		if err != nil {
 			exec.logger.Error("blockprocessing.ExecuteBlockBodyMiniRoundOne economic transaction processing failed", "txHash", string(txHash), "error", err)
 			return nil, err
 		}
-
-		// TODO discuss if this order is ok. should we first label, then process economically?
-		labelsGeneratedByMe, err := transactionProcessor.LabelTransaction(tx)
-		if err != nil {
-			exec.logger.Error("blockprocessing.ExecuteBlockBodyMiniRoundOne transaction labeling failed", "txHash", string(txHash), "error", err)
-			return nil, err
-		}
-		exec.logger.Debug("transaction labeled", "txHash", string(txHash), "labels", labelsGeneratedByMe)
 
 		blockConsumption += estimatedConsumption
 		if blockConsumption > MaxBlockConsumption {
@@ -87,8 +79,18 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundOne(
 			)
 			return nil, ErrBlockConsumptionReached
 		}
+	}
 
-		labels[string(txHash)] = labelsGeneratedByMe
+	results, err := exec.batchAgent.LabelBatch(txs)
+	if err != nil {
+		exec.logger.Error("blockprocessing.ExecuteBlockBodyMiniRoundOne batch label call failed", "error", err)
+		return nil, err
+	}
+
+	labels := make(map[string][]string, len(results))
+	for _, r := range results {
+		labels[string(r.TxHash)] = r.Labels
+		exec.logger.Debug("transaction labeled (batch)", "txHash", string(r.TxHash), "labels", r.Labels)
 	}
 
 	exec.logger.Info(
@@ -105,66 +107,72 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundOne(
 	}, nil
 }
 
-// ExecuteBlockBodyMiniRoundTwo executes the block in the mini-round two.
-// The transactions are already executed economically and verified, so this round only executes the actual prompts.
-// TODO strengthen this method, the checks in the blockBody and the information returned.
+// ExecuteBlockBodyMiniRoundTwo executes the block in mini-round two.
+// All transaction prompts are answered via a single batch call.
 func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundTwo(
 	blockBody *data.BlockBody,
-	promptExecutor transactionprocessing.PromptExecutor,
 ) (*data.BlockBodyExecutionResultMRTwo, error) {
 	if blockBody == nil {
 		exec.logger.Error("blockprocessing.ExecuteBlockBodyMiniRoundTwo nil block body")
 		return nil, ErrNilBlock
 	}
-	if promptExecutor == nil {
-		exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo nil prompt executor")
-		return nil, ErrNilPromptExecutor
-	}
 
-	txsResults := make([]data.TransactionResult, 0, len(blockBody.Transactions))
-	totalConsumption := uint64(0)
-	uniqueTxHashes := make(map[string]struct{})
-	for _, tx := range blockBody.Transactions {
+	txs := blockBody.Transactions
+	uniqueTxHashes := make(map[string]struct{}, len(txs))
+
+	for _, tx := range txs {
 		if tx == nil {
 			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo nil transaction")
 			return nil, ErrNilTransaction
 		}
-
-		_, ok := uniqueTxHashes[string(tx.GetTxHash())]
-		if ok {
+		if _, ok := uniqueTxHashes[string(tx.GetTxHash())]; ok {
 			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo duplicated transaction in block body", "txHash", string(tx.GetTxHash()))
 			return nil, ErrDuplicatedTransaction
 		}
 		uniqueTxHashes[string(tx.GetTxHash())] = struct{}{}
-
-		txResult, err := promptExecutor.ExecutePromptTransaction(tx)
-		if err != nil {
-			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo prompt executor failed", "txHash", string(tx.GetTxHash()), "error", err)
-			return nil, err
-		}
-		if txResult == nil {
-			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo nil transaction result", "txHash", string(tx.GetTxHash()))
-			return nil, ErrNilTransactionResult
-		}
-
-		if !bytes.Equal(txResult.TxHash, tx.GetTxHash()) {
-			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo tx hash mismatch", "txHash", string(tx.GetTxHash()), "txResult.txHash", string(txResult.TxHash))
-			return nil, ErrTxHashMismatch
-		}
-
-		txsResults = append(txsResults, *txResult)
-		totalConsumption += txResult.ActualConsumption
 	}
 
+	answerResults, err := exec.batchAgent.AnswerBatch(txs)
+	if err != nil {
+		exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo answer batch call failed", "error", err)
+		return nil, err
+	}
+
+	txsResults := make([]data.TransactionResult, 0, len(answerResults))
+	totalConsumption := uint64(0)
+
+	for _, ar := range answerResults {
+		consumption, err := processor.CountTokensFromAnswer(ar.Answer)
+		if err != nil {
+			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo token counting failed", "txHash", string(ar.TxHash), "error", err)
+			return nil, err
+		}
+
+		txsResults = append(txsResults, data.TransactionResult{
+			TxHash:            ar.TxHash,
+			Answer:            ar.Answer,
+			ActualConsumption: consumption,
+		})
+		totalConsumption += consumption
+	}
+
+	return exec.buildMiniRoundTwoResult(txsResults, totalConsumption)
+}
+
+func (exec *bodyExecutor) buildMiniRoundTwoResult(
+	txsResults []data.TransactionResult,
+	totalConsumption uint64,
+) (*data.BlockBodyExecutionResultMRTwo, error) {
 	exec.logger.Info("BlockBody executed in MiniRoundTwo", "totalConsumption", totalConsumption)
 
 	executionResult := &data.BlockBodyExecutionResultMRTwo{
 		TxsResults:       txsResults,
 		TotalConsumption: totalConsumption,
 	}
+
 	blockHash, err := hashing.ComputePromptExecutionHash(executionResult)
 	if err != nil {
-		exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo failed to hash executed prompt block", "error", err)
+		exec.logger.Error("bodyExecutor.buildMiniRoundTwoResult failed to hash executed prompt block", "error", err)
 		return nil, err
 	}
 	executionResult.BlockHash = blockHash

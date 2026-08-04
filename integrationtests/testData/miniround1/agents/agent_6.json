@@ -3,43 +3,83 @@
   "labeledTransactions": [
     {
       "txHash": "txHash1",
-      "labels": ["back_end_with_apis", "databases", "security", "systems_programming", "test_engineering_and_qa_automation", "dev_ops"]
+      "labels": [
+        "back_end_with_apis",
+        "databases",
+        "security"
+      ]
     },
     {
       "txHash": "txHash2",
-      "labels": ["web_front_end", "cloud_engineering", "dev_ops", "test_engineering_and_qa_automation", "back_end_with_apis", "data_engineering"]
+      "labels": [
+        "web_front_end",
+        "cloud_engineering",
+        "dev_ops"
+      ]
     },
     {
       "txHash": "txHash3",
-      "labels": ["data_engineering", "dev_ops", "databases", "ml_ai_engineering", "cloud_engineering", "test_engineering_and_qa_automation"]
+      "labels": [
+        "data_engineering",
+        "dev_ops",
+        "databases"
+      ]
     },
     {
       "txHash": "txHash4",
-      "labels": ["blockchain_engineering", "security", "systems_programming", "back_end_with_apis", "test_engineering_and_qa_automation", "dev_ops"]
+      "labels": [
+        "blockchain_engineering",
+        "security",
+        "systems_programming"
+      ]
     },
     {
       "txHash": "txHash5",
-      "labels": ["mobile_dev", "back_end_with_apis", "dev_ops", "databases", "security", "test_engineering_and_qa_automation"]
+      "labels": [
+        "mobile_dev",
+        "back_end_with_apis",
+        "dev_ops"
+      ]
     },
     {
       "txHash": "txHash6",
-      "labels": ["dev_ops", "cloud_engineering", "test_engineering_and_qa_automation", "systems_programming", "security", "databases"]
+      "labels": [
+        "dev_ops",
+        "cloud_engineering",
+        "test_engineering_and_qa_automation"
+      ]
     },
     {
       "txHash": "txHash7",
-      "labels": ["ml_ai_engineering", "data_engineering", "security", "databases", "test_engineering_and_qa_automation", "dev_ops"]
+      "labels": [
+        "ml_ai_engineering",
+        "data_engineering",
+        "security"
+      ]
     },
     {
       "txHash": "txHash8",
-      "labels": ["test_engineering_and_qa_automation", "back_end_with_apis", "databases", "security", "dev_ops", "blockchain_engineering"]
+      "labels": [
+        "test_engineering_and_qa_automation",
+        "back_end_with_apis",
+        "databases"
+      ]
     },
     {
       "txHash": "txHash9",
-      "labels": ["systems_programming", "dev_ops", "security", "test_engineering_and_qa_automation", "cloud_engineering", "data_engineering"]
+      "labels": [
+        "systems_programming",
+        "dev_ops",
+        "security"
+      ]
     },
     {
       "txHash": "txHash10",
-      "labels": ["cloud_engineering", "security", "dev_ops", "databases", "back_end_with_apis", "test_engineering_and_qa_automation"]
+      "labels": [
+        "cloud_engineering",
+        "security",
+        "dev_ops"
+      ]
     }
   ]
 }

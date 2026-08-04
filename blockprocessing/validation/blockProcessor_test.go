@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"moa-chain/agent"
 	"moa-chain/blockprocessing"
 	"moa-chain/data"
 	"moa-chain/testscommon"
@@ -125,11 +126,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
 				},
-				Agent: &testscommon.LabelerStub{
-					LabelsByTxHash: map[string][]string{
-						"txHash1": {"security", "cloud_engineering"},
-					},
-				},
+				BatchAgent: &testscommon.LabelerStub{},
 			},
 		}
 
@@ -180,16 +177,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
 				},
-				Agent: &testscommon.LabelerStub{
-					LabelsByTxHash: map[string][]string{
-						"txHash1": {
-							"security",
-							"cloud_engineering",
-							"databases",
-							"dev_ops",
-						},
-					},
-				},
+				BatchAgent: &testscommon.LabelerStub{},
 			},
 		}
 
@@ -218,10 +206,20 @@ func TestBlockProcessor_ExecuteBlockPrompts(t *testing.T) {
 		blockProcessor := &blockProcessor{
 			Base: blockprocessing.Base{
 				AccountsSnapshotFactory: snapshotFactory,
-				Agent: &testscommon.LabelerStub{
-					AnswersByTxHash: map[string]string{
-						"txHash1": "answer one",
-						"txHash2": "answer two",
+				BatchAgent: &testscommon.LabelerStub{
+					AnswerBatchCalled: func(txs []data.Transaction) ([]agent.AnswerResult, error) {
+						answers := map[string]string{
+							"txHash1": "answer one",
+							"txHash2": "answer two",
+						}
+						results := make([]agent.AnswerResult, 0, len(txs))
+						for _, tx := range txs {
+							results = append(results, agent.AnswerResult{
+								TxHash: tx.GetTxHash(),
+								Answer: answers[string(tx.GetTxHash())],
+							})
+						}
+						return results, nil
 					},
 				},
 			},
@@ -419,7 +417,11 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 	t.Run("should validate block body successfully", func(t *testing.T) {
 		t.Parallel()
 
-		blockProcessor := &blockProcessor{}
+		blockProcessor := &blockProcessor{
+			Base: blockprocessing.Base{
+				BatchAgent: &testscommon.LabelerStub{},
+			},
+		}
 		txProcessor := &testscommon.TxProcessorStub{
 			ProcessTransactionCalled: func(tx data.Transaction, miniRound data.MiniRound) (uint64, error) {
 				return tx.GetEstimatedConsumption(), nil

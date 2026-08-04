@@ -5,17 +5,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	agent2 "moa-chain/agent"
+	"moa-chain/agent"
 )
 
-func TestAgent_Label(t *testing.T) {
-	a := &agent{}
-	_, err := a.Label(nil)
-	require.Equal(t, err, agent2.ErrNotImplemented)
+func TestLabeler_LabelBatch(t *testing.T) {
+	l := &labeler{}
+	_, err := l.LabelBatch(nil)
+	require.Equal(t, agent.ErrNotImplemented, err)
 }
 
-func TestAgent_Answer(t *testing.T) {
-	a := &agent{}
-	_, err := a.Answer(nil)
-	require.Equal(t, err, agent2.ErrNotImplemented)
+func TestLabeler_AnswerBatch(t *testing.T) {
+	l := &labeler{}
+	_, err := l.AnswerBatch(nil)
+	require.Equal(t, agent.ErrNotImplemented, err)
 }
