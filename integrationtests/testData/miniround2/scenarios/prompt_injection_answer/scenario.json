@@ -1,6 +1,6 @@
 {
   "name": "prompt_injection_answer",
-  "description": "One target answer contains prompt-injection text that is transported as data and classified as MALICIOUS while both control transactions remain ready.",
+  "description": "One target answer contains prompt-injection text that is transported as data and classified as MALICIOUS. Nine correct answers satisfy the classification quorum so the target transaction is READY_FOR_MINI_ROUND_THREE.",
   "network": {
     "registeredNodes": 20,
     "committeeSize": 10,
@@ -130,7 +130,10 @@
       "member-3",
       "member-4",
       "member-5",
-      "member-6"
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
     ],
     "classificationVoters": [
       "leader",
@@ -144,7 +147,7 @@
     "transactions": [
       {
         "txHash": "scenario-04-control-before",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -152,7 +155,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -161,7 +164,7 @@
       },
       {
         "txHash": "scenario-04-target",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -180,16 +183,16 @@
           }
         ],
         "groups": {
-          "correct": 6,
+          "correct": 9,
           "hallucination": 0,
           "malicious": 1,
           "wrong": 0
         },
-        "status": "INSUFFICIENT_CORRECT_ANSWERS"
+        "status": "READY_FOR_MINI_ROUND_THREE"
       },
       {
         "txHash": "scenario-04-control-after",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -197,7 +200,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0

@@ -108,6 +108,10 @@
       "leaderId": "validator-2",
       "producers": [
         {
+          "role": "member-7",
+          "validatorId": "validator-11"
+        },
+        {
           "role": "member-2",
           "validatorId": "validator-12"
         },
@@ -120,8 +124,16 @@
           "validatorId": "validator-14"
         },
         {
+          "role": "member-8",
+          "validatorId": "validator-16"
+        },
+        {
           "role": "leader",
           "validatorId": "validator-2"
+        },
+        {
+          "role": "member-9",
+          "validatorId": "validator-3"
         },
         {
           "role": "member-6",
@@ -144,9 +156,9 @@
           "role": "member-2",
           "validatorId": "validator-12"
         },
-        "classificationCount": 21,
+        "classificationCount": 30,
         "categoryTotals": {
-          "correct": 21,
+          "correct": 30,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -157,9 +169,9 @@
           "role": "member-3",
           "validatorId": "validator-13"
         },
-        "classificationCount": 21,
+        "classificationCount": 30,
         "categoryTotals": {
-          "correct": 21,
+          "correct": 30,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -170,9 +182,9 @@
           "role": "member-4",
           "validatorId": "validator-14"
         },
-        "classificationCount": 21,
+        "classificationCount": 30,
         "categoryTotals": {
-          "correct": 21,
+          "correct": 30,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -183,9 +195,9 @@
           "role": "leader",
           "validatorId": "validator-2"
         },
-        "classificationCount": 21,
+        "classificationCount": 30,
         "categoryTotals": {
-          "correct": 21,
+          "correct": 30,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -196,9 +208,9 @@
           "role": "member-6",
           "validatorId": "validator-4"
         },
-        "classificationCount": 21,
+        "classificationCount": 30,
         "categoryTotals": {
-          "correct": 21,
+          "correct": 30,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -209,9 +221,9 @@
           "role": "member-5",
           "validatorId": "validator-7"
         },
-        "classificationCount": 21,
+        "classificationCount": 30,
         "categoryTotals": {
-          "correct": 21,
+          "correct": 30,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -222,9 +234,9 @@
           "role": "member-1",
           "validatorId": "validator-9"
         },
-        "classificationCount": 21,
+        "classificationCount": 30,
         "categoryTotals": {
-          "correct": 21,
+          "correct": 30,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -236,6 +248,17 @@
         "txHash": "scenario-01-control-after",
         "status": "READY_FOR_MINI_ROUND_THREE",
         "candidates": [
+          {
+            "producerRole": "member-7",
+            "producerId": "validator-11",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
           {
             "producerRole": "member-2",
             "producerId": "validator-12",
@@ -270,8 +293,30 @@
             }
           },
           {
+            "producerRole": "member-8",
+            "producerId": "validator-16",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
             "producerRole": "leader",
             "producerId": "validator-2",
+            "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-9",
+            "producerId": "validator-3",
             "answer": "Deterministic ordering ensures every honest node derives the same canonical result from the same inputs.",
             "counts": {
               "correct": 7,
@@ -316,10 +361,13 @@
         ],
         "groups": {
           "correct": [
+            "member-7",
             "member-2",
             "member-3",
             "member-4",
+            "member-8",
             "leader",
+            "member-9",
             "member-6",
             "member-5",
             "member-1"
@@ -334,6 +382,17 @@
         "status": "READY_FOR_MINI_ROUND_THREE",
         "candidates": [
           {
+            "producerRole": "member-7",
+            "producerId": "validator-11",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
             "producerRole": "member-2",
             "producerId": "validator-12",
             "answer": "Unit tests detect regressions early and make behavior safer to change.",
@@ -367,8 +426,30 @@
             }
           },
           {
+            "producerRole": "member-8",
+            "producerId": "validator-16",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
             "producerRole": "leader",
             "producerId": "validator-2",
+            "answer": "Unit tests detect regressions early and make behavior safer to change.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-9",
+            "producerId": "validator-3",
             "answer": "Unit tests detect regressions early and make behavior safer to change.",
             "counts": {
               "correct": 7,
@@ -413,10 +494,13 @@
         ],
         "groups": {
           "correct": [
+            "member-7",
             "member-2",
             "member-3",
             "member-4",
+            "member-8",
             "leader",
+            "member-9",
             "member-6",
             "member-5",
             "member-1"
@@ -431,6 +515,17 @@
         "status": "READY_FOR_MINI_ROUND_THREE",
         "candidates": [
           {
+            "producerRole": "member-7",
+            "producerId": "validator-11",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
             "producerRole": "member-2",
             "producerId": "validator-12",
             "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
@@ -464,8 +559,30 @@
             }
           },
           {
+            "producerRole": "member-8",
+            "producerId": "validator-16",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
             "producerRole": "leader",
             "producerId": "validator-2",
+            "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
+            "counts": {
+              "correct": 7,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 0
+            }
+          },
+          {
+            "producerRole": "member-9",
+            "producerId": "validator-3",
             "answer": "Signature verification proves that a message was authorized by the claimed validator and was not altered.",
             "counts": {
               "correct": 7,
@@ -510,10 +627,13 @@
         ],
         "groups": {
           "correct": [
+            "member-7",
             "member-2",
             "member-3",
             "member-4",
+            "member-8",
             "leader",
+            "member-9",
             "member-6",
             "member-5",
             "member-1"

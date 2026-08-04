@@ -141,7 +141,7 @@ func validateMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 	if scenario.Expected.RoundFinalized {
 		require.Equal(t, scenario.Network.RegisteredNodes, scenario.Expected.FinalizedNodes)
 		require.Empty(t, scenario.Expected.ErrorContains)
-		require.Len(t, scenario.Expected.AnswerEvidenceProducers, scenario.Network.Quorum)
+		require.Len(t, scenario.Expected.AnswerEvidenceProducers, scenario.Network.CommitteeSize)
 		require.Len(t, scenario.Expected.ClassificationVoters, scenario.Network.Quorum)
 		require.Len(t, scenario.Expected.Transactions, len(scenario.Transactions))
 	} else {
@@ -213,7 +213,7 @@ func validateScenarioExpectations(
 		_, duplicated := expectedTxHashes[expected.TxHash]
 		require.Falsef(t, duplicated, "duplicated expected transaction %s", expected.TxHash)
 		expectedTxHashes[expected.TxHash] = struct{}{}
-		require.Equal(t, scenario.Network.Quorum, expected.Answers)
+		require.Equal(t, scenario.Network.CommitteeSize, expected.Answers)
 		require.Equal(
 			t,
 			expected.Answers,

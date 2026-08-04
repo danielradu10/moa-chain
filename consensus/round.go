@@ -26,10 +26,14 @@ type roundHandler struct {
 	// inbox is the write end of this node's event queue, used to self-inject
 	// TimeoutEvents from background timer goroutines.
 	inbox chan<- data.RoundEvent
-	// voteCollectionDeadline is how long the leader waits for all G consensus-group
+	// voteCollectionDeadline is how long the MR1 leader waits for all G consensus-group
 	// votes before falling back to aggregating with whatever Q+ votes arrived.
 	// Zero disables the fallback timer (leader waits for G votes indefinitely).
 	voteCollectionDeadline time.Duration
+	// executionResultsCollectionDeadline is how long the MR2 leader waits for all G
+	// execution results before falling back to aggregating with whatever Q+ arrived.
+	// Zero disables the fallback timer (leader waits indefinitely).
+	executionResultsCollectionDeadline time.Duration
 }
 
 type RoundHandlerArgs struct {
@@ -46,24 +50,28 @@ type RoundHandlerArgs struct {
 
 	// Inbox is the node's event channel. Required when VoteCollectionDeadline > 0.
 	Inbox chan data.RoundEvent
-	// VoteCollectionDeadline is the fallback timeout for the leader's vote-collection
+	// VoteCollectionDeadline is the fallback timeout for the MR1 leader's vote-collection
 	// step. Zero means wait for all G votes with no timeout.
 	VoteCollectionDeadline time.Duration
+	// ExecutionResultsCollectionDeadline is the fallback timeout for the MR2 leader's
+	// execution-results collection step. Zero means wait for all G results with no timeout.
+	ExecutionResultsCollectionDeadline time.Duration
 }
 
 // NewRoundHandler creates a new round handler
 func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 	return &roundHandler{
-		selfID:                 args.SelfID,
-		currentStep:            args.CurrentStep,
-		currentRoundKey:        args.CurrentRoundKey,
-		miniRoundOneHandler:    args.MiniRoundOneHandler,
-		miniRoundTwoHandler:    args.MiniRoundTwoHandler,
-		blockFinalizer:         args.BlockFinalizer,
-		stopAfterMiniRoundOne:  args.StopAfterMiniRoundOne,
-		logger:                 logging.FromOptional(args.Logger),
-		inbox:                  args.Inbox,
-		voteCollectionDeadline: args.VoteCollectionDeadline,
+		selfID:                             args.SelfID,
+		currentStep:                        args.CurrentStep,
+		currentRoundKey:                    args.CurrentRoundKey,
+		miniRoundOneHandler:                args.MiniRoundOneHandler,
+		miniRoundTwoHandler:                args.MiniRoundTwoHandler,
+		blockFinalizer:                     args.BlockFinalizer,
+		stopAfterMiniRoundOne:              args.StopAfterMiniRoundOne,
+		logger:                             logging.FromOptional(args.Logger),
+		inbox:                              args.Inbox,
+		voteCollectionDeadline:             args.VoteCollectionDeadline,
+		executionResultsCollectionDeadline: args.ExecutionResultsCollectionDeadline,
 	}
 }
 
@@ -130,6 +138,9 @@ func (rh *roundHandler) startMiniRoundTwo(roundKey data.RoundKey) error {
 
 	if leaderID == rh.selfID {
 		rh.currentStep = data.StepCollectExecutionResults
+		if rh.executionResultsCollectionDeadline > 0 {
+			go rh.scheduleExecutionResultsCollectionTimeout(roundKey)
+		}
 	} else {
 		rh.currentStep = data.StepAwaitAnswerEvidence
 	}
@@ -151,6 +162,20 @@ func (rh *roundHandler) scheduleVoteCollectionTimeout(roundKey data.RoundKey) {
 		Timeout: &data.RoundTimeout{
 			RoundKey: roundKey,
 			Step:     data.StepCollectVotes,
+		},
+	}
+}
+
+func (rh *roundHandler) scheduleExecutionResultsCollectionTimeout(roundKey data.RoundKey) {
+	time.Sleep(rh.executionResultsCollectionDeadline)
+	if rh.inbox == nil {
+		return
+	}
+	rh.inbox <- data.RoundEvent{
+		Type: data.TimeoutEvent,
+		Timeout: &data.RoundTimeout{
+			RoundKey: roundKey,
+			Step:     data.StepCollectExecutionResults,
 		},
 	}
 }
@@ -599,8 +624,20 @@ func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error 
 		return ErrAggregatedVotesTimeout
 
 	case data.StepCollectExecutionResults:
-		rh.currentStep = data.StepFailed
-		return ErrNotEnoughExecutionResults
+		err := rh.miniRoundTwoHandler.HandleExecutedPromptsCollectionTimeout(roundKey)
+		if err != nil {
+			rh.currentStep = data.StepFailed
+			return err
+		}
+		_, err = rh.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey)
+		if err == nil {
+			rh.currentStep = data.StepFinished
+			return nil
+		}
+		if rh.miniRoundTwoHandler.HasVerifiedAnswerEvidence(roundKey) {
+			rh.currentStep = data.StepCollectClassificationVotes
+		}
+		return nil
 
 	case data.StepAwaitAnswerEvidence:
 		rh.currentStep = data.StepFailed
@@ -621,4 +658,14 @@ func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error 
 	default:
 		return nil
 	}
+}
+
+// HandleClassificationGracePeriodElapsed routes the leader's bounded
+// post-quorum collection timer through the owning event loop.
+func (rh *roundHandler) HandleClassificationGracePeriodElapsed(roundKey data.RoundKey) error {
+	if roundKey != rh.currentRoundKey || rh.currentStep != data.StepCollectClassificationVotes {
+		rh.logger.Info("ignoring stale classification grace event", "roundKey", roundKey, "currentRoundKey", rh.currentRoundKey, "currentStep", rh.currentStep)
+		return nil
+	}
+	return rh.miniRoundTwoHandler.HandleClassificationGracePeriodElapsed(roundKey)
 }

@@ -1,6 +1,6 @@
 {
   "name": "four_category_disagreement",
-  "description": "The target transaction has candidates classified into all four answer categories, with non-correct tie rules exercised while both control transactions remain ready.",
+  "description": "The target transaction has candidates classified into all four answer categories; the three non-correct answers still exercise the plurality tie-break rules, but seven correct producers meet the classification quorum so the target transaction is READY_FOR_MINI_ROUND_THREE.",
   "network": {
     "registeredNodes": 20,
     "committeeSize": 10,
@@ -275,7 +275,10 @@
       "member-3",
       "member-4",
       "member-5",
-      "member-6"
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
     ],
     "classificationVoters": [
       "leader",
@@ -289,7 +292,7 @@
     "transactions": [
       {
         "txHash": "scenario-03-control-before",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -297,7 +300,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0
@@ -306,7 +309,7 @@
       },
       {
         "txHash": "scenario-03-target",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -343,16 +346,16 @@
           }
         ],
         "groups": {
-          "correct": 4,
+          "correct": 7,
           "hallucination": 1,
           "malicious": 1,
           "wrong": 1
         },
-        "status": "INSUFFICIENT_CORRECT_ANSWERS"
+        "status": "READY_FOR_MINI_ROUND_THREE"
       },
       {
         "txHash": "scenario-03-control-after",
-        "answers": 7,
+        "answers": 10,
         "countsPerAnswer": {
           "correct": 7,
           "hallucination": 0,
@@ -360,7 +363,7 @@
           "wrong": 0
         },
         "groups": {
-          "correct": 7,
+          "correct": 10,
           "hallucination": 0,
           "malicious": 0,
           "wrong": 0

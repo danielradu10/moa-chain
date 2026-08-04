@@ -45,6 +45,7 @@ class FakeProvider:
         system_prompt: str,
         user_message: str,
         timeout_seconds: float,
+        json_format: bool = False,
     ) -> str:
         if self._error is not None:
             raise self._error

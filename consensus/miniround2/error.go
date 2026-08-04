@@ -4,6 +4,9 @@ import (
 	"errors"
 )
 
+// ErrNotEnoughExecutionResults signals that the leader received fewer execution results than the BFT quorum requires.
+var ErrNotEnoughExecutionResults = errors.New("not enough execution results")
+
 // ErrDuplicatedAnswer signals a duplicated answer.
 var ErrDuplicatedAnswer = errors.New("duplicated answer")
 
