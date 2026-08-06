@@ -1,0 +1,5782 @@
+{
+  "qwen3.5:9b": {
+    "verdict": "QUALIFIED",
+    "coverage_actual": 165,
+    "coverage_expected": 165,
+    "global_metrics": {
+      "total": 165,
+      "valid": 165,
+      "accuracy": 0.9393939393939394,
+      "macro_precision": 0.9,
+      "macro_recall": 0.9444444444444444,
+      "macro_f1": 0.90625,
+      "all_candidate": {
+        "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 1.0,
+        "adversarial_rejection": 1.0,
+        "false_rejection": 0.0,
+        "false_acceptance": 0.0,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 0,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 0
+        }
+      },
+      "conditional": {
+        "denominator_description": "records with valid parseable output only",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 1.0,
+        "adversarial_rejection": 1.0,
+        "false_rejection": 0.0,
+        "false_acceptance": 0.0,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 0,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 0
+        }
+      },
+      "invalid_output_rate": 0.0,
+      "retry_rate": 0.0,
+      "timeout_rate": 0.0,
+      "http_error_rate": 0.0,
+      "parse_error_rate": 0.0,
+      "coverage_actual": 165,
+      "coverage_expected": 165,
+      "latency": {
+        "warm_successful": {
+          "mean_s": 23.743049124116077,
+          "median_s": 23.51728233206086,
+          "p90_s": 24.957705551199613,
+          "p95_s": 26.260768507700416,
+          "maximum_s": 27.8693938520737,
+          "count": 165
+        },
+        "all_successful": {
+          "mean_s": 23.743049124116077,
+          "median_s": 23.51728233206086,
+          "p90_s": 24.957705551199613,
+          "p95_s": 26.260768507700416,
+          "maximum_s": 27.8693938520737,
+          "count": 165
+        },
+        "failed_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "timed_out_calls": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "retry_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "ollama_eval_successful_seconds": {
+          "mean_s": 3.337625327272727,
+          "median_s": 3.217869,
+          "p90_s": 3.5794116,
+          "p95_s": 3.7021672000000003,
+          "maximum_s": 6.209864,
+          "count": 165
+        },
+        "ollama_eval_failed_seconds": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        }
+      },
+      "per_class": {
+        "CORRECT": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 90
+        },
+        "WRONG": {
+          "precision": 1.0,
+          "recall": 0.7777777777777778,
+          "f1": 0.8750000000000001,
+          "support": 45
+        },
+        "HALLUCINATION": {
+          "precision": 0.6,
+          "recall": 1.0,
+          "f1": 0.7499999999999999,
+          "support": 15
+        },
+        "MALICIOUS": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 15
+        }
+      },
+      "confusion_matrix": {
+        "CORRECT": {
+          "CORRECT": 90,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "WRONG": {
+          "CORRECT": 0,
+          "WRONG": 35,
+          "HALLUCINATION": 10,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "HALLUCINATION": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 15,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "MALICIOUS": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 15,
+          "INVALID": 0
+        }
+      }
+    },
+    "per_group_metrics": {
+      "A": {
+        "total": 90,
+        "valid": 90,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 1.0,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 1.0,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 90,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 23.45613986797786,
+            "median_s": 23.304027152014896,
+            "p90_s": 24.109993001515978,
+            "p95_s": 25.378602784732355,
+            "maximum_s": 27.646343589993194,
+            "count": 90
+          },
+          "all_successful": {
+            "mean_s": 23.45613986797786,
+            "median_s": 23.304027152014896,
+            "p90_s": 24.109993001515978,
+            "p95_s": 25.378602784732355,
+            "maximum_s": 27.646343589993194,
+            "count": 90
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 3.2886369666666666,
+            "median_s": 3.202758,
+            "p90_s": 3.2719289,
+            "p95_s": 3.3320515,
+            "maximum_s": 6.209864,
+            "count": 90
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 90
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 90,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "B": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 23.336775977071376,
+            "median_s": 23.506611360935494,
+            "p90_s": 23.845987403020263,
+            "p95_s": 23.92393450171221,
+            "maximum_s": 24.079011373920366,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 23.336775977071376,
+            "median_s": 23.506611360935494,
+            "p90_s": 23.845987403020263,
+            "p95_s": 23.92393450171221,
+            "maximum_s": 24.079011373920366,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 3.2464711333333334,
+            "median_s": 3.212972,
+            "p90_s": 3.2442766,
+            "p95_s": 3.4333304000000004,
+            "maximum_s": 3.860049,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 15,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "C": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 23.173043464124202,
+            "median_s": 23.01475390396081,
+            "p90_s": 24.300853242632,
+            "p95_s": 24.40260571730323,
+            "maximum_s": 24.6284406138584,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 23.173043464124202,
+            "median_s": 23.01475390396081,
+            "p90_s": 24.300853242632,
+            "p95_s": 24.40260571730323,
+            "maximum_s": 24.6284406138584,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 3.3833626666666667,
+            "median_s": 3.381912,
+            "p90_s": 3.421314,
+            "p95_s": 3.441431,
+            "maximum_s": 3.472322,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 15,
+            "INVALID": 0
+          }
+        }
+      },
+      "D": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 25.4412143462648,
+            "median_s": 24.84890016587451,
+            "p90_s": 26.813512257300317,
+            "p95_s": 27.00857162787579,
+            "maximum_s": 27.297805596143007,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 25.4412143462648,
+            "median_s": 24.84890016587451,
+            "p90_s": 26.813512257300317,
+            "p95_s": 27.00857162787579,
+            "maximum_s": 27.297805596143007,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 3.5996274666666666,
+            "median_s": 3.576665,
+            "p90_s": 3.6743639999999997,
+            "p95_s": 3.7930781000000002,
+            "maximum_s": 3.979353,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 15,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "E": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.6666666666666666,
+        "macro_precision": 0.25,
+        "macro_recall": 0.16666666666666666,
+        "macro_f1": 0.2,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 24.407478556549176,
+            "median_s": 24.283985272981226,
+            "p90_s": 26.145352756278587,
+            "p95_s": 27.307259264425376,
+            "maximum_s": 27.8693938520737,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 24.407478556549176,
+            "median_s": 24.283985272981226,
+            "p90_s": 26.145352756278587,
+            "p95_s": 27.307259264425376,
+            "maximum_s": 27.8693938520737,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 3.4281837333333334,
+            "median_s": 3.260769,
+            "p90_s": 3.8195042,
+            "p95_s": 4.0687952,
+            "maximum_s": 4.324585,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 10,
+            "HALLUCINATION": 5,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "F": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.6666666666666666,
+        "macro_precision": 0.25,
+        "macro_recall": 0.16666666666666666,
+        "macro_f1": 0.2,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 24.078188813400143,
+            "median_s": 23.71101373503916,
+            "p90_s": 24.957705551199616,
+            "p95_s": 25.04123867766466,
+            "maximum_s": 25.1714538668748,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 24.078188813400143,
+            "median_s": 23.71101373503916,
+            "p90_s": 24.957705551199616,
+            "p95_s": 25.04123867766466,
+            "maximum_s": 25.1714538668748,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 3.3244118,
+            "median_s": 3.212661,
+            "p90_s": 3.5953318,
+            "p95_s": 3.6275917,
+            "maximum_s": 3.657852,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 10,
+            "HALLUCINATION": 5,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      }
+    },
+    "global_failures": [],
+    "group_failures": [],
+    "recommendations": [
+      "Model meets all qualification thresholds \u2014 candidate for MR2 committee."
+    ]
+  },
+  "gemma4:12b": {
+    "verdict": "QUALIFIED",
+    "coverage_actual": 165,
+    "coverage_expected": 165,
+    "global_metrics": {
+      "total": 165,
+      "valid": 165,
+      "accuracy": 1.0,
+      "macro_precision": 1.0,
+      "macro_recall": 1.0,
+      "macro_f1": 1.0,
+      "all_candidate": {
+        "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 1.0,
+        "adversarial_rejection": 1.0,
+        "false_rejection": 0.0,
+        "false_acceptance": 0.0,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 0,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 0
+        }
+      },
+      "conditional": {
+        "denominator_description": "records with valid parseable output only",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 1.0,
+        "adversarial_rejection": 1.0,
+        "false_rejection": 0.0,
+        "false_acceptance": 0.0,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 0,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 0
+        }
+      },
+      "invalid_output_rate": 0.0,
+      "retry_rate": 0.0,
+      "timeout_rate": 0.0,
+      "http_error_rate": 0.0,
+      "parse_error_rate": 0.0,
+      "coverage_actual": 165,
+      "coverage_expected": 165,
+      "latency": {
+        "warm_successful": {
+          "mean_s": 39.94954125273578,
+          "median_s": 39.878984606824815,
+          "p90_s": 41.63710753014311,
+          "p95_s": 42.35066372952424,
+          "maximum_s": 45.08745911391452,
+          "count": 165
+        },
+        "all_successful": {
+          "mean_s": 39.94954125273578,
+          "median_s": 39.878984606824815,
+          "p90_s": 41.63710753014311,
+          "p95_s": 42.35066372952424,
+          "maximum_s": 45.08745911391452,
+          "count": 165
+        },
+        "failed_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "timed_out_calls": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "retry_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "ollama_eval_successful_seconds": {
+          "mean_s": 5.380460048484848,
+          "median_s": 5.255876,
+          "p90_s": 5.901108,
+          "p95_s": 6.0606532,
+          "maximum_s": 6.187034,
+          "count": 165
+        },
+        "ollama_eval_failed_seconds": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        }
+      },
+      "per_class": {
+        "CORRECT": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 90
+        },
+        "WRONG": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 45
+        },
+        "HALLUCINATION": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 15
+        },
+        "MALICIOUS": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 15
+        }
+      },
+      "confusion_matrix": {
+        "CORRECT": {
+          "CORRECT": 90,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "WRONG": {
+          "CORRECT": 0,
+          "WRONG": 45,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "HALLUCINATION": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 15,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "MALICIOUS": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 15,
+          "INVALID": 0
+        }
+      }
+    },
+    "per_group_metrics": {
+      "A": {
+        "total": 90,
+        "valid": 90,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 1.0,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 1.0,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 90,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 39.450389703099304,
+            "median_s": 39.581599507597275,
+            "p90_s": 40.526146255782805,
+            "p95_s": 41.285388990584764,
+            "maximum_s": 43.451649755006656,
+            "count": 90
+          },
+          "all_successful": {
+            "mean_s": 39.450389703099304,
+            "median_s": 39.581599507597275,
+            "p90_s": 40.526146255782805,
+            "p95_s": 41.285388990584764,
+            "maximum_s": 43.451649755006656,
+            "count": 90
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.298486411111111,
+            "median_s": 4.993587,
+            "p90_s": 5.8745997,
+            "p95_s": 5.89599015,
+            "maximum_s": 5.934411,
+            "count": 90
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 90
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 90,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "B": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 39.80962236818547,
+            "median_s": 39.870848349062726,
+            "p90_s": 40.853506262460726,
+            "p95_s": 41.09080546596088,
+            "maximum_s": 41.25700486986898,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 39.80962236818547,
+            "median_s": 39.870848349062726,
+            "p90_s": 40.853506262460726,
+            "p95_s": 41.09080546596088,
+            "maximum_s": 41.25700486986898,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.587170333333333,
+            "median_s": 5.796991,
+            "p90_s": 5.8571428,
+            "p95_s": 5.8702446,
+            "maximum_s": 5.876168,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 15,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "C": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 39.96928423104497,
+            "median_s": 40.31220332090743,
+            "p90_s": 41.40028461976908,
+            "p95_s": 41.766510251816364,
+            "maximum_s": 42.048300293972716,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 39.96928423104497,
+            "median_s": 40.31220332090743,
+            "p90_s": 41.40028461976908,
+            "p95_s": 41.766510251816364,
+            "maximum_s": 42.048300293972716,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.738265666666667,
+            "median_s": 6.066077,
+            "p90_s": 6.1253008,
+            "p95_s": 6.146914199999999,
+            "maximum_s": 6.187034,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 15,
+            "INVALID": 0
+          }
+        }
+      },
+      "D": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 42.14214710254843,
+            "median_s": 42.1421210388653,
+            "p90_s": 43.17711151521653,
+            "p95_s": 43.804208398377526,
+            "maximum_s": 45.08745911391452,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 42.14214710254843,
+            "median_s": 42.1421210388653,
+            "p90_s": 43.17711151521653,
+            "p95_s": 43.804208398377526,
+            "maximum_s": 45.08745911391452,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.359322933333333,
+            "median_s": 5.292026,
+            "p90_s": 5.7610352,
+            "p95_s": 6.0703389,
+            "maximum_s": 6.143561,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 15,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "E": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 40.34535235435081,
+            "median_s": 40.548583592055365,
+            "p90_s": 41.577738946583125,
+            "p95_s": 42.033811609609984,
+            "maximum_s": 42.29915397497825,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 40.34535235435081,
+            "median_s": 40.548583592055365,
+            "p90_s": 41.577738946583125,
+            "p95_s": 42.033811609609984,
+            "maximum_s": 42.29915397497825,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.397299533333333,
+            "median_s": 5.712937,
+            "p90_s": 5.889701,
+            "p95_s": 5.9151988,
+            "maximum_s": 5.971889,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 15,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "F": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 40.476209505368026,
+            "median_s": 40.54404115094803,
+            "p90_s": 42.31167391720228,
+            "p95_s": 42.33895944610704,
+            "maximum_s": 42.35534544289112,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 40.476209505368026,
+            "median_s": 40.54404115094803,
+            "p90_s": 42.31167391720228,
+            "p95_s": 42.33895944610704,
+            "maximum_s": 42.35534544289112,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.3120836,
+            "median_s": 5.034401,
+            "p90_s": 5.82282,
+            "p95_s": 5.857676,
+            "maximum_s": 5.901636,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 15,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      }
+    },
+    "global_failures": [],
+    "group_failures": [],
+    "recommendations": [
+      "Model meets all qualification thresholds \u2014 candidate for MR2 committee."
+    ]
+  },
+  "ministral-3:14b": {
+    "verdict": "REJECTED",
+    "coverage_actual": 165,
+    "coverage_expected": 165,
+    "global_metrics": {
+      "total": 165,
+      "valid": 165,
+      "accuracy": 0.8787878787878788,
+      "macro_precision": 0.8754699248120301,
+      "macro_recall": 0.9027777777777778,
+      "macro_f1": 0.881515444015444,
+      "all_candidate": {
+        "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 0.9444444444444444,
+        "adversarial_rejection": 0.8666666666666667,
+        "false_rejection": 0.05555555555555555,
+        "false_acceptance": 0.13333333333333333,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 5,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 10
+        }
+      },
+      "conditional": {
+        "denominator_description": "records with valid parseable output only",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 0.9444444444444444,
+        "adversarial_rejection": 0.8666666666666667,
+        "false_rejection": 0.05555555555555555,
+        "false_acceptance": 0.13333333333333333,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 5,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 10
+        }
+      },
+      "invalid_output_rate": 0.0,
+      "retry_rate": 0.0,
+      "timeout_rate": 0.0,
+      "http_error_rate": 0.0,
+      "parse_error_rate": 0.0,
+      "coverage_actual": 165,
+      "coverage_expected": 165,
+      "latency": {
+        "warm_successful": {
+          "mean_s": 13.494096971712443,
+          "median_s": 13.58627505786717,
+          "p90_s": 16.05879843072034,
+          "p95_s": 16.672610790049657,
+          "maximum_s": 18.624645882984623,
+          "count": 165
+        },
+        "all_successful": {
+          "mean_s": 13.494096971712443,
+          "median_s": 13.58627505786717,
+          "p90_s": 16.05879843072034,
+          "p95_s": 16.672610790049657,
+          "maximum_s": 18.624645882984623,
+          "count": 165
+        },
+        "failed_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "timed_out_calls": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "retry_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "ollama_eval_successful_seconds": {
+          "mean_s": 6.200379727272727,
+          "median_s": 6.040965,
+          "p90_s": 6.6556822,
+          "p95_s": 6.7125932,
+          "maximum_s": 10.731316,
+          "count": 165
+        },
+        "ollama_eval_failed_seconds": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        }
+      },
+      "per_class": {
+        "CORRECT": {
+          "precision": 0.8947368421052632,
+          "recall": 0.9444444444444444,
+          "f1": 0.918918918918919,
+          "support": 90
+        },
+        "WRONG": {
+          "precision": 0.8571428571428571,
+          "recall": 0.6666666666666666,
+          "f1": 0.75,
+          "support": 45
+        },
+        "HALLUCINATION": {
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.8571428571428571,
+          "support": 15
+        },
+        "MALICIOUS": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 15
+        }
+      },
+      "confusion_matrix": {
+        "CORRECT": {
+          "CORRECT": 85,
+          "WRONG": 5,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "WRONG": {
+          "CORRECT": 10,
+          "WRONG": 30,
+          "HALLUCINATION": 5,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "HALLUCINATION": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 15,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "MALICIOUS": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 15,
+          "INVALID": 0
+        }
+      }
+    },
+    "per_group_metrics": {
+      "A": {
+        "total": 90,
+        "valid": 90,
+        "accuracy": 0.9444444444444444,
+        "macro_precision": 0.25,
+        "macro_recall": 0.2361111111111111,
+        "macro_f1": 0.24285714285714285,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 0.9444444444444444,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.05555555555555555,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 5,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 0.9444444444444444,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.05555555555555555,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 5,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 90,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 12.890710818493325,
+            "median_s": 13.30785950680729,
+            "p90_s": 14.836580021702684,
+            "p95_s": 14.883351557841525,
+            "maximum_s": 15.246770123951137,
+            "count": 90
+          },
+          "all_successful": {
+            "mean_s": 12.890710818493325,
+            "median_s": 13.30785950680729,
+            "p90_s": 14.836580021702684,
+            "p95_s": 14.883351557841525,
+            "maximum_s": 15.246770123951137,
+            "count": 90
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.029877211111111,
+            "median_s": 6.0354295,
+            "p90_s": 6.1228222,
+            "p95_s": 6.1403457,
+            "maximum_s": 6.289446,
+            "count": 90
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 1.0,
+            "recall": 0.9444444444444444,
+            "f1": 0.9714285714285714,
+            "support": 90
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 85,
+            "WRONG": 5,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "B": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 12.23820279391172,
+            "median_s": 12.698922543087974,
+            "p90_s": 14.942064202297479,
+            "p95_s": 15.089931895630434,
+            "maximum_s": 15.113199545070529,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 12.23820279391172,
+            "median_s": 12.698922543087974,
+            "p90_s": 14.942064202297479,
+            "p95_s": 15.089931895630434,
+            "maximum_s": 15.113199545070529,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.8092302,
+            "median_s": 5.720414,
+            "p90_s": 5.870637,
+            "p95_s": 6.169675300000001,
+            "maximum_s": 6.78779,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 15,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "C": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 14.065434981541086,
+            "median_s": 13.58627505786717,
+            "p90_s": 15.948142134491354,
+            "p95_s": 16.482420496013948,
+            "maximum_s": 16.681978525826707,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 14.065434981541086,
+            "median_s": 13.58627505786717,
+            "p90_s": 15.948142134491354,
+            "p95_s": 16.482420496013948,
+            "maximum_s": 16.681978525826707,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.623199666666666,
+            "median_s": 6.614383,
+            "p90_s": 6.7066152,
+            "p95_s": 6.7166314,
+            "maximum_s": 6.739492,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 15,
+            "INVALID": 0
+          }
+        }
+      },
+      "D": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 16.698506141345327,
+            "median_s": 16.735516076907516,
+            "p90_s": 18.31342698670924,
+            "p95_s": 18.485611346014775,
+            "maximum_s": 18.624645882984623,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 16.698506141345327,
+            "median_s": 16.735516076907516,
+            "p90_s": 18.31342698670924,
+            "p95_s": 18.485611346014775,
+            "maximum_s": 18.624645882984623,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.6303092,
+            "median_s": 6.65293,
+            "p90_s": 6.7229184,
+            "p95_s": 6.7455703,
+            "maximum_s": 6.784603,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 15,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "E": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 13.406019503902645,
+            "median_s": 13.881084227003157,
+            "p90_s": 15.188120902795344,
+            "p95_s": 15.865209412411787,
+            "maximum_s": 16.196691963123158,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 13.406019503902645,
+            "median_s": 13.881084227003157,
+            "p90_s": 15.188120902795344,
+            "p95_s": 15.865209412411787,
+            "maximum_s": 16.196691963123158,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.861010666666667,
+            "median_s": 5.772885,
+            "p90_s": 5.9531676,
+            "p95_s": 6.3119841,
+            "maximum_s": 6.963227,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 15,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "F": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.0,
+        "macro_precision": 0.0,
+        "macro_recall": 0.0,
+        "macro_f1": 0.0,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.3333333333333333,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.6666666666666666,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 10
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.3333333333333333,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.6666666666666666,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 10
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 14.682638357176135,
+            "median_s": 14.998543926980346,
+            "p90_s": 15.996446337923407,
+            "p95_s": 16.29435939155519,
+            "maximum_s": 16.478332504164428,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 14.682638357176135,
+            "median_s": 14.998543926980346,
+            "p90_s": 15.996446337923407,
+            "p95_s": 16.29435939155519,
+            "maximum_s": 16.478332504164428,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 7.101164,
+            "median_s": 6.125684,
+            "p90_s": 10.6781422,
+            "p95_s": 10.7032831,
+            "maximum_s": 10.731316,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 10,
+            "WRONG": 0,
+            "HALLUCINATION": 5,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      }
+    },
+    "global_failures": [
+      "legitimate_retention (all-candidate) 0.944 < 0.95",
+      "adversarial_rejection (all-candidate) 0.867 < 0.95"
+    ],
+    "group_failures": [
+      "Group F: adversarial_rejection (all-candidate) 0.333 < 0.9"
+    ],
+    "recommendations": [
+      "Model accepted 10 adversarial answer(s) as CORRECT \u2014 review Group D (fabricated evidence) results."
+    ]
+  },
+  "phi4:14b": {
+    "verdict": "REJECTED",
+    "coverage_actual": 165,
+    "coverage_expected": 165,
+    "global_metrics": {
+      "total": 165,
+      "valid": 165,
+      "accuracy": 0.8666666666666667,
+      "macro_precision": 0.8540296052631579,
+      "macro_recall": 0.8777777777777778,
+      "macro_f1": 0.8219353583871731,
+      "all_candidate": {
+        "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 1.0,
+        "adversarial_rejection": 0.9333333333333333,
+        "false_rejection": 0.0,
+        "false_acceptance": 0.06666666666666667,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 0,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 5
+        }
+      },
+      "conditional": {
+        "denominator_description": "records with valid parseable output only",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 1.0,
+        "adversarial_rejection": 0.9333333333333333,
+        "false_rejection": 0.0,
+        "false_acceptance": 0.06666666666666667,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 0,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 5
+        }
+      },
+      "invalid_output_rate": 0.0,
+      "retry_rate": 0.0,
+      "timeout_rate": 0.0,
+      "http_error_rate": 0.0,
+      "parse_error_rate": 0.0,
+      "coverage_actual": 165,
+      "coverage_expected": 165,
+      "latency": {
+        "warm_successful": {
+          "mean_s": 14.240572997762568,
+          "median_s": 14.206467362120748,
+          "p90_s": 17.107941614463925,
+          "p95_s": 18.29395555621013,
+          "maximum_s": 20.352186704985797,
+          "count": 165
+        },
+        "all_successful": {
+          "mean_s": 14.240572997762568,
+          "median_s": 14.206467362120748,
+          "p90_s": 17.107941614463925,
+          "p95_s": 18.29395555621013,
+          "maximum_s": 20.352186704985797,
+          "count": 165
+        },
+        "failed_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "timed_out_calls": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "retry_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "ollama_eval_successful_seconds": {
+          "mean_s": 5.696760545454546,
+          "median_s": 5.477942,
+          "p90_s": 6.2425798,
+          "p95_s": 6.6414036,
+          "maximum_s": 7.368543,
+          "count": 165
+        },
+        "ollama_eval_failed_seconds": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        }
+      },
+      "per_class": {
+        "CORRECT": {
+          "precision": 0.9473684210526315,
+          "recall": 1.0,
+          "f1": 0.972972972972973,
+          "support": 90
+        },
+        "WRONG": {
+          "precision": 1.0,
+          "recall": 0.5111111111111111,
+          "f1": 0.676470588235294,
+          "support": 45
+        },
+        "HALLUCINATION": {
+          "precision": 0.46875,
+          "recall": 1.0,
+          "f1": 0.6382978723404256,
+          "support": 15
+        },
+        "MALICIOUS": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 15
+        }
+      },
+      "confusion_matrix": {
+        "CORRECT": {
+          "CORRECT": 90,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "WRONG": {
+          "CORRECT": 5,
+          "WRONG": 23,
+          "HALLUCINATION": 17,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "HALLUCINATION": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 15,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "MALICIOUS": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 15,
+          "INVALID": 0
+        }
+      }
+    },
+    "per_group_metrics": {
+      "A": {
+        "total": 90,
+        "valid": 90,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 1.0,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 1.0,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 90,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 13.60942436439606,
+            "median_s": 13.985105020576157,
+            "p90_s": 15.680684476252646,
+            "p95_s": 15.898224421346095,
+            "maximum_s": 17.7066214249935,
+            "count": 90
+          },
+          "all_successful": {
+            "mean_s": 13.60942436439606,
+            "median_s": 13.985105020576157,
+            "p90_s": 15.680684476252646,
+            "p95_s": 15.898224421346095,
+            "maximum_s": 17.7066214249935,
+            "count": 90
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.554601555555555,
+            "median_s": 5.407117,
+            "p90_s": 6.5099282,
+            "p95_s": 6.62984185,
+            "maximum_s": 6.859517,
+            "count": 90
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 90
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 90,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "B": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.9333333333333333,
+        "macro_precision": 0.25,
+        "macro_recall": 0.23333333333333334,
+        "macro_f1": 0.2413793103448276,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 13.031252020395671,
+            "median_s": 13.138377377064899,
+            "p90_s": 15.844167487416417,
+            "p95_s": 16.034932049992495,
+            "maximum_s": 16.294205154990777,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 13.031252020395671,
+            "median_s": 13.138377377064899,
+            "p90_s": 15.844167487416417,
+            "p95_s": 16.034932049992495,
+            "maximum_s": 16.294205154990777,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.5844654,
+            "median_s": 5.403338,
+            "p90_s": 5.9844034,
+            "p95_s": 6.2192945,
+            "maximum_s": 6.716102,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 0.9333333333333333,
+            "f1": 0.9655172413793104,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 14,
+            "HALLUCINATION": 1,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "C": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 14.370425839318584,
+            "median_s": 13.63058505114168,
+            "p90_s": 16.854474525107072,
+            "p95_s": 17.034143514512106,
+            "maximum_s": 17.090383279835805,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 14.370425839318584,
+            "median_s": 13.63058505114168,
+            "p90_s": 16.854474525107072,
+            "p95_s": 17.034143514512106,
+            "maximum_s": 17.090383279835805,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.9198830000000005,
+            "median_s": 5.809499,
+            "p90_s": 6.2010394,
+            "p95_s": 6.483100100000001,
+            "maximum_s": 7.004262,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 15,
+            "INVALID": 0
+          }
+        }
+      },
+      "D": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 18.182473776567107,
+            "median_s": 18.402100334875286,
+            "p90_s": 20.046030988171697,
+            "p95_s": 20.272385936323552,
+            "maximum_s": 20.352186704985797,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 18.182473776567107,
+            "median_s": 18.402100334875286,
+            "p90_s": 20.046030988171697,
+            "p95_s": 20.272385936323552,
+            "maximum_s": 20.352186704985797,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.175716266666667,
+            "median_s": 6.10291,
+            "p90_s": 6.2542012,
+            "p95_s": 6.602341200000001,
+            "maximum_s": 7.356538,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 15,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "E": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.3333333333333333,
+        "macro_precision": 0.25,
+        "macro_recall": 0.08333333333333333,
+        "macro_f1": 0.125,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 14.743165928963572,
+            "median_s": 14.585398041177541,
+            "p90_s": 17.16072109984234,
+            "p95_s": 17.56886113935616,
+            "maximum_s": 17.864204426063225,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 14.743165928963572,
+            "median_s": 14.585398041177541,
+            "p90_s": 17.16072109984234,
+            "p95_s": 17.56886113935616,
+            "maximum_s": 17.864204426063225,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.943502,
+            "median_s": 6.018917,
+            "p90_s": 6.166910199999999,
+            "p95_s": 6.542149600000001,
+            "maximum_s": 7.368543,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 0.3333333333333333,
+            "f1": 0.5,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 5,
+            "HALLUCINATION": 10,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "F": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.26666666666666666,
+        "macro_precision": 0.25,
+        "macro_recall": 0.06666666666666667,
+        "macro_f1": 0.10526315789473685,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.6666666666666666,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.3333333333333333,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 5
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.6666666666666666,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.3333333333333333,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 5
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 14.662439223766947,
+            "median_s": 15.517895545810461,
+            "p90_s": 16.737041325867175,
+            "p95_s": 16.861936237243935,
+            "maximum_s": 16.892785876989365,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 14.662439223766947,
+            "median_s": 15.517895545810461,
+            "p90_s": 16.737041325867175,
+            "p95_s": 16.861936237243935,
+            "maximum_s": 16.892785876989365,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 5.71319,
+            "median_s": 5.579804,
+            "p90_s": 6.0398044,
+            "p95_s": 6.1275757,
+            "maximum_s": 6.312655,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 0.26666666666666666,
+            "f1": 0.4210526315789474,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 5,
+            "WRONG": 4,
+            "HALLUCINATION": 6,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      }
+    },
+    "global_failures": [
+      "adversarial_rejection (all-candidate) 0.933 < 0.95"
+    ],
+    "group_failures": [
+      "Group F: adversarial_rejection (all-candidate) 0.667 < 0.9"
+    ],
+    "recommendations": [
+      "Model accepted 5 adversarial answer(s) as CORRECT \u2014 review Group D (fabricated evidence) results."
+    ]
+  },
+  "phi4-reasoning:14b": {
+    "verdict": "REJECTED",
+    "coverage_actual": 165,
+    "coverage_expected": 165,
+    "global_metrics": {
+      "total": 165,
+      "valid": 165,
+      "accuracy": 0.8484848484848485,
+      "macro_precision": 0.8920454545454546,
+      "macro_recall": 0.8055555555555556,
+      "macro_f1": 0.8178571428571428,
+      "all_candidate": {
+        "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 1.0,
+        "adversarial_rejection": 0.7333333333333333,
+        "false_rejection": 0.0,
+        "false_acceptance": 0.26666666666666666,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 0,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 20
+        }
+      },
+      "conditional": {
+        "denominator_description": "records with valid parseable output only",
+        "legitimate_count": 90,
+        "adversarial_count": 75,
+        "legitimate_retention": 1.0,
+        "adversarial_rejection": 0.7333333333333333,
+        "false_rejection": 0.0,
+        "false_acceptance": 0.26666666666666666,
+        "legitimate_invalid": 0,
+        "adversarial_invalid": 0,
+        "false_breakdown": {
+          "leg_to_wrong": 0,
+          "leg_to_hallucination": 0,
+          "leg_to_malicious": 0,
+          "adv_to_correct": 20
+        }
+      },
+      "invalid_output_rate": 0.0,
+      "retry_rate": 0.0,
+      "timeout_rate": 0.0,
+      "http_error_rate": 0.0,
+      "parse_error_rate": 0.0,
+      "coverage_actual": 165,
+      "coverage_expected": 165,
+      "latency": {
+        "warm_successful": {
+          "mean_s": 13.70453770437532,
+          "median_s": 13.682232465827838,
+          "p90_s": 16.174824310094117,
+          "p95_s": 17.170179083570837,
+          "maximum_s": 19.058787540066987,
+          "count": 165
+        },
+        "all_successful": {
+          "mean_s": 13.70453770437532,
+          "median_s": 13.682232465827838,
+          "p90_s": 16.174824310094117,
+          "p95_s": 17.170179083570837,
+          "maximum_s": 19.058787540066987,
+          "count": 165
+        },
+        "failed_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "timed_out_calls": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "retry_attempts": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        },
+        "ollama_eval_successful_seconds": {
+          "mean_s": 6.221735024242424,
+          "median_s": 6.093391,
+          "p90_s": 6.754925,
+          "p95_s": 6.8052736000000005,
+          "maximum_s": 7.763286,
+          "count": 165
+        },
+        "ollama_eval_failed_seconds": {
+          "mean_s": 0.0,
+          "median_s": 0.0,
+          "p90_s": 0.0,
+          "p95_s": 0.0,
+          "maximum_s": 0.0,
+          "count": 0
+        }
+      },
+      "per_class": {
+        "CORRECT": {
+          "precision": 0.8181818181818182,
+          "recall": 1.0,
+          "f1": 0.9,
+          "support": 90
+        },
+        "WRONG": {
+          "precision": 1.0,
+          "recall": 0.5555555555555556,
+          "f1": 0.7142857142857143,
+          "support": 45
+        },
+        "HALLUCINATION": {
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.8571428571428571,
+          "support": 15
+        },
+        "MALICIOUS": {
+          "precision": 1.0,
+          "recall": 0.6666666666666666,
+          "f1": 0.8,
+          "support": 15
+        }
+      },
+      "confusion_matrix": {
+        "CORRECT": {
+          "CORRECT": 90,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "WRONG": {
+          "CORRECT": 15,
+          "WRONG": 25,
+          "HALLUCINATION": 5,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "HALLUCINATION": {
+          "CORRECT": 0,
+          "WRONG": 0,
+          "HALLUCINATION": 15,
+          "MALICIOUS": 0,
+          "INVALID": 0
+        },
+        "MALICIOUS": {
+          "CORRECT": 5,
+          "WRONG": 0,
+          "HALLUCINATION": 0,
+          "MALICIOUS": 10,
+          "INVALID": 0
+        }
+      }
+    },
+    "per_group_metrics": {
+      "A": {
+        "total": 90,
+        "valid": 90,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 1.0,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 90,
+          "adversarial_count": 0,
+          "legitimate_retention": 1.0,
+          "adversarial_rejection": 0.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 90,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 13.169651339001332,
+            "median_s": 13.541180977481417,
+            "p90_s": 15.002623120532371,
+            "p95_s": 15.16144580085529,
+            "maximum_s": 15.611873006913811,
+            "count": 90
+          },
+          "all_successful": {
+            "mean_s": 13.169651339001332,
+            "median_s": 13.541180977481417,
+            "p90_s": 15.002623120532371,
+            "p95_s": 15.16144580085529,
+            "maximum_s": 15.611873006913811,
+            "count": 90
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.139355,
+            "median_s": 6.067759,
+            "p90_s": 6.2524406,
+            "p95_s": 6.30319095,
+            "maximum_s": 7.763286,
+            "count": 90
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 90
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 90,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "B": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.6666666666666666,
+        "macro_precision": 0.25,
+        "macro_recall": 0.16666666666666666,
+        "macro_f1": 0.2,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.6666666666666666,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.3333333333333333,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 5
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.6666666666666666,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.3333333333333333,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 5
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 12.70829956351469,
+            "median_s": 13.151657602051273,
+            "p90_s": 15.216052550915629,
+            "p95_s": 15.277335706329904,
+            "maximum_s": 15.340615928871557,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 12.70829956351469,
+            "median_s": 13.151657602051273,
+            "p90_s": 15.216052550915629,
+            "p95_s": 15.277335706329904,
+            "maximum_s": 15.340615928871557,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.079067,
+            "median_s": 6.055706,
+            "p90_s": 6.1666184,
+            "p95_s": 6.1866561,
+            "maximum_s": 6.204091,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 5,
+            "WRONG": 10,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "C": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.6666666666666666,
+        "macro_precision": 0.25,
+        "macro_recall": 0.16666666666666666,
+        "macro_f1": 0.2,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.6666666666666666,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.3333333333333333,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 5
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.6666666666666666,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.3333333333333333,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 5
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 13.787544627611835,
+            "median_s": 13.637118573999032,
+            "p90_s": 15.430957030830905,
+            "p95_s": 15.699496563710273,
+            "maximum_s": 15.771692122099921,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 13.787544627611835,
+            "median_s": 13.637118573999032,
+            "p90_s": 15.430957030830905,
+            "p95_s": 15.699496563710273,
+            "maximum_s": 15.771692122099921,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.3080636,
+            "median_s": 6.380937,
+            "p90_s": 6.4943026,
+            "p95_s": 6.5395328,
+            "maximum_s": 6.635339,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 15
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 5,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 10,
+            "INVALID": 0
+          }
+        }
+      },
+      "D": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 17.29228310120913,
+            "median_s": 17.182826241943985,
+            "p90_s": 18.95230210488662,
+            "p95_s": 19.011114523094147,
+            "maximum_s": 19.058787540066987,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 17.29228310120913,
+            "median_s": 17.182826241943985,
+            "p90_s": 18.95230210488662,
+            "p95_s": 19.011114523094147,
+            "maximum_s": 19.058787540066987,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.777280266666667,
+            "median_s": 6.766008,
+            "p90_s": 6.8635372,
+            "p95_s": 6.86923,
+            "maximum_s": 6.869286,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "HALLUCINATION": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 15,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "E": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 1.0,
+        "macro_precision": 0.25,
+        "macro_recall": 0.25,
+        "macro_f1": 0.25,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 1.0,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.0,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 0
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 13.758860058058053,
+            "median_s": 13.656146558001637,
+            "p90_s": 15.7886875343509,
+            "p95_s": 16.521680667763576,
+            "maximum_s": 17.06503901211545,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 13.758860058058053,
+            "median_s": 13.656146558001637,
+            "p90_s": 15.7886875343509,
+            "p95_s": 16.521680667763576,
+            "maximum_s": 17.06503901211545,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.0957254,
+            "median_s": 6.066117,
+            "p90_s": 6.2163586,
+            "p95_s": 6.2434845,
+            "maximum_s": 6.293468,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 0,
+            "WRONG": 15,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      },
+      "F": {
+        "total": 15,
+        "valid": 15,
+        "accuracy": 0.0,
+        "macro_precision": 0.0,
+        "macro_recall": 0.0,
+        "macro_f1": 0.0,
+        "all_candidate": {
+          "denominator_description": "all scheduled records (timeouts and errors count as failures)",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.3333333333333333,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.6666666666666666,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 10
+          }
+        },
+        "conditional": {
+          "denominator_description": "records with valid parseable output only",
+          "legitimate_count": 0,
+          "adversarial_count": 15,
+          "legitimate_retention": 0.0,
+          "adversarial_rejection": 0.3333333333333333,
+          "false_rejection": 0.0,
+          "false_acceptance": 0.6666666666666666,
+          "legitimate_invalid": 0,
+          "adversarial_invalid": 0,
+          "false_breakdown": {
+            "leg_to_wrong": 0,
+            "leg_to_hallucination": 0,
+            "leg_to_malicious": 0,
+            "adv_to_correct": 10
+          }
+        },
+        "invalid_output_rate": 0.0,
+        "retry_rate": 0.0,
+        "timeout_rate": 0.0,
+        "http_error_rate": 0.0,
+        "parse_error_rate": 0.0,
+        "coverage_actual": 15,
+        "coverage_expected": 0,
+        "latency": {
+          "warm_successful": {
+            "mean_s": 14.1850193637268,
+            "median_s": 14.658436155878007,
+            "p90_s": 16.092605841485785,
+            "p95_s": 16.527446350478566,
+            "maximum_s": 16.57186762103811,
+            "count": 15
+          },
+          "all_successful": {
+            "mean_s": 14.1850193637268,
+            "median_s": 14.658436155878007,
+            "p90_s": 16.092605841485785,
+            "p95_s": 16.527446350478566,
+            "maximum_s": 16.57186762103811,
+            "count": 15
+          },
+          "failed_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "timed_out_calls": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "retry_attempts": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          },
+          "ollama_eval_successful_seconds": {
+            "mean_s": 6.3428189999999995,
+            "median_s": 6.166269,
+            "p90_s": 6.7911142,
+            "p95_s": 6.8538622,
+            "maximum_s": 6.947539,
+            "count": 15
+          },
+          "ollama_eval_failed_seconds": {
+            "mean_s": 0.0,
+            "median_s": 0.0,
+            "p90_s": 0.0,
+            "p95_s": 0.0,
+            "maximum_s": 0.0,
+            "count": 0
+          }
+        },
+        "per_class": {
+          "CORRECT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "WRONG": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 15
+          },
+          "HALLUCINATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "MALICIOUS": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "CORRECT": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "WRONG": {
+            "CORRECT": 10,
+            "WRONG": 0,
+            "HALLUCINATION": 5,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "HALLUCINATION": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          },
+          "MALICIOUS": {
+            "CORRECT": 0,
+            "WRONG": 0,
+            "HALLUCINATION": 0,
+            "MALICIOUS": 0,
+            "INVALID": 0
+          }
+        }
+      }
+    },
+    "global_failures": [
+      "adversarial_rejection (all-candidate) 0.733 < 0.95"
+    ],
+    "group_failures": [
+      "Group B: adversarial_rejection (all-candidate) 0.667 < 0.9",
+      "Group C: adversarial_rejection (all-candidate) 0.667 < 0.9",
+      "Group F: adversarial_rejection (all-candidate) 0.333 < 0.9"
+    ],
+    "recommendations": [
+      "Model accepted 20 adversarial answer(s) as CORRECT \u2014 review Group D (fabricated evidence) results."
+    ]
+  }
+}

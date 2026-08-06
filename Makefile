@@ -433,7 +433,7 @@ test-distributed-mr2-diverse-group-a:
 	@set -o pipefail; \
 	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
 	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
-	go test -tags integration -timeout 5m -v \
+	go test -tags integration -timeout 15m -v \
 		-run TestDistributedMR2_Diverse_GroupA \
 		./integrationtests/... \
 	2>&1 | tee testresults/distributed-mr2-diverse-group-a-$$(date +%Y%m%dT%H%M%S).log; \
@@ -453,7 +453,7 @@ test-distributed-mr2-diverse-group-a-trials:
 		bash scripts/start-cluster.sh; \
 		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
 		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
-		go test -tags integration -timeout 5m \
+		go test -tags integration -timeout 15m \
 			-run TestDistributedMR2_Diverse_GroupA \
 			./integrationtests/... || true; \
 		TRIAL_LOG_DIR=$(CURDIR)/testresults/agent-logs/trial-$$i; \
@@ -691,3 +691,68 @@ print('Certificate vote counts: %s'%[r.get('certificate_vote_count',0) for r in 
 print(f'Duration               : min={min(d):.1f}s avg={sum(d)/len(d):.1f}s max={max(d):.1f}s'); \
 [print('  trial round=%s: %s'%(r['round_number'], ', '.join('%s=%s C%d/W%d/H%d/M%d'%(t['tx_hash'],t['status'],t['correct'],t['wrong'],t['hallucination'],t['malicious']) for t in r.get('tx_results',[])))) for r in results] \
 "
+
+# ── Judge qualification benchmark ─────────────────────────────────────────────
+#
+# Runs the standalone semantic judge benchmark against a live Ollama instance.
+# No blockchain nodes, committees, or consensus rounds are started.
+#
+# Usage:
+#   make benchmark-judge MODEL=qwen3.5:9b
+#   make benchmark-judge MODEL=phi4:14b BENCHMARK_OUTPUT=results/phi4 TRIALS=3
+#   make benchmark-judges
+#   make benchmark-judge-dataset-check
+#
+# Prerequisites:
+#   cd agent-python && python -m pip install -r requirements.txt
+#   ollama pull <MODEL>
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+MODEL             ?= qwen3.5:9b
+BENCHMARK_MODELS  ?= qwen3.5:9b gemma4:12b ministral-3:14b phi4:14b phi4-reasoning:14b
+BENCHMARK_OUTPUT  ?= benchmark_results
+BENCHMARK_URL     ?= http://127.0.0.1:11434
+TRIALS            ?= 1
+BENCHMARK_TIMEOUT ?= 120
+
+.PHONY: benchmark-pull-models
+benchmark-pull-models:
+	@echo "Pulling benchmark models into Ollama (this may take 10-30 min per model)..."
+	@for model in $(BENCHMARK_MODELS); do \
+		echo ""; \
+		echo "=== Pulling $$model ==="; \
+		ollama pull $$model || echo "[WARN] Failed to pull $$model — check the name with: ollama list"; \
+	done
+	@echo ""
+	@echo "=== Available models ==="
+	@ollama list
+
+.PHONY: benchmark-judge
+benchmark-judge:
+	@cd agent-python && \
+	.venv/bin/python -m benchmark run \
+		--model $(MODEL) \
+		--base-url $(BENCHMARK_URL) \
+		--output-dir ../$(BENCHMARK_OUTPUT) \
+		--trials $(TRIALS) \
+		--timeout $(BENCHMARK_TIMEOUT)
+
+.PHONY: benchmark-judges
+benchmark-judges:
+	@cd agent-python && \
+	.venv/bin/python -m benchmark run-all \
+		--base-url $(BENCHMARK_URL) \
+		--output-dir ../$(BENCHMARK_OUTPUT) \
+		--trials $(TRIALS) \
+		--timeout $(BENCHMARK_TIMEOUT)
+
+.PHONY: benchmark-judge-dataset-check
+benchmark-judge-dataset-check:
+	@cd agent-python && \
+	.venv/bin/python -m benchmark check-dataset
+
+.PHONY: test-benchmark
+test-benchmark:
+	@cd agent-python && \
+	.venv/bin/python -m pytest benchmark/tests/ -v

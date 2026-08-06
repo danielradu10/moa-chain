@@ -34,6 +34,18 @@ this file itself.
 bash work/moa-chain/scripts/sync-to-master.sh
 ```
 
+### `collect-benchmark-results.sh`
+
+Pulls standalone judge benchmark outputs from `benchmark_results/` on moa-chain-0 into
+the local repository. It never deletes remote or local files. With no argument it pulls
+all runs; pass a run directory name to collect only that run.
+
+**Usage:**
+```bash
+bash scripts/collect-benchmark-results.sh
+bash scripts/collect-benchmark-results.sh qualification_20260806_run01
+```
+
 ---
 
 ## Cluster scripts (run on moa-chain-0)

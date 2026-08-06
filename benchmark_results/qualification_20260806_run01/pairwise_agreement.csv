@@ -1,0 +1,11 @@
+model_a,model_b,total_shared,agreement_count,agreement_rate,shared_false_acceptances,shared_false_rejections
+gemma4:12b,ministral-3:14b,165,145,0.8788,0,0
+gemma4:12b,phi4-reasoning:14b,165,140,0.8485,0,0
+gemma4:12b,phi4:14b,165,143,0.8667,0,0
+gemma4:12b,qwen3.5:9b,165,155,0.9394,0,0
+ministral-3:14b,phi4-reasoning:14b,165,150,0.9091,10,0
+ministral-3:14b,phi4:14b,165,144,0.8727,5,0
+ministral-3:14b,qwen3.5:9b,165,140,0.8485,0,0
+phi4-reasoning:14b,phi4:14b,165,139,0.8424,5,0
+phi4-reasoning:14b,qwen3.5:9b,165,135,0.8182,0,0
+phi4:14b,qwen3.5:9b,165,145,0.8788,0,0

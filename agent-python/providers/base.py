@@ -41,7 +41,7 @@ class LLMProvider(Protocol):
         ...
 
     async def ping(self) -> bool:
-        """Return True if the provider is reachable, False otherwise.
+        """Return True if the provider is reachable and the model can serve a request, False otherwise.
 
         Must never raise — used by the health endpoint.
         """

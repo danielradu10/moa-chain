@@ -41,6 +41,7 @@ type distributedMR2DiverseRunResult struct {
 	Group           string                          `json:"group"`
 	RoundNumber     uint64                          `json:"round_number"`
 	NumValidators   int                             `json:"num_validators"`
+	AgentModels     map[string]string               `json:"agent_models"`
 	DurationSeconds float64                         `json:"duration_seconds"`
 	Finalized       bool                            `json:"finalized"`
 	TxResults       []distributedMR2DiverseTxResult `json:"tx_results,omitempty"`
@@ -198,6 +199,7 @@ func runDistributedMR2DiverseRound(
 			Group:           group,
 			RoundNumber:     roundNumber,
 			NumValidators:   n,
+			AgentModels:     clusterAgentModels(cfg),
 			DurationSeconds: roundDuration.Seconds(),
 			Finalized:       false,
 		})
@@ -223,6 +225,7 @@ func runDistributedMR2DiverseRound(
 		Group:           group,
 		RoundNumber:     roundNumber,
 		NumValidators:   n,
+		AgentModels:     clusterAgentModels(cfg),
 		DurationSeconds: roundDuration.Seconds(),
 		Finalized:       true,
 		TxResults:       mr2DiverseTxResults(block),

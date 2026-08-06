@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run on moa-chain-0.
-# Deploys agent-python, installs Ollama, and pulls the model on every cluster machine.
+# Deploys agent-python, installs Ollama, and pulls each machine's model.
+# Each agent now runs a different model; model is specified per-agent in cluster.json.
 #
 # Usage:
 #   cd ~/moa-chain && bash scripts/install-workers.sh
@@ -14,8 +15,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG="$PROJECT_DIR/configs/cluster.json"
 AGENT_SRC="$PROJECT_DIR/agent-python"
 
-# Read model and machine list from cluster.json using Python (always available).
-MODEL=$(python3 -c "import json; print(json.load(open('$CONFIG'))['model'])")
+# Read machine list from cluster.json using Python (always available).
 MACHINES=$(python3 -c "
 import json
 for a in json.load(open('$CONFIG'))['agents']:
@@ -24,7 +24,6 @@ for a in json.load(open('$CONFIG'))['agents']:
 
 echo "=========================================="
 echo " MoA-Chain cluster setup"
-echo " Model : $MODEL"
 echo " Machines: $(echo $MACHINES | tr '\n' ' ')"
 echo "=========================================="
 echo ""
@@ -87,12 +86,14 @@ done
 wait
 echo ""
 
-# ── Step 1c: pull the model ───────────────────────────────────────────────────
+# ── Step 1c: pull the per-machine model ──────────────────────────────────────
+# Each machine runs a different model; pull only that machine's model.
 # Each machine starts Ollama temporarily if it is not already running,
 # pulls the model, then leaves Ollama running (start-cluster.sh will manage it).
 
 pull_model() {
     local machine=$1
+    local model=$2
 
     ssh "$machine" "
         # Start ollama if not already running
@@ -111,22 +112,26 @@ pull_model() {
             done
         fi
 
-        if ollama list | grep -q '$MODEL'; then
-            echo '$MODEL already present, skipping pull'
+        if ollama list | grep -q '$model'; then
+            echo '$model already present, skipping pull'
         else
-            echo 'Pulling $MODEL (this may take several minutes)...'
-            ollama pull $MODEL
+            echo 'Pulling $model (this may take several minutes)...'
+            ollama pull $model
             echo 'Pull complete'
         fi
     " 2>&1 | sed "s/^/[$machine] /"
 }
 
-echo "--- Step 1c: pulling model on all machines in parallel ---"
+echo "--- Step 1c: pulling per-machine models in parallel ---"
 echo "    (this takes 5-10 min per machine on first run)"
 echo ""
-for machine in $MACHINES; do
-    pull_model "$machine" &
-done
+while IFS='|' read -r machine model; do
+    pull_model "$machine" "$model" &
+done < <(python3 -c "
+import json
+for a in json.load(open('$CONFIG'))['agents']:
+    print(f\"{a['machine']}|{a['model']}\")
+")
 wait
 echo ""
 
@@ -135,6 +140,10 @@ echo ""
 echo "=========================================="
 echo " Setup complete. Verify with:"
 echo "=========================================="
-for machine in $MACHINES; do
-    echo "  ssh $machine 'ollama list && ~/agent-python/.venv/bin/python3 -c \"import fastapi; print(fastapi.__version__)\"'"
-done
+while IFS='|' read -r machine model; do
+    echo "  ssh $machine 'ollama list | grep $model && ~/agent-python/.venv/bin/python3 -c \"import fastapi; print(fastapi.__version__)\"'"
+done < <(python3 -c "
+import json
+for a in json.load(open('$CONFIG'))['agents']:
+    print(f\"{a['machine']}|{a['model']}\")
+")

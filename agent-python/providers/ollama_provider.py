@@ -88,9 +88,13 @@ class OllamaProvider:
         )
 
     async def ping(self) -> bool:
-        """Check if the Ollama server is reachable. Never raises."""
+        """Check if Ollama is reachable and the configured model can serve a request. Never raises."""
         try:
-            response = await self._client.get("/api/version", timeout=5.0)
+            response = await self._client.post(
+                "/api/generate",
+                json={"model": self.model, "prompt": "hi", "stream": False},
+                timeout=30.0,
+            )
             return response.status_code == 200
         except Exception:
             return False

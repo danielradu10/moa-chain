@@ -49,6 +49,7 @@ type configurableAdversarialRunResult struct {
 	Group                      string                            `json:"group"`
 	RoundNumber                uint64                            `json:"round_number"`
 	NumValidators              int                               `json:"num_validators"`
+	AgentModels                map[string]string                 `json:"agent_models"`
 	BadProducerCount           int                               `json:"bad_producer_count"`
 	BadProducerIDs             []string                          `json:"bad_producer_ids"`
 	DurationSeconds            float64                           `json:"duration_seconds"`
@@ -337,6 +338,7 @@ func runConfigurableAdversarialMR2Round(
 		Group:                     group,
 		RoundNumber:               roundNumber,
 		NumValidators:             n,
+		AgentModels:               clusterAgentModels(cfg),
 		BadProducerCount:          badProducerCount,
 		BadProducerIDs:            configurableAdversarialBadProducerIDs(badProducerCount),
 		DurationSeconds:           duration.Seconds(),
