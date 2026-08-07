@@ -53,12 +53,13 @@ async def judge(body: JudgeRequest, request: Request) -> JudgeResponse:
         })
         t0 = time.perf_counter()
         logger.info("judge_candidate_start tx=%s candidate=%s", tx_hash, candidate_id)
-        response = await state.provider.raw_chat(
-            system_prompt=body.system_prompt,
-            user_message=single_prompt,
-            timeout_seconds=state.config.llm_timeout_seconds,
-            json_format=True,
-        )
+        async with state.judge_semaphore:
+            response = await state.provider.raw_chat(
+                system_prompt=body.system_prompt,
+                user_message=single_prompt,
+                timeout_seconds=state.config.llm_timeout_seconds,
+                json_format=True,
+            )
         elapsed = time.perf_counter() - t0
         logger.info(
             "judge_raw_response tx=%s candidate=%s elapsed_s=%.3f response=%r",

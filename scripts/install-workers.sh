@@ -14,6 +14,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG="$PROJECT_DIR/configs/cluster.json"
 AGENT_SRC="$PROJECT_DIR/agent-python"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3)
+RSYNC_RSH="ssh -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3"
 
 # Read machine list from cluster.json using Python (always available).
 MACHINES=$(python3 -c "
@@ -35,6 +37,7 @@ deploy_agent() {
 
     echo "[$machine] Deploying agent-python..."
     rsync -az --delete \
+        -e "$RSYNC_RSH" \
         --exclude='.venv' \
         --exclude='__pycache__' \
         --exclude='*.egg-info' \
@@ -45,10 +48,12 @@ deploy_agent() {
         2>&1 | sed "s/^/[$machine] /"
 
     echo "[$machine] Installing Python dependencies..."
-    ssh "$machine" '
-        sudo apt install -y python3.12-venv -q
+    ssh "${SSH_OPTS[@]}" "$machine" '
         cd ~/agent-python
-        python3 -m venv .venv
+        if [ ! -x .venv/bin/python3 ] && ! python3 -m venv .venv; then
+            sudo apt install -y python3.12-venv -q
+            python3 -m venv .venv
+        fi
         .venv/bin/pip install . -q
         echo "deps ok"
     ' 2>&1 | sed "s/^/[$machine] /"
@@ -68,7 +73,7 @@ echo ""
 install_ollama() {
     local machine=$1
 
-    ssh "$machine" '
+    ssh "${SSH_OPTS[@]}" "$machine" '
         if command -v ollama &>/dev/null; then
             echo "ollama already installed: $(ollama --version 2>/dev/null)"
         else
@@ -95,7 +100,7 @@ pull_model() {
     local machine=$1
     local model=$2
 
-    ssh "$machine" "
+    ssh "${SSH_OPTS[@]}" "$machine" "
         # Start ollama if not already running
         if ! curl -sf http://127.0.0.1:11434 > /dev/null 2>&1; then
             echo 'Starting ollama for model pull...'
@@ -112,7 +117,7 @@ pull_model() {
             done
         fi
 
-        if ollama list | grep -q '$model'; then
+        if ollama list | awk 'NR > 1 {print \$1}' | grep -Fxq '$model'; then
             echo '$model already present, skipping pull'
         else
             echo 'Pulling $model (this may take several minutes)...'

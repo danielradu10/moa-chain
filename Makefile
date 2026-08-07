@@ -597,6 +597,52 @@ print(f'Duration   : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1
 # adversarial answer. Supported values: 1, 2, 3.
 
 CLASSIFICATION_GRACE_PERIOD ?= 180s
+
+# ── Qualified-model distributed MR2 experiment ──────────────────────────────
+
+QUALIFIED_RESULTS_DIR ?= $(CURDIR)/experiment-results
+QUALIFIED_TEST_TIMEOUT ?= 45m
+QUALIFIED_ROUND_TIMEOUT ?= 30m
+QUALIFIED_JUDGE_TIMEOUT_SECONDS ?= 1200
+QUALIFIED_LLM_TIMEOUT_SECONDS = $(if $(filter command line,$(origin LLM_TIMEOUT_SECONDS)),$(LLM_TIMEOUT_SECONDS),300)
+
+.PHONY: verify-qualified-cluster-config
+verify-qualified-cluster-config:
+	@python3 scripts/distributed_mr2_qualified.py \
+		--cluster-config $(CLUSTER_CONFIG) \
+		--check-config-only
+
+.PHONY: install-qualified-workers
+install-qualified-workers: verify-qualified-cluster-config
+	@bash scripts/install-workers.sh
+
+.PHONY: test-distributed-mr2-qualified-all
+test-distributed-mr2-qualified-all: TRIALS ?= 5
+test-distributed-mr2-qualified-all: verify-qualified-cluster-config
+	@python3 scripts/distributed_mr2_qualified.py \
+		--trials $(TRIALS) \
+		--cluster-config $(CLUSTER_CONFIG) \
+		--output-base $(QUALIFIED_RESULTS_DIR) \
+		--classification-grace-period $(CLASSIFICATION_GRACE_PERIOD) \
+		--llm-timeout-seconds $(QUALIFIED_LLM_TIMEOUT_SECONDS) \
+		--judge-timeout-seconds $(QUALIFIED_JUDGE_TIMEOUT_SECONDS) \
+		--round-timeout $(QUALIFIED_ROUND_TIMEOUT) \
+		--test-timeout $(QUALIFIED_TEST_TIMEOUT) \
+		--make-command "make test-distributed-mr2-qualified-all TRIALS=$(TRIALS) CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD) LLM_TIMEOUT_SECONDS=$(QUALIFIED_LLM_TIMEOUT_SECONDS) QUALIFIED_JUDGE_TIMEOUT_SECONDS=$(QUALIFIED_JUDGE_TIMEOUT_SECONDS) QUALIFIED_ROUND_TIMEOUT=$(QUALIFIED_ROUND_TIMEOUT) QUALIFIED_TEST_TIMEOUT=$(QUALIFIED_TEST_TIMEOUT)"
+
+.PHONY: test-distributed-mr2-qualified-dry-run
+test-distributed-mr2-qualified-dry-run: TRIALS ?= 5
+test-distributed-mr2-qualified-dry-run: verify-qualified-cluster-config
+	@python3 scripts/distributed_mr2_qualified.py \
+		--trials $(TRIALS) \
+		--cluster-config $(CLUSTER_CONFIG) \
+		--output-base $(QUALIFIED_RESULTS_DIR) \
+		--classification-grace-period $(CLASSIFICATION_GRACE_PERIOD) \
+		--llm-timeout-seconds $(QUALIFIED_LLM_TIMEOUT_SECONDS) \
+		--judge-timeout-seconds $(QUALIFIED_JUDGE_TIMEOUT_SECONDS) \
+		--round-timeout $(QUALIFIED_ROUND_TIMEOUT) \
+		--test-timeout $(QUALIFIED_TEST_TIMEOUT) \
+		--dry-run
 ANSWER_JUDGE_PROMPT_VERSION ?= answer-judge-v4
 
 .PHONY: test-distributed-mr2-diverse-group-d

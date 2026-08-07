@@ -11,6 +11,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG="$PROJECT_DIR/configs/cluster.json"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3)
 
 STOP_OLLAMA=false
 if [ "${1:-}" = "--stop-ollama" ]; then
@@ -34,7 +35,7 @@ echo ""
 stop_machine() {
     local machine=$1
 
-    ssh "$machine" "
+    ssh "${SSH_OPTS[@]}" "$machine" "
         if pkill -f 'uvicorn app:app' 2>/dev/null; then
             echo 'agent stopped'
         else

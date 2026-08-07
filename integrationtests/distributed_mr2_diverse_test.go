@@ -34,17 +34,26 @@ type distributedMR2DiverseTxResult struct {
 	Wrong         int    `json:"wrong"`
 	Hallucination int    `json:"hallucination"`
 	Malicious     int    `json:"malicious"`
+
+	CorrectCandidates       []configurableAdversarialCandidate `json:"correct_candidates"`
+	WrongCandidates         []configurableAdversarialCandidate `json:"wrong_candidates"`
+	HallucinationCandidates []configurableAdversarialCandidate `json:"hallucination_candidates"`
+	MaliciousCandidates     []configurableAdversarialCandidate `json:"malicious_candidates"`
 }
 
 type distributedMR2DiverseRunResult struct {
-	Timestamp       string                          `json:"timestamp"`
-	Group           string                          `json:"group"`
-	RoundNumber     uint64                          `json:"round_number"`
-	NumValidators   int                             `json:"num_validators"`
-	AgentModels     map[string]string               `json:"agent_models"`
-	DurationSeconds float64                         `json:"duration_seconds"`
-	Finalized       bool                            `json:"finalized"`
-	TxResults       []distributedMR2DiverseTxResult `json:"tx_results,omitempty"`
+	Timestamp                     string                          `json:"timestamp"`
+	Group                         string                          `json:"group"`
+	RoundNumber                   uint64                          `json:"round_number"`
+	NumValidators                 int                             `json:"num_validators"`
+	AgentModels                   map[string]string               `json:"agent_models"`
+	BadProducerIDs                []string                        `json:"bad_producer_ids"`
+	ClassificationVoteSource      string                          `json:"classification_vote_source,omitempty"`
+	ClassificationVotes           []qualifiedClassificationVote   `json:"classification_votes,omitempty"`
+	MissingClassificationJudgeIDs []string                        `json:"missing_classification_judge_ids,omitempty"`
+	DurationSeconds               float64                         `json:"duration_seconds"`
+	Finalized                     bool                            `json:"finalized"`
+	TxResults                     []distributedMR2DiverseTxResult `json:"tx_results,omitempty"`
 }
 
 func saveDistributedMR2DiverseResult(t *testing.T, result distributedMR2DiverseRunResult) {
@@ -72,12 +81,16 @@ func mr2DiverseTxResults(block *data.BlockOnChain) []distributedMR2DiverseTxResu
 	out := make([]distributedMR2DiverseTxResult, 0, len(block.AnswerClassifications))
 	for _, tx := range block.AnswerClassifications {
 		out = append(out, distributedMR2DiverseTxResult{
-			TxHash:        string(tx.TxHash),
-			Status:        string(tx.Status),
-			Correct:       len(tx.Groups.Correct),
-			Wrong:         len(tx.Groups.Wrong),
-			Hallucination: len(tx.Groups.Hallucination),
-			Malicious:     len(tx.Groups.Malicious),
+			TxHash:                  string(tx.TxHash),
+			Status:                  string(tx.Status),
+			Correct:                 len(tx.Groups.Correct),
+			Wrong:                   len(tx.Groups.Wrong),
+			Hallucination:           len(tx.Groups.Hallucination),
+			Malicious:               len(tx.Groups.Malicious),
+			CorrectCandidates:       configurableAdversarialCandidates(tx.Groups.Correct),
+			WrongCandidates:         configurableAdversarialCandidates(tx.Groups.Wrong),
+			HallucinationCandidates: configurableAdversarialCandidates(tx.Groups.Hallucination),
+			MaliciousCandidates:     configurableAdversarialCandidates(tx.Groups.Malicious),
 		})
 	}
 	return out
@@ -123,7 +136,7 @@ func runDistributedMR2DiverseRound(
 		judgeClient := httpclient.New(httpclient.Config{
 			BaseURL:             entry.URL,
 			TimeoutSeconds:      720,
-			JudgeTimeoutSeconds: 150,
+			JudgeTimeoutSeconds: qualifiedJudgeTimeoutSeconds(t, 150),
 			LabelPromptVersion:  "labeler_v3",
 			AnswerPromptVersion: "answerer_v1",
 		})
@@ -181,9 +194,16 @@ func runDistributedMR2DiverseRound(
 			}
 		}
 		return true
-	}, 6*time.Minute, 5*time.Second)
+	}, qualifiedRoundTimeout(t, 6*time.Minute), 5*time.Second)
 
 	roundDuration := time.Since(roundStart)
+	badProducerIDs := []string(nil)
+	if badAnswers != nil {
+		badProducerIDs = qualifiedBadProducerIDs(4)
+	}
+	voteSource, classificationVotes := collectQualifiedClassificationVotes(
+		nodes, mr2Key, cfg, group, badProducerIDs, nil,
+	)
 
 	for _, inbox := range inboxes {
 		inbox <- data.RoundEvent{Type: data.StopEvent}
@@ -195,13 +215,17 @@ func runDistributedMR2DiverseRound(
 			"(judge HTTP timeout, leader vote collection failure, or classification disagreement).",
 			group, roundNumber, roundDuration.Round(time.Second))
 		saveDistributedMR2DiverseResult(t, distributedMR2DiverseRunResult{
-			Timestamp:       time.Now().UTC().Format(time.RFC3339),
-			Group:           group,
-			RoundNumber:     roundNumber,
-			NumValidators:   n,
-			AgentModels:     clusterAgentModels(cfg),
-			DurationSeconds: roundDuration.Seconds(),
-			Finalized:       false,
+			Timestamp:                     time.Now().UTC().Format(time.RFC3339),
+			Group:                         group,
+			RoundNumber:                   roundNumber,
+			NumValidators:                 n,
+			AgentModels:                   clusterAgentModels(cfg),
+			BadProducerIDs:                badProducerIDs,
+			ClassificationVoteSource:      voteSource,
+			ClassificationVotes:           classificationVotes,
+			MissingClassificationJudgeIDs: qualifiedMissingJudgeIDs(classificationVotes, n),
+			DurationSeconds:               roundDuration.Seconds(),
+			Finalized:                     false,
 		})
 		return nil, false
 	}
@@ -221,14 +245,18 @@ func runDistributedMR2DiverseRound(
 	logMR2BlockSummary(t, block)
 
 	saveDistributedMR2DiverseResult(t, distributedMR2DiverseRunResult{
-		Timestamp:       time.Now().UTC().Format(time.RFC3339),
-		Group:           group,
-		RoundNumber:     roundNumber,
-		NumValidators:   n,
-		AgentModels:     clusterAgentModels(cfg),
-		DurationSeconds: roundDuration.Seconds(),
-		Finalized:       true,
-		TxResults:       mr2DiverseTxResults(block),
+		Timestamp:                     time.Now().UTC().Format(time.RFC3339),
+		Group:                         group,
+		RoundNumber:                   roundNumber,
+		NumValidators:                 n,
+		AgentModels:                   clusterAgentModels(cfg),
+		BadProducerIDs:                badProducerIDs,
+		ClassificationVoteSource:      voteSource,
+		ClassificationVotes:           classificationVotes,
+		MissingClassificationJudgeIDs: qualifiedMissingJudgeIDs(classificationVotes, n),
+		DurationSeconds:               roundDuration.Seconds(),
+		Finalized:                     true,
+		TxResults:                     mr2DiverseTxResults(block),
 	})
 
 	return block, true

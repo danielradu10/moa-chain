@@ -16,8 +16,10 @@ class _MockTransport(httpx.AsyncBaseTransport):
     def __init__(self, status_code: int, body: bytes) -> None:
         self._status_code = status_code
         self._body = body
+        self.last_request: httpx.Request | None = None
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        self.last_request = request
         return httpx.Response(
             status_code=self._status_code,
             headers={"content-type": "application/json"},
@@ -100,12 +102,36 @@ async def test_raw_chat_returns_content_string() -> None:
     assert result == '{"key": "value"}'
 
 
+async def test_raw_chat_sends_qualified_generation_options() -> None:
+    transport = _MockTransport(200, _ollama_body('{"key": "value"}'))
+    client = httpx.AsyncClient(transport=transport, base_url="http://test")
+    provider = OllamaProvider(
+        base_url="http://test", model="test-model", temperature=0.0,
+        num_ctx=4096, num_predict=256, think=False, client=client,
+    )
+    await provider.raw_chat("sys", "user", timeout_seconds=5.0, json_format=True)
+    assert transport.last_request is not None
+    payload = json.loads(transport.last_request.content)
+    assert payload["stream"] is False
+    assert payload["think"] is False
+    assert payload["options"] == {
+        "temperature": 0.0, "num_ctx": 4096, "num_predict": 256,
+    }
+    assert payload["format"] == "json"
+
+
 # --- ping ---
 
-async def test_ping_returns_true_on_200() -> None:
-    body = json.dumps({"version": "0.5.1"}).encode()
+async def test_ping_returns_true_when_model_is_present() -> None:
+    body = json.dumps({"models": [{"name": "test-model", "model": "test-model"}]}).encode()
     provider = _make_provider(_MockTransport(200, body))
     assert await provider.ping() is True
+
+
+async def test_ping_returns_false_when_model_is_absent() -> None:
+    body = json.dumps({"models": [{"name": "another-model"}]}).encode()
+    provider = _make_provider(_MockTransport(200, body))
+    assert await provider.ping() is False
 
 
 async def test_ping_returns_false_on_connection_error() -> None:

@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # Per-request timeout in seconds. Applied to every individual Ollama call.
     llm_timeout_seconds: float = 60.0
 
+    # Explicit Ollama generation bounds used by qualified MR2 judges.
+    llm_num_ctx: int = 4096
+    llm_num_predict: int = 256
+    llm_think: bool = False
+
     # How many label/answer/judge LLM calls can be in-flight at the same time.
     # Set OLLAMA_NUM_PARALLEL on the Ollama process to the same value for full parallelism.
     label_max_concurrency: int = 4

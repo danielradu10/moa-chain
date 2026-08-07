@@ -14,12 +14,12 @@ CONFIG="$PROJECT_DIR/configs/cluster.json"
 echo "=========================================="
 echo " Cluster health check"
 echo "=========================================="
-printf "\n%-14s %-30s %-6s %-8s %s\n" "MACHINE" "URL" "TEMP" "AGENT" "OLLAMA"
-printf "%-14s %-30s %-6s %-8s %s\n" "-------" "---" "----" "-----" "------"
+printf "\n%-14s %-30s %-15s %-6s %-8s %s\n" "MACHINE" "URL" "MODEL" "TEMP" "AGENT" "OLLAMA"
+printf "%-14s %-30s %-15s %-6s %-8s %s\n" "-------" "---" "-----" "----" "-----" "------"
 
 ALL_OK=true
 
-while IFS='|' read -r machine url temp; do
+while IFS='|' read -r machine url temp model; do
     response=$(curl -sf --max-time 5 "$url/health" 2>/dev/null || true)
 
     if [ -z "$response" ]; then
@@ -45,11 +45,16 @@ except Exception as e:
         fi
     fi
 
-    printf "%-14s %-30s %-6s %-8s %s\n" "$machine" "$url" "$temp" "$agent_status" "$ollama_status"
+    actual_model=$(python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('model',''))" <<< "${response:-{}}" 2>/dev/null || true)
+    if [ -n "$response" ] && [ "$actual_model" != "$model" ]; then
+        agent_status="MODEL_MISMATCH"
+        ALL_OK=false
+    fi
+    printf "%-14s %-30s %-15s %-6s %-8s %s\n" "$machine" "$url" "$model" "$temp" "$agent_status" "$ollama_status"
 done < <(python3 -c "
 import json
 for a in json.load(open('$CONFIG'))['agents']:
-    print(f\"{a['machine']}|{a['url']}|{a['temperature']}\")
+    print(f\"{a['machine']}|{a['url']}|{a['temperature']}|{a['model']}\")
 ")
 
 echo ""

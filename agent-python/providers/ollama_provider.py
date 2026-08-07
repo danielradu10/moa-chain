@@ -25,10 +25,16 @@ class OllamaProvider:
         base_url: str,
         model: str,
         temperature: float = 0.0,
+        num_ctx: int = 4096,
+        num_predict: int = 256,
+        think: bool = False,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.model = model
         self.temperature = temperature
+        self.num_ctx = num_ctx
+        self.num_predict = num_predict
+        self.think = think
 
         # Allow injecting a pre-configured httpx client for testing.
         self._client = client or httpx.AsyncClient(base_url=base_url)
@@ -88,14 +94,16 @@ class OllamaProvider:
         )
 
     async def ping(self) -> bool:
-        """Check if Ollama is reachable and the configured model can serve a request. Never raises."""
+        """Check Ollama reachability and model presence without running inference."""
         try:
-            response = await self._client.post(
-                "/api/generate",
-                json={"model": self.model, "prompt": "hi", "stream": False},
-                timeout=30.0,
+            response = await self._client.get("/api/tags", timeout=5.0)
+            if response.status_code != 200:
+                return False
+            models = response.json().get("models", [])
+            return any(
+                self.model in {item.get("name"), item.get("model")}
+                for item in models
             )
-            return response.status_code == 200
         except Exception:
             return False
 
@@ -114,7 +122,12 @@ class OllamaProvider:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
             ],
-            "options": {"temperature": self.temperature},
+            "options": {
+                "temperature": self.temperature,
+                "num_ctx": self.num_ctx,
+                "num_predict": self.num_predict,
+            },
+            "think": self.think,
             # Disable streaming — we want the full response in one JSON object.
             "stream": False,
         }
@@ -125,9 +138,12 @@ class OllamaProvider:
             payload["format"] = "json"
 
         logger.info(
-            "ollama_chat_start model=%s temperature=%.2f timeout_s=%.1f json_format=%s",
+            "ollama_chat_start model=%s temperature=%.2f num_ctx=%d num_predict=%d think=%s timeout_s=%.1f json_format=%s",
             self.model,
             self.temperature,
+            self.num_ctx,
+            self.num_predict,
+            self.think,
             timeout_seconds,
             json_format,
         )
