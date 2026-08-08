@@ -14,14 +14,20 @@ type BlockOnChain struct {
 	// dominant quorum label was non_related. These transactions are excluded from
 	// mini-round two answer collection and carry a NonRelatedTransaction status.
 	// The slice is sorted for deterministic finalization.
-	NonRelatedTransactionHashes   []string
-	AggregatedExecutionResults    AggregatedExecutionResults
+	NonRelatedTransactionHashes []string
+	AggregatedExecutionResults  AggregatedExecutionResults
 	// AnswerEvidence is verified in mini-round two and retained so later rounds
 	// can audit the producer answers behind every classification.
 	AnswerEvidence *AggregatedExecutionResultsMessage
 	// AnswerClassifications is finalized after certificate verification and is
 	// consumed by mini-round three when selecting canonical correct answers.
 	AnswerClassifications []TransactionAnswerClassification
+
+	// FinalAnswers is populated by mini-round three. Each entry holds the
+	// synthesized answer for eligible transactions or a SKIPPED status for
+	// transactions that did not reach a correct-answer quorum in MR2.
+	// The slice is sorted by transaction hash.
+	FinalAnswers []FinalAnswer
 }
 
 // BlockHeader defines the header of a block
