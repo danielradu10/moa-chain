@@ -34,9 +34,67 @@ this file itself.
 bash work/moa-chain/scripts/sync-to-master.sh
 ```
 
+### `collect-benchmark-results.sh`
+
+Pulls standalone judge benchmark outputs from `benchmark_results/` on moa-chain-0 into
+the local repository. It never deletes remote or local files. With no argument it pulls
+all runs; pass a run directory name to collect only that run.
+
+**Usage:**
+```bash
+bash scripts/collect-benchmark-results.sh
+bash scripts/collect-benchmark-results.sh qualification_20260806_run01
+```
+
 ---
 
 ## Cluster scripts (run on moa-chain-0)
+
+### Qualified MR2 experiment
+
+The qualified cluster mapping is resolved in validator order from
+`configs/cluster.json`: array entry 1 is `validator-1` on `moa-chain-0`, entry 2
+is `validator-2` on `moa-chain-1`, and so on. The checked configuration contains
+six `qwen3.5:9b` workers and four `gemma4:12b` workers, all at temperature zero.
+
+Prepare or update the workers from moa-chain-0:
+
+```bash
+make install-qualified-workers
+```
+
+This deploys the current `agent-python`, installs Ollama only when absent, and
+pulls only the model assigned to each worker when it is not already present.
+
+Validate the complete ten-configuration schedule without contacting workers:
+
+```bash
+make test-distributed-mr2-qualified-dry-run TRIALS=1
+```
+
+Run the real experiment inside tmux:
+
+```bash
+make test-distributed-mr2-qualified-all TRIALS=10
+```
+
+The internal MR2 observation window, outer Go test timeout, judge request
+timeout, and classification grace period remain overrideable, for example:
+
+```bash
+make test-distributed-mr2-qualified-all TRIALS=10 \
+  QUALIFIED_ROUND_TIMEOUT=30m QUALIFIED_TEST_TIMEOUT=45m \
+  QUALIFIED_JUDGE_TIMEOUT_SECONDS=1200 \
+  LLM_TIMEOUT_SECONDS=300 CLASSIFICATION_GRACE_PERIOD=180s
+```
+
+Every invocation creates a unique directory under `experiment-results/`. Each
+trial uses a fresh Go test process and restarts the stateless Python agent.
+Ollama and its loaded model cache intentionally remain alive between trials.
+Agent logs and consensus validator logs are copied before the next trial starts.
+The runner continues after protocol non-finalization and semantic assertion
+failures, but exits non-zero if infrastructure failure, timeout, or an execution
+failure prevents a trial result from being persisted.
 
 ### `install-workers.sh`
 

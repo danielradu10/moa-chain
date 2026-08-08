@@ -28,6 +28,7 @@ rsync -avz --delete \
     --exclude='**/.idea' \
     --exclude='*.pdf' \
     --exclude='bin/' \
+    --exclude='experiment-results/' \
     "$PROJECT_DIR/" "ubuntu@$MASTER:$REMOTE_DIR/"
 
 echo ""

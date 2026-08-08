@@ -45,6 +45,8 @@ integrationtests/testData/miniround2/scenarios/*/result.json
 testresults/*.json
 testresults/*.log
 testresults/agent-logs/
+experiment-results/
+benchmark_results/
 
 # Cluster infrastructure — contains internal IPs in machine table
 DISTRIBUTED_TESTING.md

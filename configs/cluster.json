@@ -1,17 +1,16 @@
 {
-  "model": "qwen2.5-coder:7b",
   "port": 8081,
   "committeeStrategy": "full",
   "agents": [
-    { "machine": "moa-chain-0", "url": "http://moa-chain-0:8081", "temperature": 0.30 },
-    { "machine": "moa-chain-1", "url": "http://moa-chain-1:8081", "temperature": 0.35 },
-    { "machine": "moa-chain-2", "url": "http://moa-chain-2:8081", "temperature": 0.40 },
-    { "machine": "moa-chain-3", "url": "http://moa-chain-3:8081", "temperature": 0.45 },
-    { "machine": "moa-chain-4", "url": "http://moa-chain-4:8081", "temperature": 0.50 },
-    { "machine": "moa-chain-5", "url": "http://moa-chain-5:8081", "temperature": 0.55 },
-    { "machine": "moa-chain-6", "url": "http://moa-chain-6:8081", "temperature": 0.60 },
-    { "machine": "moa-chain-7", "url": "http://moa-chain-7:8081", "temperature": 0.65 },
-    { "machine": "moa-chain-8", "url": "http://moa-chain-8:8081", "temperature": 0.70 },
-    { "machine": "moa-chain-9", "url": "http://moa-chain-9:8081", "temperature": 0.75 }
+    { "machine": "moa-chain-0", "url": "http://moa-chain-0:8081", "temperature": 0.0, "model": "qwen3.5:9b" },
+    { "machine": "moa-chain-1", "url": "http://moa-chain-1:8081", "temperature": 0.0, "model": "gemma4:12b" },
+    { "machine": "moa-chain-2", "url": "http://moa-chain-2:8081", "temperature": 0.0, "model": "qwen3.5:9b" },
+    { "machine": "moa-chain-3", "url": "http://moa-chain-3:8081", "temperature": 0.0, "model": "gemma4:12b" },
+    { "machine": "moa-chain-4", "url": "http://moa-chain-4:8081", "temperature": 0.0, "model": "qwen3.5:9b" },
+    { "machine": "moa-chain-5", "url": "http://moa-chain-5:8081", "temperature": 0.0, "model": "gemma4:12b" },
+    { "machine": "moa-chain-6", "url": "http://moa-chain-6:8081", "temperature": 0.0, "model": "qwen3.5:9b" },
+    { "machine": "moa-chain-7", "url": "http://moa-chain-7:8081", "temperature": 0.0, "model": "gemma4:12b" },
+    { "machine": "moa-chain-8", "url": "http://moa-chain-8:8081", "temperature": 0.0, "model": "qwen3.5:9b" },
+    { "machine": "moa-chain-9", "url": "http://moa-chain-9:8081", "temperature": 0.0, "model": "qwen3.5:9b" }
   ]
 }

@@ -60,8 +60,22 @@ rsync -avz \
     "ubuntu@$MASTER:$REMOTE_DIR/integrationtests/logs/" \
     "$PROJECT_DIR/integrationtests/logs/"
 
+# Step 4: pull self-contained qualified experiment directories.
+echo ""
+echo "Syncing experiment-results/ ..."
+if $SSH_CMD "$MASTER" "test -d $REMOTE_DIR/experiment-results"; then
+    mkdir -p "$PROJECT_DIR/experiment-results"
+    rsync -avz \
+        -e "$SSH_CMD" \
+        "ubuntu@$MASTER:$REMOTE_DIR/experiment-results/" \
+        "$PROJECT_DIR/experiment-results/"
+else
+    echo "  no remote experiment-results directory"
+fi
+
 echo ""
 echo "Done. Collected:"
 echo "  testresults/             — JSON summaries + test output"
 echo "  testresults/agent-logs/  — /tmp/agent.log from each machine"
 echo "  integrationtests/logs/   — per-validator slog traces"
+echo "  experiment-results/      — qualified experiment runs"

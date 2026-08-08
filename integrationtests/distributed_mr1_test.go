@@ -32,6 +32,7 @@ type clusterAgent struct {
 	Machine     string  `json:"machine"`
 	URL         string  `json:"url"`
 	Temperature float64 `json:"temperature"`
+	Model       string  `json:"model"`
 }
 
 func loadClusterConfig(t *testing.T) clusterConfig {
@@ -72,6 +73,7 @@ type distributedRunResult struct {
 	NumValidators         int                      `json:"num_validators"`
 	CommitteeStrategy     string                   `json:"committee_strategy"`
 	Temperatures          []float64                `json:"temperatures"`
+	AgentModels           map[string]string        `json:"agent_models"`
 	DurationSeconds       float64                  `json:"duration_seconds"`
 	Passed                bool                     `json:"passed"`
 	SubdomainsFrequencies data.SubdomainsFrequency `json:"subdomains_frequencies,omitempty"`
@@ -107,6 +109,14 @@ func clusterTemperatures(cfg clusterConfig) []float64 {
 		temps[i] = a.Temperature
 	}
 	return temps
+}
+
+func clusterAgentModels(cfg clusterConfig) map[string]string {
+	models := make(map[string]string, len(cfg.Agents))
+	for i, a := range cfg.Agents {
+		models[fmt.Sprintf("validator-%d", i+1)] = a.Model
+	}
+	return models
 }
 
 // ── Round runner ───────────────────────────────────────────────────────────────
@@ -212,6 +222,7 @@ func runDistributedMR1Round(t *testing.T, cfg clusterConfig, roundNumber uint64)
 		NumValidators:         n,
 		CommitteeStrategy:     cfg.CommitteeStrategy,
 		Temperatures:          clusterTemperatures(cfg),
+		AgentModels:           clusterAgentModels(cfg),
 		DurationSeconds:       roundDuration.Seconds(),
 		Passed:                true,
 		SubdomainsFrequencies: block.SubdomainsFrequencies,
@@ -387,6 +398,7 @@ func runDistributedMR1ByzantineRound(
 		NumValidators:         n,
 		CommitteeStrategy:     cfg.CommitteeStrategy,
 		Temperatures:          clusterTemperatures(cfg),
+		AgentModels:           clusterAgentModels(cfg),
 		DurationSeconds:       roundDuration.Seconds(),
 		Passed:                true,
 		SubdomainsFrequencies: block.SubdomainsFrequencies,
@@ -529,6 +541,7 @@ func runDistributedMR1RoundWith(
 		NumValidators:         n,
 		CommitteeStrategy:     cfg.CommitteeStrategy,
 		Temperatures:          clusterTemperatures(cfg),
+		AgentModels:           clusterAgentModels(cfg),
 		DurationSeconds:       roundDuration.Seconds(),
 		Passed:                true,
 		SubdomainsFrequencies: block.SubdomainsFrequencies,

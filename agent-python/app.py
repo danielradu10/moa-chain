@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -27,7 +28,14 @@ async def lifespan(app: FastAPI):
         base_url=settings.ollama_base_url,
         model=settings.ollama_model,
         temperature=settings.llm_temperature,
+        num_ctx=settings.llm_num_ctx,
+        num_predict=settings.llm_num_predict,
+        think=settings.llm_think,
     )
+    # One shared limit across every transaction-level judge request. Without a
+    # global semaphore, three concurrent transactions can enqueue 30 CPU-bound
+    # generations on a worker and leave Ollama busy after the Go client exits.
+    app.state.judge_semaphore = asyncio.Semaphore(settings.judge_max_concurrency)
 
     # Load and hash versioned prompt files once at startup.
     # If a file is missing this raises immediately — fail fast rather than

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run on moa-chain-0.
-# Deploys agent-python, installs Ollama, and pulls the model on every cluster machine.
+# Deploys agent-python, installs Ollama, and pulls each machine's model.
+# Each agent now runs a different model; model is specified per-agent in cluster.json.
 #
 # Usage:
 #   cd ~/moa-chain && bash scripts/install-workers.sh
@@ -13,9 +14,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG="$PROJECT_DIR/configs/cluster.json"
 AGENT_SRC="$PROJECT_DIR/agent-python"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3)
+RSYNC_RSH="ssh -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3"
 
-# Read model and machine list from cluster.json using Python (always available).
-MODEL=$(python3 -c "import json; print(json.load(open('$CONFIG'))['model'])")
+# Read machine list from cluster.json using Python (always available).
 MACHINES=$(python3 -c "
 import json
 for a in json.load(open('$CONFIG'))['agents']:
@@ -24,7 +26,6 @@ for a in json.load(open('$CONFIG'))['agents']:
 
 echo "=========================================="
 echo " MoA-Chain cluster setup"
-echo " Model : $MODEL"
 echo " Machines: $(echo $MACHINES | tr '\n' ' ')"
 echo "=========================================="
 echo ""
@@ -36,6 +37,7 @@ deploy_agent() {
 
     echo "[$machine] Deploying agent-python..."
     rsync -az --delete \
+        -e "$RSYNC_RSH" \
         --exclude='.venv' \
         --exclude='__pycache__' \
         --exclude='*.egg-info' \
@@ -46,10 +48,12 @@ deploy_agent() {
         2>&1 | sed "s/^/[$machine] /"
 
     echo "[$machine] Installing Python dependencies..."
-    ssh "$machine" '
-        sudo apt install -y python3.12-venv -q
+    ssh "${SSH_OPTS[@]}" "$machine" '
         cd ~/agent-python
-        python3 -m venv .venv
+        if [ ! -x .venv/bin/python3 ] && ! python3 -m venv .venv; then
+            sudo apt install -y python3.12-venv -q
+            python3 -m venv .venv
+        fi
         .venv/bin/pip install . -q
         echo "deps ok"
     ' 2>&1 | sed "s/^/[$machine] /"
@@ -69,7 +73,7 @@ echo ""
 install_ollama() {
     local machine=$1
 
-    ssh "$machine" '
+    ssh "${SSH_OPTS[@]}" "$machine" '
         if command -v ollama &>/dev/null; then
             echo "ollama already installed: $(ollama --version 2>/dev/null)"
         else
@@ -87,14 +91,16 @@ done
 wait
 echo ""
 
-# ── Step 1c: pull the model ───────────────────────────────────────────────────
+# ── Step 1c: pull the per-machine model ──────────────────────────────────────
+# Each machine runs a different model; pull only that machine's model.
 # Each machine starts Ollama temporarily if it is not already running,
 # pulls the model, then leaves Ollama running (start-cluster.sh will manage it).
 
 pull_model() {
     local machine=$1
+    local model=$2
 
-    ssh "$machine" "
+    ssh "${SSH_OPTS[@]}" "$machine" "
         # Start ollama if not already running
         if ! curl -sf http://127.0.0.1:11434 > /dev/null 2>&1; then
             echo 'Starting ollama for model pull...'
@@ -111,22 +117,26 @@ pull_model() {
             done
         fi
 
-        if ollama list | grep -q '$MODEL'; then
-            echo '$MODEL already present, skipping pull'
+        if ollama list | awk 'NR > 1 {print \$1}' | grep -Fxq '$model'; then
+            echo '$model already present, skipping pull'
         else
-            echo 'Pulling $MODEL (this may take several minutes)...'
-            ollama pull $MODEL
+            echo 'Pulling $model (this may take several minutes)...'
+            ollama pull $model
             echo 'Pull complete'
         fi
     " 2>&1 | sed "s/^/[$machine] /"
 }
 
-echo "--- Step 1c: pulling model on all machines in parallel ---"
+echo "--- Step 1c: pulling per-machine models in parallel ---"
 echo "    (this takes 5-10 min per machine on first run)"
 echo ""
-for machine in $MACHINES; do
-    pull_model "$machine" &
-done
+while IFS='|' read -r machine model; do
+    pull_model "$machine" "$model" &
+done < <(python3 -c "
+import json
+for a in json.load(open('$CONFIG'))['agents']:
+    print(f\"{a['machine']}|{a['model']}\")
+")
 wait
 echo ""
 
@@ -135,6 +145,10 @@ echo ""
 echo "=========================================="
 echo " Setup complete. Verify with:"
 echo "=========================================="
-for machine in $MACHINES; do
-    echo "  ssh $machine 'ollama list && ~/agent-python/.venv/bin/python3 -c \"import fastapi; print(fastapi.__version__)\"'"
-done
+while IFS='|' read -r machine model; do
+    echo "  ssh $machine 'ollama list | grep $model && ~/agent-python/.venv/bin/python3 -c \"import fastapi; print(fastapi.__version__)\"'"
+done < <(python3 -c "
+import json
+for a in json.load(open('$CONFIG'))['agents']:
+    print(f\"{a['machine']}|{a['model']}\")
+")

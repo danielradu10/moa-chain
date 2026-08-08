@@ -433,7 +433,7 @@ test-distributed-mr2-diverse-group-a:
 	@set -o pipefail; \
 	MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
 	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
-	go test -tags integration -timeout 5m -v \
+	go test -tags integration -timeout 15m -v \
 		-run TestDistributedMR2_Diverse_GroupA \
 		./integrationtests/... \
 	2>&1 | tee testresults/distributed-mr2-diverse-group-a-$$(date +%Y%m%dT%H%M%S).log; \
@@ -453,7 +453,7 @@ test-distributed-mr2-diverse-group-a-trials:
 		bash scripts/start-cluster.sh; \
 		MOA_CLUSTER_CONFIG=$(CLUSTER_CONFIG) \
 		MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
-		go test -tags integration -timeout 5m \
+		go test -tags integration -timeout 15m \
 			-run TestDistributedMR2_Diverse_GroupA \
 			./integrationtests/... || true; \
 		TRIAL_LOG_DIR=$(CURDIR)/testresults/agent-logs/trial-$$i; \
@@ -597,6 +597,52 @@ print(f'Duration   : min={min(d):.1f}s  avg={sum(d)/len(d):.1f}s  max={max(d):.1
 # adversarial answer. Supported values: 1, 2, 3.
 
 CLASSIFICATION_GRACE_PERIOD ?= 180s
+
+# ── Qualified-model distributed MR2 experiment ──────────────────────────────
+
+QUALIFIED_RESULTS_DIR ?= $(CURDIR)/experiment-results
+QUALIFIED_TEST_TIMEOUT ?= 45m
+QUALIFIED_ROUND_TIMEOUT ?= 30m
+QUALIFIED_JUDGE_TIMEOUT_SECONDS ?= 1200
+QUALIFIED_LLM_TIMEOUT_SECONDS = $(if $(filter command line,$(origin LLM_TIMEOUT_SECONDS)),$(LLM_TIMEOUT_SECONDS),300)
+
+.PHONY: verify-qualified-cluster-config
+verify-qualified-cluster-config:
+	@python3 scripts/distributed_mr2_qualified.py \
+		--cluster-config $(CLUSTER_CONFIG) \
+		--check-config-only
+
+.PHONY: install-qualified-workers
+install-qualified-workers: verify-qualified-cluster-config
+	@bash scripts/install-workers.sh
+
+.PHONY: test-distributed-mr2-qualified-all
+test-distributed-mr2-qualified-all: TRIALS ?= 5
+test-distributed-mr2-qualified-all: verify-qualified-cluster-config
+	@python3 scripts/distributed_mr2_qualified.py \
+		--trials $(TRIALS) \
+		--cluster-config $(CLUSTER_CONFIG) \
+		--output-base $(QUALIFIED_RESULTS_DIR) \
+		--classification-grace-period $(CLASSIFICATION_GRACE_PERIOD) \
+		--llm-timeout-seconds $(QUALIFIED_LLM_TIMEOUT_SECONDS) \
+		--judge-timeout-seconds $(QUALIFIED_JUDGE_TIMEOUT_SECONDS) \
+		--round-timeout $(QUALIFIED_ROUND_TIMEOUT) \
+		--test-timeout $(QUALIFIED_TEST_TIMEOUT) \
+		--make-command "make test-distributed-mr2-qualified-all TRIALS=$(TRIALS) CLASSIFICATION_GRACE_PERIOD=$(CLASSIFICATION_GRACE_PERIOD) LLM_TIMEOUT_SECONDS=$(QUALIFIED_LLM_TIMEOUT_SECONDS) QUALIFIED_JUDGE_TIMEOUT_SECONDS=$(QUALIFIED_JUDGE_TIMEOUT_SECONDS) QUALIFIED_ROUND_TIMEOUT=$(QUALIFIED_ROUND_TIMEOUT) QUALIFIED_TEST_TIMEOUT=$(QUALIFIED_TEST_TIMEOUT)"
+
+.PHONY: test-distributed-mr2-qualified-dry-run
+test-distributed-mr2-qualified-dry-run: TRIALS ?= 5
+test-distributed-mr2-qualified-dry-run: verify-qualified-cluster-config
+	@python3 scripts/distributed_mr2_qualified.py \
+		--trials $(TRIALS) \
+		--cluster-config $(CLUSTER_CONFIG) \
+		--output-base $(QUALIFIED_RESULTS_DIR) \
+		--classification-grace-period $(CLASSIFICATION_GRACE_PERIOD) \
+		--llm-timeout-seconds $(QUALIFIED_LLM_TIMEOUT_SECONDS) \
+		--judge-timeout-seconds $(QUALIFIED_JUDGE_TIMEOUT_SECONDS) \
+		--round-timeout $(QUALIFIED_ROUND_TIMEOUT) \
+		--test-timeout $(QUALIFIED_TEST_TIMEOUT) \
+		--dry-run
 ANSWER_JUDGE_PROMPT_VERSION ?= answer-judge-v4
 
 .PHONY: test-distributed-mr2-diverse-group-d
@@ -691,3 +737,68 @@ print('Certificate vote counts: %s'%[r.get('certificate_vote_count',0) for r in 
 print(f'Duration               : min={min(d):.1f}s avg={sum(d)/len(d):.1f}s max={max(d):.1f}s'); \
 [print('  trial round=%s: %s'%(r['round_number'], ', '.join('%s=%s C%d/W%d/H%d/M%d'%(t['tx_hash'],t['status'],t['correct'],t['wrong'],t['hallucination'],t['malicious']) for t in r.get('tx_results',[])))) for r in results] \
 "
+
+# ── Judge qualification benchmark ─────────────────────────────────────────────
+#
+# Runs the standalone semantic judge benchmark against a live Ollama instance.
+# No blockchain nodes, committees, or consensus rounds are started.
+#
+# Usage:
+#   make benchmark-judge MODEL=qwen3.5:9b
+#   make benchmark-judge MODEL=phi4:14b BENCHMARK_OUTPUT=results/phi4 TRIALS=3
+#   make benchmark-judges
+#   make benchmark-judge-dataset-check
+#
+# Prerequisites:
+#   cd agent-python && python -m pip install -r requirements.txt
+#   ollama pull <MODEL>
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+MODEL             ?= qwen3.5:9b
+BENCHMARK_MODELS  ?= qwen3.5:9b gemma4:12b ministral-3:14b phi4:14b phi4-reasoning:14b
+BENCHMARK_OUTPUT  ?= benchmark_results
+BENCHMARK_URL     ?= http://127.0.0.1:11434
+TRIALS            ?= 1
+BENCHMARK_TIMEOUT ?= 120
+
+.PHONY: benchmark-pull-models
+benchmark-pull-models:
+	@echo "Pulling benchmark models into Ollama (this may take 10-30 min per model)..."
+	@for model in $(BENCHMARK_MODELS); do \
+		echo ""; \
+		echo "=== Pulling $$model ==="; \
+		ollama pull $$model || echo "[WARN] Failed to pull $$model — check the name with: ollama list"; \
+	done
+	@echo ""
+	@echo "=== Available models ==="
+	@ollama list
+
+.PHONY: benchmark-judge
+benchmark-judge:
+	@cd agent-python && \
+	.venv/bin/python -m benchmark run \
+		--model $(MODEL) \
+		--base-url $(BENCHMARK_URL) \
+		--output-dir ../$(BENCHMARK_OUTPUT) \
+		--trials $(TRIALS) \
+		--timeout $(BENCHMARK_TIMEOUT)
+
+.PHONY: benchmark-judges
+benchmark-judges:
+	@cd agent-python && \
+	.venv/bin/python -m benchmark run-all \
+		--base-url $(BENCHMARK_URL) \
+		--output-dir ../$(BENCHMARK_OUTPUT) \
+		--trials $(TRIALS) \
+		--timeout $(BENCHMARK_TIMEOUT)
+
+.PHONY: benchmark-judge-dataset-check
+benchmark-judge-dataset-check:
+	@cd agent-python && \
+	.venv/bin/python -m benchmark check-dataset
+
+.PHONY: test-benchmark
+test-benchmark:
+	@cd agent-python && \
+	.venv/bin/python -m pytest benchmark/tests/ -v

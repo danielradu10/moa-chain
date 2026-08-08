@@ -45,25 +45,29 @@ type configurableAdversarialTxResult struct {
 }
 
 type configurableAdversarialRunResult struct {
-	Timestamp                  string                            `json:"timestamp"`
-	Group                      string                            `json:"group"`
-	RoundNumber                uint64                            `json:"round_number"`
-	NumValidators              int                               `json:"num_validators"`
-	BadProducerCount           int                               `json:"bad_producer_count"`
-	BadProducerIDs             []string                          `json:"bad_producer_ids"`
-	DurationSeconds            float64                           `json:"duration_seconds"`
-	Finalized                  bool                              `json:"finalized"`
-	AllNodesEqual              bool                              `json:"all_nodes_equal"`
-	ProtocolErrors             []string                          `json:"protocol_errors,omitempty"`
-	ClassificationGracePeriod  string                            `json:"classification_grace_period"`
-	PromptVersion              string                            `json:"prompt_version"`
-	PromptHash                 string                            `json:"prompt_hash"`
-	CertificateVoteCount       int                               `json:"certificate_vote_count,omitempty"`
-	CertificateLeaderID        string                            `json:"certificate_leader_id,omitempty"`
-	CertificateJudgeIDs        []string                          `json:"certificate_judge_ids,omitempty"`
-	ByzantineCertificateJudges []string                          `json:"byzantine_certificate_judges,omitempty"`
-	MockedJudgeCalls           []configurableMockedJudgeCall     `json:"mocked_judge_calls,omitempty"`
-	TxResults                  []configurableAdversarialTxResult `json:"tx_results,omitempty"`
+	Timestamp                     string                            `json:"timestamp"`
+	Group                         string                            `json:"group"`
+	RoundNumber                   uint64                            `json:"round_number"`
+	NumValidators                 int                               `json:"num_validators"`
+	AgentModels                   map[string]string                 `json:"agent_models"`
+	BadProducerCount              int                               `json:"bad_producer_count"`
+	BadProducerIDs                []string                          `json:"bad_producer_ids"`
+	DurationSeconds               float64                           `json:"duration_seconds"`
+	Finalized                     bool                              `json:"finalized"`
+	AllNodesEqual                 bool                              `json:"all_nodes_equal"`
+	ProtocolErrors                []string                          `json:"protocol_errors,omitempty"`
+	ClassificationGracePeriod     string                            `json:"classification_grace_period"`
+	PromptVersion                 string                            `json:"prompt_version"`
+	PromptHash                    string                            `json:"prompt_hash"`
+	CertificateVoteCount          int                               `json:"certificate_vote_count,omitempty"`
+	CertificateLeaderID           string                            `json:"certificate_leader_id,omitempty"`
+	CertificateJudgeIDs           []string                          `json:"certificate_judge_ids,omitempty"`
+	ByzantineCertificateJudges    []string                          `json:"byzantine_certificate_judges,omitempty"`
+	MockedJudgeCalls              []configurableMockedJudgeCall     `json:"mocked_judge_calls,omitempty"`
+	ClassificationVoteSource      string                            `json:"classification_vote_source,omitempty"`
+	ClassificationVotes           []qualifiedClassificationVote     `json:"classification_votes,omitempty"`
+	MissingClassificationJudgeIDs []string                          `json:"missing_classification_judge_ids,omitempty"`
+	TxResults                     []configurableAdversarialTxResult `json:"tx_results,omitempty"`
 }
 
 type configurableMockedClassification struct {
@@ -264,7 +268,7 @@ func runConfigurableAdversarialMR2Round(
 			answerJudge = httpclient.New(httpclient.Config{
 				BaseURL:             entry.URL,
 				TimeoutSeconds:      720,
-				JudgeTimeoutSeconds: 150,
+				JudgeTimeoutSeconds: qualifiedJudgeTimeoutSeconds(t, 150),
 				LabelPromptVersion:  "labeler_v3",
 				AnswerPromptVersion: "answerer_v1",
 			})
@@ -325,7 +329,7 @@ func runConfigurableAdversarialMR2Round(
 			}
 		}
 		return true
-	}, 8*time.Minute, 5*time.Second)
+	}, qualifiedRoundTimeout(t, 8*time.Minute), 5*time.Second)
 	duration := time.Since(roundStart)
 
 	for _, inbox := range inboxes {
@@ -337,6 +341,7 @@ func runConfigurableAdversarialMR2Round(
 		Group:                     group,
 		RoundNumber:               roundNumber,
 		NumValidators:             n,
+		AgentModels:               clusterAgentModels(cfg),
 		BadProducerCount:          badProducerCount,
 		BadProducerIDs:            configurableAdversarialBadProducerIDs(badProducerCount),
 		DurationSeconds:           duration.Seconds(),
@@ -348,6 +353,10 @@ func runConfigurableAdversarialMR2Round(
 		PromptHash:                hex.EncodeToString(classification.AnswerJudgePromptHash()),
 		MockedJudgeCalls:          mockRecorder.snapshot(),
 	}
+	result.ClassificationVoteSource, result.ClassificationVotes = collectQualifiedClassificationVotes(
+		nodes, mr2Key, cfg, group, result.BadProducerIDs, result.BadProducerIDs,
+	)
+	result.MissingClassificationJudgeIDs = qualifiedMissingJudgeIDs(result.ClassificationVotes, n)
 
 	if !finalized {
 		saveConfigurableAdversarialResult(t, result)
