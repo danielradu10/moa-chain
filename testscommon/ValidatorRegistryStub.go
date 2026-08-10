@@ -53,6 +53,10 @@ func (stub *ValidatorRegistryStub) GenerateConsensusGroupMiniRoundTwo(blockchain
 	return nil
 }
 
+func (stub *ValidatorRegistryStub) GenerateConsensusGroupMiniRoundThree(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error {
+	return nil
+}
+
 func (stub *ValidatorRegistryStub) ConsensusGroup() ([]string, error) {
 	return stub.ConsensusGroupValue, nil
 }

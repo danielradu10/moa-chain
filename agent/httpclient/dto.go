@@ -64,6 +64,55 @@ type judgeResponseJSON struct {
 	Response string `json:"response"`
 }
 
+// ── /synthesize ──────────────────────────────────────────────────────────────
+
+type synthesizeTxInput struct {
+	TxHash         string   `json:"tx_hash"`
+	Prompt         string   `json:"prompt"`
+	CorrectAnswers []string `json:"correct_answers"`
+}
+
+type synthesizeRequest struct {
+	PromptVersion string              `json:"prompt_version"`
+	Transactions  []synthesizeTxInput `json:"transactions"`
+}
+
+type synthesizeResultJSON struct {
+	TxHash string `json:"tx_hash"`
+	Answer string `json:"answer"`
+}
+
+type synthesizeResponse struct {
+	PromptVersion      string                 `json:"prompt_version"`
+	PromptHash         string                 `json:"prompt_hash"`
+	SynthesizedAnswers []synthesizeResultJSON `json:"synthesized_answers"`
+}
+
+// ── /evaluate-synthesis ──────────────────────────────────────────────────────
+
+type evaluateSynthesisTxInput struct {
+	TxHash            string   `json:"tx_hash"`
+	Prompt            string   `json:"prompt"`
+	CorrectAnswers    []string `json:"correct_answers"`
+	ProposedSynthesis string   `json:"proposed_synthesis"`
+}
+
+type evaluateSynthesisRequest struct {
+	PromptVersion string                     `json:"prompt_version"`
+	Transactions  []evaluateSynthesisTxInput `json:"transactions"`
+}
+
+type evaluateSynthesisResultJSON struct {
+	TxHash   string `json:"tx_hash"`
+	Approved bool   `json:"approved"`
+}
+
+type evaluateSynthesisResponse struct {
+	PromptVersion string                        `json:"prompt_version"`
+	PromptHash    string                        `json:"prompt_hash"`
+	Evaluations   []evaluateSynthesisResultJSON `json:"evaluations"`
+}
+
 // ── error response ───────────────────────────────────────────────────────────
 
 type pythonErrorResponse struct {

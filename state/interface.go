@@ -66,5 +66,13 @@ type RoundState interface {
 	SetAnswerClassificationCertificate(roundKey data.RoundKey, certificate *data.AnswerClassificationCertificate) error
 	IsAnswerClassificationCertificateSet(roundKey data.RoundKey) bool
 
+	// Mini-Round Three
+	SetProposedSynthesis(roundKey data.RoundKey, msg *data.ProposedSynthesisMessage) error
+	GetProposedSynthesis(roundKey data.RoundKey) (*data.ProposedSynthesisMessage, error)
+	AddSynthesisVote(roundKey data.RoundKey, vote *data.SynthesisVote) error
+	GetSynthesisVotes(roundKey data.RoundKey) ([]*data.SynthesisVote, error)
+	SetSynthesisCertificate(roundKey data.RoundKey, cert *data.AggregatedSynthesisVotes) error
+	IsSynthesisCertificateSet(roundKey data.RoundKey) bool
+
 	ClearRoundState(roundKey data.RoundKey)
 }

@@ -17,23 +17,27 @@ var ErrFinalizedBlockNotFound = errors.New("finalized block not found")
 type BlockFinalizer interface {
 	FinalizeBlockMROne(roundKey data.RoundKey, block *data.BlockOnChain) error
 	FinalizeBlockMRTwo(roundKey data.RoundKey, block *data.BlockOnChain) error
+	FinalizeBlockMRThree(roundKey data.RoundKey, block *data.BlockOnChain) error
 	GetFinalizedBlockInMROne(key data.RoundKey) (*data.BlockOnChain, error)
 	GetFinalizedBlockInMRTwo(key data.RoundKey) (*data.BlockOnChain, error)
+	GetFinalizedBlockInMRThree(key data.RoundKey) (*data.BlockOnChain, error)
 }
 
 // FinalizeBlockComponent stores finalized blocks per round key.
 type FinalizeBlockComponent struct {
 	mutex sync.RWMutex
 
-	finalizedBlocksInMROne map[data.RoundKey]*data.BlockOnChain
-	finalizedBlocksInMRTwo map[data.RoundKey]*data.BlockOnChain
+	finalizedBlocksInMROne   map[data.RoundKey]*data.BlockOnChain
+	finalizedBlocksInMRTwo   map[data.RoundKey]*data.BlockOnChain
+	finalizedBlocksInMRThree map[data.RoundKey]*data.BlockOnChain
 }
 
 // NewFinalizeBlockComponent creates a block finalizer component with in-memory state.
 func NewFinalizeBlockComponent() *FinalizeBlockComponent {
 	return &FinalizeBlockComponent{
-		finalizedBlocksInMROne: make(map[data.RoundKey]*data.BlockOnChain),
-		finalizedBlocksInMRTwo: make(map[data.RoundKey]*data.BlockOnChain),
+		finalizedBlocksInMROne:   make(map[data.RoundKey]*data.BlockOnChain),
+		finalizedBlocksInMRTwo:   make(map[data.RoundKey]*data.BlockOnChain),
+		finalizedBlocksInMRThree: make(map[data.RoundKey]*data.BlockOnChain),
 	}
 }
 
@@ -55,6 +59,16 @@ func (component *FinalizeBlockComponent) GetFinalizedBlockInMROne(roundKey data.
 // GetFinalizedBlockInMRTwo returns the block finalized in mini-round two for the provided round key.
 func (component *FinalizeBlockComponent) GetFinalizedBlockInMRTwo(roundKey data.RoundKey) (*data.BlockOnChain, error) {
 	return component.getFinalizedBlock(component.finalizedBlocksInMRTwo, roundKey)
+}
+
+// FinalizeBlockMRThree stores the block finalized in mini-round three for the provided round key.
+func (component *FinalizeBlockComponent) FinalizeBlockMRThree(roundKey data.RoundKey, block *data.BlockOnChain) error {
+	return component.finalizeBlock(component.finalizedBlocksInMRThree, roundKey, block)
+}
+
+// GetFinalizedBlockInMRThree returns the block finalized in mini-round three for the provided round key.
+func (component *FinalizeBlockComponent) GetFinalizedBlockInMRThree(roundKey data.RoundKey) (*data.BlockOnChain, error) {
+	return component.getFinalizedBlock(component.finalizedBlocksInMRThree, roundKey)
 }
 
 func (component *FinalizeBlockComponent) finalizeBlock(

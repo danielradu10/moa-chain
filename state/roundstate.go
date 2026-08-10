@@ -22,6 +22,11 @@ type roundState struct {
 	answerEvidence             map[data.RoundKey]*data.AggregatedExecutionResultsMessage
 	classificationVotes        map[data.RoundKey]map[string]*data.AnswerClassificationVote
 	classificationCertificates map[data.RoundKey]*data.AnswerClassificationCertificate
+
+	// Mini-Round Three
+	proposedSyntheses     map[data.RoundKey]*data.ProposedSynthesisMessage
+	synthesisVotes        map[data.RoundKey]map[string]*data.SynthesisVote
+	synthesisCertificates map[data.RoundKey]*data.AggregatedSynthesisVotes
 }
 
 // NewRoundState creates a new round state which caches blocks and votes.
@@ -34,6 +39,9 @@ func NewRoundState() *roundState {
 		answerEvidence:             make(map[data.RoundKey]*data.AggregatedExecutionResultsMessage),
 		classificationVotes:        make(map[data.RoundKey]map[string]*data.AnswerClassificationVote),
 		classificationCertificates: make(map[data.RoundKey]*data.AnswerClassificationCertificate),
+		proposedSyntheses:          make(map[data.RoundKey]*data.ProposedSynthesisMessage),
+		synthesisVotes:             make(map[data.RoundKey]map[string]*data.SynthesisVote),
+		synthesisCertificates:      make(map[data.RoundKey]*data.AggregatedSynthesisVotes),
 	}
 }
 
@@ -251,6 +259,89 @@ func (state *roundState) IsAnswerClassificationCertificateSet(roundKey data.Roun
 	return exists
 }
 
+// SetProposedSynthesis stores the leader's proposed synthesis for the round.
+func (state *roundState) SetProposedSynthesis(roundKey data.RoundKey, msg *data.ProposedSynthesisMessage) error {
+	if msg == nil {
+		return ErrNilProposedSynthesis
+	}
+	if _, exists := state.proposedSyntheses[roundKey]; exists {
+		return ErrProposedSynthesisAlreadyExists
+	}
+
+	state.proposedSyntheses[roundKey] = msg
+	return nil
+}
+
+// GetProposedSynthesis returns the leader's stored synthesis proposal for the round.
+func (state *roundState) GetProposedSynthesis(roundKey data.RoundKey) (*data.ProposedSynthesisMessage, error) {
+	msg, exists := state.proposedSyntheses[roundKey]
+	if !exists {
+		return nil, ErrNoProposedSynthesisForRoundKey
+	}
+
+	return msg, nil
+}
+
+// AddSynthesisVote stores one binary synthesis vote per voter per round.
+func (state *roundState) AddSynthesisVote(roundKey data.RoundKey, vote *data.SynthesisVote) error {
+	if vote == nil {
+		return ErrNilSynthesisVote
+	}
+
+	votes, ok := state.synthesisVotes[roundKey]
+	if !ok {
+		votes = make(map[string]*data.SynthesisVote)
+		state.synthesisVotes[roundKey] = votes
+	}
+
+	if _, exists := votes[vote.VoterID]; exists {
+		return ErrSynthesisVoteAlreadyExistsForVoter
+	}
+
+	votes[vote.VoterID] = vote
+	return nil
+}
+
+// GetSynthesisVotes returns synthesis votes in canonical voter-ID order.
+func (state *roundState) GetSynthesisVotes(roundKey data.RoundKey) ([]*data.SynthesisVote, error) {
+	votes, ok := state.synthesisVotes[roundKey]
+	if !ok {
+		return nil, ErrNoSynthesisVotesForRoundKey
+	}
+
+	voterIDs := make([]string, 0, len(votes))
+	for voterID := range votes {
+		voterIDs = append(voterIDs, voterID)
+	}
+	sort.Strings(voterIDs)
+
+	ordered := make([]*data.SynthesisVote, 0, len(voterIDs))
+	for _, voterID := range voterIDs {
+		ordered = append(ordered, votes[voterID])
+	}
+
+	return ordered, nil
+}
+
+// SetSynthesisCertificate stores the aggregated synthesis votes certificate once per round.
+func (state *roundState) SetSynthesisCertificate(roundKey data.RoundKey, cert *data.AggregatedSynthesisVotes) error {
+	if cert == nil {
+		return ErrNilSynthesisCertificate
+	}
+	if _, exists := state.synthesisCertificates[roundKey]; exists {
+		return ErrSynthesisCertificateAlreadyExists
+	}
+
+	state.synthesisCertificates[roundKey] = cert
+	return nil
+}
+
+// IsSynthesisCertificateSet reports whether an aggregated synthesis certificate has been stored.
+func (state *roundState) IsSynthesisCertificateSet(roundKey data.RoundKey) bool {
+	_, exists := state.synthesisCertificates[roundKey]
+	return exists
+}
+
 // ClearRoundState clears the state of a round.
 func (state *roundState) ClearRoundState(roundKey data.RoundKey) {
 	delete(state.proposedBlocks, roundKey)
@@ -260,4 +351,7 @@ func (state *roundState) ClearRoundState(roundKey data.RoundKey) {
 	delete(state.answerEvidence, roundKey)
 	delete(state.classificationVotes, roundKey)
 	delete(state.classificationCertificates, roundKey)
+	delete(state.proposedSyntheses, roundKey)
+	delete(state.synthesisVotes, roundKey)
+	delete(state.synthesisCertificates, roundKey)
 }

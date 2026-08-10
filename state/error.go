@@ -54,3 +54,27 @@ var ErrNilAnswerClassificationCertificate = errors.New("nil answer classificatio
 
 // ErrAnswerClassificationCertificateAlreadyExists signals a duplicate classification certificate.
 var ErrAnswerClassificationCertificateAlreadyExists = errors.New("answer classification certificate already exists")
+
+// ErrNilProposedSynthesis signals a nil proposed synthesis message.
+var ErrNilProposedSynthesis = errors.New("nil proposed synthesis")
+
+// ErrProposedSynthesisAlreadyExists signals a duplicate proposed synthesis for the round.
+var ErrProposedSynthesisAlreadyExists = errors.New("proposed synthesis already exists for round")
+
+// ErrNoProposedSynthesisForRoundKey signals that no synthesis proposal was received for the round.
+var ErrNoProposedSynthesisForRoundKey = errors.New("no proposed synthesis for current round")
+
+// ErrNilSynthesisVote signals a nil synthesis vote.
+var ErrNilSynthesisVote = errors.New("nil synthesis vote")
+
+// ErrSynthesisVoteAlreadyExistsForVoter signals a duplicate synthesis vote from the same voter.
+var ErrSynthesisVoteAlreadyExistsForVoter = errors.New("synthesis vote already exists for voter")
+
+// ErrNoSynthesisVotesForRoundKey signals that no synthesis votes have been collected for the round.
+var ErrNoSynthesisVotesForRoundKey = errors.New("no synthesis votes for current round")
+
+// ErrNilSynthesisCertificate signals a nil aggregated synthesis votes message.
+var ErrNilSynthesisCertificate = errors.New("nil synthesis certificate")
+
+// ErrSynthesisCertificateAlreadyExists signals a duplicate synthesis certificate for the round.
+var ErrSynthesisCertificateAlreadyExists = errors.New("synthesis certificate already exists")

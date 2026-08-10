@@ -98,6 +98,98 @@ func TestConsensusSelector_SelectConsensusGroupMiniRoundTwo(t *testing.T) {
 	})
 }
 
+func TestConsensusSelector_SelectConsensusGroupMiniRoundThree(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should select deterministic committee using same frequency-weighted algorithm as MR2", func(t *testing.T) {
+		t.Parallel()
+
+		selector := NewConsensusSelector()
+		blockchainState := createSelectionTestBlockchainState()
+		roundKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
+		validators := createMiniRoundTwoSelectionValidators()
+		frequencyMap := map[string]uint64{
+			"security":  70,
+			"databases": 30,
+		}
+
+		consensusGroup, err := selector.SelectConsensusGroupMiniRoundThree(blockchainState, validators, roundKey, frequencyMap)
+
+		require.NoError(t, err)
+		require.NotEmpty(t, consensusGroup)
+
+		storedConsensusGroup, err := selector.ConsensusGroup()
+		require.NoError(t, err)
+		require.Equal(t, consensusGroup, storedConsensusGroup)
+
+		leader, err := selector.Leader()
+		require.NoError(t, err)
+		require.Equal(t, consensusGroup[0], leader)
+	})
+
+	t.Run("should be deterministic for the same inputs", func(t *testing.T) {
+		t.Parallel()
+
+		blockchainState := createSelectionTestBlockchainState()
+		roundKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
+		validators := createMiniRoundTwoSelectionValidators()
+		frequencyMap := map[string]uint64{
+			"security":  70,
+			"databases": 30,
+		}
+
+		firstSelector := NewConsensusSelector()
+		firstGroup, err := firstSelector.SelectConsensusGroupMiniRoundThree(blockchainState, validators, roundKey, frequencyMap)
+		require.NoError(t, err)
+
+		secondSelector := NewConsensusSelector()
+		secondGroup, err := secondSelector.SelectConsensusGroupMiniRoundThree(blockchainState, validators, roundKey, frequencyMap)
+		require.NoError(t, err)
+
+		require.Equal(t, firstGroup, secondGroup)
+	})
+
+	t.Run("MR3 round key produces a different committee than MR2 round key", func(t *testing.T) {
+		t.Parallel()
+
+		blockchainState := createSelectionTestBlockchainState()
+		validators := createMiniRoundTwoSelectionValidators()
+		frequencyMap := map[string]uint64{
+			"security":  70,
+			"databases": 30,
+		}
+		mr2Key := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundTwo)}
+		mr3Key := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
+
+		mr2Selector := NewConsensusSelector()
+		mr2Group, err := mr2Selector.SelectConsensusGroupMiniRoundTwo(blockchainState, validators, mr2Key, frequencyMap)
+		require.NoError(t, err)
+
+		mr3Selector := NewConsensusSelector()
+		mr3Group, err := mr3Selector.SelectConsensusGroupMiniRoundThree(blockchainState, validators, mr3Key, frequencyMap)
+		require.NoError(t, err)
+
+		require.NotEqual(t, mr2Group, mr3Group)
+	})
+
+	t.Run("should return ErrTotalFreqIsZero when frequency sum is zero", func(t *testing.T) {
+		t.Parallel()
+
+		selector := NewConsensusSelector()
+		blockchainState := createSelectionTestBlockchainState()
+		roundKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
+		validators := createMiniRoundTwoSelectionValidators()
+		frequencyMap := map[string]uint64{
+			"security": 0,
+		}
+
+		consensusGroup, err := selector.SelectConsensusGroupMiniRoundThree(blockchainState, validators, roundKey, frequencyMap)
+
+		require.Nil(t, consensusGroup)
+		require.Equal(t, ErrTotalFreqIsZero, err)
+	})
+}
+
 func TestConsensusSelector_calculateGlobalScoreOnCanonicalSubdomains(t *testing.T) {
 	t.Parallel()
 

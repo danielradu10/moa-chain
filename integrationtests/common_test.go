@@ -327,6 +327,14 @@ func (testAgent integrationProtocolAgent) AnswerBatch(txs []data.Transaction) ([
 	return results, nil
 }
 
+func (testAgent integrationProtocolAgent) SynthesizeBatch(requests []agent.SynthesisRequest) ([]agent.SynthesisResult, error) {
+	return testAgent.delegate.SynthesizeBatch(requests)
+}
+
+func (testAgent integrationProtocolAgent) EvaluateSynthesisBatch(requests []agent.EvaluateSynthesisRequest) ([]agent.EvaluateSynthesisResult, error) {
+	return testAgent.delegate.EvaluateSynthesisBatch(requests)
+}
+
 func (testAgent integrationProtocolAgent) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
 	response, err := testAgent.delegate.JudgeTransactionAnswers(request)
 	if err == nil || !errors.Is(err, agent.ErrNotImplemented) {
