@@ -92,4 +92,53 @@ func TestFinalizeBlockComponent(t *testing.T) {
 		require.Nil(t, finalizedBlock)
 		require.Equal(t, ErrFinalizedBlockNotFound, err)
 	})
+
+	t.Run("should store and retrieve mini-round three finalized block per round key", func(t *testing.T) {
+		t.Parallel()
+
+		component := NewFinalizeBlockComponent()
+		roundKey := data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
+		block := &data.BlockOnChain{
+			FinalAnswers: []data.FinalAnswer{
+				{TxHash: []byte("tx-1"), Answer: "synthesized", Status: data.FinalAnswerStatusSynthesized},
+			},
+		}
+
+		err := component.FinalizeBlockMRThree(roundKey, block)
+
+		require.NoError(t, err)
+		finalizedBlock, err := component.GetFinalizedBlockInMRThree(roundKey)
+		require.NoError(t, err)
+		require.Same(t, block, finalizedBlock)
+	})
+
+	t.Run("MR3 finalized block does not collide with MR1 or MR2 blocks", func(t *testing.T) {
+		t.Parallel()
+
+		component := NewFinalizeBlockComponent()
+		key := data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
+		mr3Block := &data.BlockOnChain{FinalAnswers: []data.FinalAnswer{{TxHash: []byte("tx-mr3")}}}
+		mr1Block := &data.BlockOnChain{Block: data.Block{Header: data.BlockHeader{HeaderHash: []byte("mr1")}}}
+
+		require.NoError(t, component.FinalizeBlockMRThree(key, mr3Block))
+		require.NoError(t, component.FinalizeBlockMROne(data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundOne)}, mr1Block))
+
+		retrieved, err := component.GetFinalizedBlockInMRThree(key)
+		require.NoError(t, err)
+		require.Same(t, mr3Block, retrieved)
+
+		_, err = component.GetFinalizedBlockInMRTwo(key)
+		require.Equal(t, ErrFinalizedBlockNotFound, err)
+	})
+
+	t.Run("should return ErrFinalizedBlockNotFound for MR3 when none stored", func(t *testing.T) {
+		t.Parallel()
+
+		component := NewFinalizeBlockComponent()
+
+		finalizedBlock, err := component.GetFinalizedBlockInMRThree(data.RoundKey{})
+
+		require.Nil(t, finalizedBlock)
+		require.Equal(t, ErrFinalizedBlockNotFound, err)
+	})
 }

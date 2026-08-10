@@ -27,16 +27,23 @@ type Config struct {
 	BaseURL        string
 	TimeoutSeconds int // fallback for any operation that has no specific timeout set
 
-	LabelTimeoutSeconds  int // 0 = use TimeoutSeconds
-	AnswerTimeoutSeconds int // 0 = use TimeoutSeconds
-	JudgeTimeoutSeconds  int // 0 = use TimeoutSeconds
+	LabelTimeoutSeconds             int // 0 = use TimeoutSeconds
+	AnswerTimeoutSeconds            int // 0 = use TimeoutSeconds
+	JudgeTimeoutSeconds             int // 0 = use TimeoutSeconds
+	SynthesizeTimeoutSeconds        int // 0 = use TimeoutSeconds
+	EvaluateSynthesisTimeoutSeconds int // 0 = use TimeoutSeconds
 
 	// These are compared against the returned prompt_version / prompt_hash in
-	// every /label and /answer response as a defense-in-depth check.
-	LabelPromptVersion  string
-	LabelPromptHash     string
-	AnswerPromptVersion string
-	AnswerPromptHash    string
+	// every /label, /answer, /synthesize, and /evaluate-synthesis response as
+	// a defense-in-depth check.
+	LabelPromptVersion             string
+	LabelPromptHash                string
+	AnswerPromptVersion            string
+	AnswerPromptHash               string
+	SynthesizePromptVersion        string
+	SynthesizePromptHash           string
+	EvaluateSynthesisPromptVersion string
+	EvaluateSynthesisPromptHash    string
 }
 
 // Client implements agent.BatchAgent by calling the Python service over HTTP.
@@ -44,6 +51,8 @@ type Client struct {
 	labelHTTP         http.Client
 	answerHTTP        http.Client
 	judgeHTTP         http.Client
+	synthesizeHTTP    http.Client
+	evaluateHTTP      http.Client
 	config            Config
 	allowedSubdomains []string // sorted; derived from data.PossibleSubDomains at construction
 }
@@ -70,6 +79,8 @@ func New(cfg Config) *Client {
 		labelHTTP:         http.Client{Timeout: operationTimeout(cfg.LabelTimeoutSeconds, cfg.TimeoutSeconds)},
 		answerHTTP:        http.Client{Timeout: operationTimeout(cfg.AnswerTimeoutSeconds, cfg.TimeoutSeconds)},
 		judgeHTTP:         http.Client{Timeout: operationTimeout(cfg.JudgeTimeoutSeconds, cfg.TimeoutSeconds)},
+		synthesizeHTTP:    http.Client{Timeout: operationTimeout(cfg.SynthesizeTimeoutSeconds, cfg.TimeoutSeconds)},
+		evaluateHTTP:      http.Client{Timeout: operationTimeout(cfg.EvaluateSynthesisTimeoutSeconds, cfg.TimeoutSeconds)},
 		config:            cfg,
 		allowedSubdomains: subdomains,
 	}
@@ -152,6 +163,81 @@ func (c *Client) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, erro
 		}
 	}
 
+	return results, nil
+}
+
+// SynthesizeBatch sends all eligible transactions to POST /synthesize in a
+// single call and maps the response to []agent.SynthesisResult.
+func (c *Client) SynthesizeBatch(requests []agent.SynthesisRequest) ([]agent.SynthesisResult, error) {
+	inputs := make([]synthesizeTxInput, len(requests))
+	for i, r := range requests {
+		inputs[i] = synthesizeTxInput{
+			TxHash:         string(r.Tx.GetTxHash()),
+			Prompt:         string(r.Tx.GetPrompt()),
+			CorrectAnswers: r.CorrectAnswers,
+		}
+	}
+
+	req := synthesizeRequest{
+		PromptVersion: c.config.SynthesizePromptVersion,
+		Transactions:  inputs,
+	}
+
+	var resp synthesizeResponse
+	if err := c.post(&c.synthesizeHTTP, "/synthesize", req, &resp); err != nil {
+		return nil, err
+	}
+
+	if err := c.verifyPrompt(resp.PromptVersion, c.config.SynthesizePromptVersion,
+		resp.PromptHash, c.config.SynthesizePromptHash); err != nil {
+		return nil, err
+	}
+
+	results := make([]agent.SynthesisResult, len(resp.SynthesizedAnswers))
+	for i, r := range resp.SynthesizedAnswers {
+		results[i] = agent.SynthesisResult{
+			TxHash: []byte(r.TxHash),
+			Answer: r.Answer,
+		}
+	}
+	return results, nil
+}
+
+// EvaluateSynthesisBatch sends all transactions to POST /evaluate-synthesis in
+// a single call and maps the response to []agent.EvaluateSynthesisResult.
+func (c *Client) EvaluateSynthesisBatch(requests []agent.EvaluateSynthesisRequest) ([]agent.EvaluateSynthesisResult, error) {
+	inputs := make([]evaluateSynthesisTxInput, len(requests))
+	for i, r := range requests {
+		inputs[i] = evaluateSynthesisTxInput{
+			TxHash:            string(r.Tx.GetTxHash()),
+			Prompt:            string(r.Tx.GetPrompt()),
+			CorrectAnswers:    r.CorrectAnswers,
+			ProposedSynthesis: r.ProposedSynthesis,
+		}
+	}
+
+	req := evaluateSynthesisRequest{
+		PromptVersion: c.config.EvaluateSynthesisPromptVersion,
+		Transactions:  inputs,
+	}
+
+	var resp evaluateSynthesisResponse
+	if err := c.post(&c.evaluateHTTP, "/evaluate-synthesis", req, &resp); err != nil {
+		return nil, err
+	}
+
+	if err := c.verifyPrompt(resp.PromptVersion, c.config.EvaluateSynthesisPromptVersion,
+		resp.PromptHash, c.config.EvaluateSynthesisPromptHash); err != nil {
+		return nil, err
+	}
+
+	results := make([]agent.EvaluateSynthesisResult, len(resp.Evaluations))
+	for i, r := range resp.Evaluations {
+		results[i] = agent.EvaluateSynthesisResult{
+			TxHash:   []byte(r.TxHash),
+			Approved: r.Approved,
+		}
+	}
 	return results, nil
 }
 

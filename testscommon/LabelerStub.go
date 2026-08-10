@@ -8,9 +8,11 @@ import (
 // LabelerStub implements agent.BatchAgent.
 // Tests configure responses via the *Called hook functions.
 type LabelerStub struct {
-	JudgeAnswersCalled func(request agent.AnswerJudgeRequest) (string, error)
-	LabelBatchCalled   func(txs []data.Transaction) ([]agent.LabelResult, error)
-	AnswerBatchCalled  func(txs []data.Transaction) ([]agent.AnswerResult, error)
+	JudgeAnswersCalled           func(request agent.AnswerJudgeRequest) (string, error)
+	LabelBatchCalled             func(txs []data.Transaction) ([]agent.LabelResult, error)
+	AnswerBatchCalled            func(txs []data.Transaction) ([]agent.AnswerResult, error)
+	SynthesizeBatchCalled        func(requests []agent.SynthesisRequest) ([]agent.SynthesisResult, error)
+	EvaluateSynthesisBatchCalled func(requests []agent.EvaluateSynthesisRequest) ([]agent.EvaluateSynthesisResult, error)
 }
 
 func (tl *LabelerStub) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
@@ -43,4 +45,20 @@ func (tl *LabelerStub) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult
 		results[i] = agent.AnswerResult{TxHash: tx.GetTxHash(), Answer: ""}
 	}
 	return results, nil
+}
+
+func (tl *LabelerStub) SynthesizeBatch(requests []agent.SynthesisRequest) ([]agent.SynthesisResult, error) {
+	if tl.SynthesizeBatchCalled != nil {
+		return tl.SynthesizeBatchCalled(requests)
+	}
+
+	return nil, agent.ErrNotImplemented
+}
+
+func (tl *LabelerStub) EvaluateSynthesisBatch(requests []agent.EvaluateSynthesisRequest) ([]agent.EvaluateSynthesisResult, error) {
+	if tl.EvaluateSynthesisBatchCalled != nil {
+		return tl.EvaluateSynthesisBatchCalled(requests)
+	}
+
+	return nil, agent.ErrNotImplemented
 }
