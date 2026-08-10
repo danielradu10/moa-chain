@@ -431,6 +431,516 @@ func TestRoundHandler_ClassificationStepTimeouts(t *testing.T) {
 	}
 }
 
+func TestRoundHandler_StartRoundMiniRoundThree(t *testing.T) {
+	t.Parallel()
+
+	t.Run("leader synthesises and awaits votes", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{
+			HandleConsensusSelectionLeader: "validator-1",
+		}
+		handler := createTestRoundHandlerMR3("validator-1", data.StepIdle, roundKey, mr3)
+
+		err := handler.StartRound(roundKey)
+
+		require.NoError(t, err)
+		require.True(t, mr3.HandleConsensusSelectionCalled)
+		require.Equal(t, roundKey, mr3.HandleConsensusSelectionKey)
+		require.True(t, mr3.HandleSynthesisCalled)
+		require.Equal(t, roundKey, mr3.HandleSynthesisKey)
+		require.Equal(t, data.StepCollectSynthesisVotes, handler.currentStep)
+	})
+
+	t.Run("non-leader awaits proposed synthesis", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{
+			HandleConsensusSelectionLeader: "validator-2",
+		}
+		handler := createTestRoundHandlerMR3("validator-1", data.StepIdle, roundKey, mr3)
+
+		err := handler.StartRound(roundKey)
+
+		require.NoError(t, err)
+		require.True(t, mr3.HandleConsensusSelectionCalled)
+		require.False(t, mr3.HandleSynthesisCalled)
+		require.Equal(t, data.StepAwaitProposedSynthesis, handler.currentStep)
+	})
+
+	t.Run("consensus selection error propagates", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		expectedErr := ErrUnexpectedMessageForStep
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{
+			HandleConsensusSelectionErr: expectedErr,
+		}
+		handler := createTestRoundHandlerMR3("validator-1", data.StepIdle, roundKey, mr3)
+
+		err := handler.StartRound(roundKey)
+
+		require.ErrorIs(t, err, expectedErr)
+		require.False(t, mr3.HandleSynthesisCalled)
+	})
+
+	t.Run("synthesis error sets step to failed", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		expectedErr := ErrNilProposedSynthesisMessage
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{
+			HandleConsensusSelectionLeader: "validator-1",
+			HandleSynthesisErr:             expectedErr,
+		}
+		handler := createTestRoundHandlerMR3("validator-1", data.StepIdle, roundKey, mr3)
+
+		err := handler.StartRound(roundKey)
+
+		require.ErrorIs(t, err, expectedErr)
+		require.Equal(t, data.StepFailed, handler.currentStep)
+	})
+}
+
+func TestRoundHandler_MiniRoundTwoToMiniRoundThreeTransition(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no MR3 handler wired stops at StepFinished", func(t *testing.T) {
+		t.Parallel()
+
+		mr2RoundKey := createMiniRoundTwoRoundKey()
+		mr2Handler := &testscommon.MiniRoundTwoHandlerStub{}
+		handler := createTestRoundHandler("validator", data.StepAwaitClassificationCertificate, mr2RoundKey, mr2Handler)
+		err := handler.blockFinalizer.FinalizeBlockMRTwo(mr2RoundKey, &data.BlockOnChain{})
+		require.NoError(t, err)
+
+		err = handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType:            data.AnswerClassificationCertificateConsensusMessage,
+			AnswerClassificationCertificate: routingClassificationCertificate(mr2RoundKey),
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, data.StepFinished, handler.currentStep)
+	})
+
+	t.Run("all INSUFFICIENT_CORRECT_ANSWERS skips MR3", func(t *testing.T) {
+		t.Parallel()
+
+		mr2RoundKey := createMiniRoundTwoRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{
+			HandleConsensusSelectionLeader: "validator-2",
+		}
+		handler := createFullRoundHandler("validator-1", data.StepAwaitClassificationCertificate, mr2RoundKey, mr3)
+		mr2Block := &data.BlockOnChain{
+			AnswerClassifications: []data.TransactionAnswerClassification{
+				{TxHash: []byte("tx1"), Status: data.TransactionAnswerStatusInsufficientCorrectAnswers},
+				{TxHash: []byte("tx2"), Status: data.TransactionAnswerStatusInsufficientCorrectAnswers},
+			},
+		}
+		err := handler.blockFinalizer.FinalizeBlockMRTwo(mr2RoundKey, mr2Block)
+		require.NoError(t, err)
+
+		err = handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType:            data.AnswerClassificationCertificateConsensusMessage,
+			AnswerClassificationCertificate: routingClassificationCertificate(mr2RoundKey),
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, data.StepFinished, handler.currentStep)
+		require.False(t, mr3.HandleConsensusSelectionCalled)
+	})
+
+	t.Run("eligible MR2 transactions trigger MR3 start", func(t *testing.T) {
+		t.Parallel()
+
+		mr2RoundKey := createMiniRoundTwoRoundKey()
+		mr3RoundKey := createMiniRoundThreeRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{
+			HandleConsensusSelectionLeader: "validator-2",
+		}
+		handler := createFullRoundHandler("validator-1", data.StepAwaitClassificationCertificate, mr2RoundKey, mr3)
+		mr2Block := &data.BlockOnChain{
+			AnswerClassifications: []data.TransactionAnswerClassification{
+				{TxHash: []byte("tx1"), Status: data.TransactionAnswerStatusReadyForMiniRoundThree},
+			},
+		}
+		err := handler.blockFinalizer.FinalizeBlockMRTwo(mr2RoundKey, mr2Block)
+		require.NoError(t, err)
+
+		err = handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType:            data.AnswerClassificationCertificateConsensusMessage,
+			AnswerClassificationCertificate: routingClassificationCertificate(mr2RoundKey),
+		})
+
+		require.NoError(t, err)
+		require.True(t, mr3.HandleConsensusSelectionCalled)
+		require.Equal(t, mr3RoundKey, mr3.HandleConsensusSelectionKey)
+		require.Equal(t, mr3RoundKey, handler.currentRoundKey)
+		require.Equal(t, data.StepAwaitProposedSynthesis, handler.currentStep)
+	})
+}
+
+func TestRoundHandler_HandleProposedSynthesis(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy path routes message and advances to await aggregated votes", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{}
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitProposedSynthesis, roundKey, mr3)
+		msg := &data.ProposedSynthesisMessage{
+			Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+			SenderID: "leader",
+		}
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.ProposedSynthesisConsensusMessage,
+			ProposedSynthesis:    msg,
+		})
+
+		require.NoError(t, err)
+		require.True(t, mr3.HandleProposedSynthesisCalled)
+		require.Equal(t, roundKey, mr3.HandleProposedSynthesisKey)
+		require.Same(t, msg, mr3.HandleProposedSynthesisMsg)
+		require.Equal(t, data.StepAwaitAggregatedSynthesisVotes, handler.currentStep)
+	})
+
+	t.Run("nil message returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitProposedSynthesis, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.ProposedSynthesisConsensusMessage,
+		})
+
+		require.ErrorIs(t, err, ErrNilProposedSynthesisMessage)
+	})
+
+	t.Run("wrong step returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("validator-1", data.StepCollectSynthesisVotes, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.ProposedSynthesisConsensusMessage,
+			ProposedSynthesis: &data.ProposedSynthesisMessage{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+			},
+		})
+
+		require.ErrorIs(t, err, ErrUnexpectedMessageForStep)
+	})
+
+	t.Run("different round returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitProposedSynthesis, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.ProposedSynthesisConsensusMessage,
+			ProposedSynthesis: &data.ProposedSynthesisMessage{
+				Epoch: roundKey.Epoch, Round: roundKey.Round + 1, MiniRound: roundKey.MiniRound,
+			},
+		})
+
+		require.ErrorIs(t, err, ErrMessageForDifferentRound)
+	})
+
+	t.Run("handler error sets step to failed", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		expectedErr := ErrNilSynthesisVoteMessage
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{HandleProposedSynthesisErr: expectedErr}
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitProposedSynthesis, roundKey, mr3)
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.ProposedSynthesisConsensusMessage,
+			ProposedSynthesis: &data.ProposedSynthesisMessage{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+			},
+		})
+
+		require.ErrorIs(t, err, expectedErr)
+		require.Equal(t, data.StepFailed, handler.currentStep)
+	})
+}
+
+func TestRoundHandler_HandleSynthesisVote(t *testing.T) {
+	t.Parallel()
+
+	t.Run("vote below quorum keeps collecting", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{}
+		handler := createTestRoundHandlerMR3("leader", data.StepCollectSynthesisVotes, roundKey, mr3)
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.SynthesisVoteConsensusMessage,
+			SynthesisVote: &data.SynthesisVote{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+				VoterID: "validator-1",
+			},
+		})
+
+		require.NoError(t, err)
+		require.True(t, mr3.HandleSynthesisVoteCalled)
+		require.Equal(t, data.StepCollectSynthesisVotes, handler.currentStep)
+	})
+
+	t.Run("vote at quorum (MR3 finalized) sets step to finished", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{}
+		handler := createTestRoundHandlerMR3("leader", data.StepCollectSynthesisVotes, roundKey, mr3)
+		err := handler.blockFinalizer.FinalizeBlockMRThree(roundKey, &data.BlockOnChain{})
+		require.NoError(t, err)
+
+		err = handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.SynthesisVoteConsensusMessage,
+			SynthesisVote: &data.SynthesisVote{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+				VoterID: "validator-1",
+			},
+		})
+
+		require.NoError(t, err)
+		require.True(t, mr3.HandleSynthesisVoteCalled)
+		require.Equal(t, data.StepFinished, handler.currentStep)
+	})
+
+	t.Run("nil vote returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("leader", data.StepCollectSynthesisVotes, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.SynthesisVoteConsensusMessage,
+		})
+
+		require.ErrorIs(t, err, ErrNilSynthesisVoteMessage)
+	})
+
+	t.Run("wrong step returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("leader", data.StepAwaitProposedSynthesis, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.SynthesisVoteConsensusMessage,
+			SynthesisVote: &data.SynthesisVote{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+			},
+		})
+
+		require.ErrorIs(t, err, ErrUnexpectedMessageForStep)
+	})
+
+	t.Run("different round returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("leader", data.StepCollectSynthesisVotes, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.SynthesisVoteConsensusMessage,
+			SynthesisVote: &data.SynthesisVote{
+				Epoch: roundKey.Epoch, Round: roundKey.Round + 1, MiniRound: roundKey.MiniRound,
+			},
+		})
+
+		require.ErrorIs(t, err, ErrMessageForDifferentRound)
+	})
+
+	t.Run("vote for already-finalized MR3 is silently ignored", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{}
+		handler := createTestRoundHandlerMR3("leader", data.StepFinished, roundKey, mr3)
+		err := handler.blockFinalizer.FinalizeBlockMRThree(roundKey, &data.BlockOnChain{})
+		require.NoError(t, err)
+
+		err = handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.SynthesisVoteConsensusMessage,
+			SynthesisVote: &data.SynthesisVote{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+				VoterID: "validator-1",
+			},
+		})
+
+		require.NoError(t, err)
+		require.False(t, mr3.HandleSynthesisVoteCalled)
+	})
+}
+
+func TestRoundHandler_HandleAggregatedSynthesisVotes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy path finalizes MR3", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{}
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitAggregatedSynthesisVotes, roundKey, mr3)
+		msg := &data.AggregatedSynthesisVotes{
+			Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+			SenderID: "leader",
+		}
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType:     data.AggregatedSynthesisVotesConsensusMessage,
+			AggregatedSynthesisVotes: msg,
+		})
+
+		require.NoError(t, err)
+		require.True(t, mr3.HandleAggregatedSynthesisVotesCalled)
+		require.Equal(t, roundKey, mr3.HandleAggregatedSynthesisVotesKey)
+		require.Same(t, msg, mr3.HandleAggregatedSynthesisVotesMsg)
+		require.Equal(t, data.StepFinished, handler.currentStep)
+	})
+
+	t.Run("nil message returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitAggregatedSynthesisVotes, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.AggregatedSynthesisVotesConsensusMessage,
+		})
+
+		require.ErrorIs(t, err, ErrNilAggregatedSynthesisVotesMessage)
+	})
+
+	t.Run("wrong step returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitProposedSynthesis, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.AggregatedSynthesisVotesConsensusMessage,
+			AggregatedSynthesisVotes: &data.AggregatedSynthesisVotes{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+			},
+		})
+
+		require.ErrorIs(t, err, ErrUnexpectedMessageForStep)
+	})
+
+	t.Run("different round returns error", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitAggregatedSynthesisVotes, roundKey, &testscommon.MiniRoundThreeHandlerStub{})
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.AggregatedSynthesisVotesConsensusMessage,
+			AggregatedSynthesisVotes: &data.AggregatedSynthesisVotes{
+				Epoch: roundKey.Epoch, Round: roundKey.Round + 1, MiniRound: roundKey.MiniRound,
+			},
+		})
+
+		require.ErrorIs(t, err, ErrMessageForDifferentRound)
+	})
+
+	t.Run("handler error sets step to failed", func(t *testing.T) {
+		t.Parallel()
+
+		roundKey := createMiniRoundThreeRoundKey()
+		expectedErr := ErrNilProposedSynthesisMessage
+		mr3 := &testscommon.MiniRoundThreeHandlerStub{HandleAggregatedSynthesisVotesErr: expectedErr}
+		handler := createTestRoundHandlerMR3("validator-1", data.StepAwaitAggregatedSynthesisVotes, roundKey, mr3)
+
+		err := handler.HandleMessage(data.ConsensusMessage{
+			ConsensusMessageType: data.AggregatedSynthesisVotesConsensusMessage,
+			AggregatedSynthesisVotes: &data.AggregatedSynthesisVotes{
+				Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
+			},
+		})
+
+		require.ErrorIs(t, err, expectedErr)
+		require.Equal(t, data.StepFailed, handler.currentStep)
+	})
+}
+
+func TestRoundHandler_MiniRoundThreeTimeouts(t *testing.T) {
+	t.Parallel()
+
+	roundKey := createMiniRoundThreeRoundKey()
+	tests := []struct {
+		step        data.Step
+		targetError error
+	}{
+		{step: data.StepAwaitProposedSynthesis, targetError: ErrProposedSynthesisTimeout},
+		{step: data.StepCollectSynthesisVotes, targetError: ErrSynthesisVotesTimeout},
+		{step: data.StepAwaitAggregatedSynthesisVotes, targetError: ErrAggregatedSynthesisVotesTimeout},
+	}
+
+	for _, test := range tests {
+		handler := createTestRoundHandlerMR3(
+			"validator", test.step, roundKey, &testscommon.MiniRoundThreeHandlerStub{},
+		)
+
+		err := handler.OnTimeout(roundKey, test.step)
+
+		require.ErrorIs(t, err, test.targetError)
+		require.Equal(t, data.StepFailed, handler.currentStep)
+	}
+}
+
+func createMiniRoundThreeRoundKey() data.RoundKey {
+	return data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
+}
+
+func createTestRoundHandlerMR3(
+	selfID string,
+	currentStep data.Step,
+	currentRoundKey data.RoundKey,
+	mr3Handler *testscommon.MiniRoundThreeHandlerStub,
+) *roundHandler {
+	return NewRoundHandler(RoundHandlerArgs{
+		SelfID:                selfID,
+		CurrentStep:           currentStep,
+		CurrentRoundKey:       currentRoundKey,
+		MiniRoundOneHandler:   &testscommon.MiniRoundOneHandlerStub{},
+		MiniRoundTwoHandler:   &testscommon.MiniRoundTwoHandlerStub{},
+		MiniRoundThreeHandler: mr3Handler,
+		BlockFinalizer:        blockFinalizer.NewFinalizeBlockComponent(),
+	})
+}
+
+// createFullRoundHandler builds a handler with both MR2 and MR3 stubs, used for
+// MR2→MR3 transition tests where both handlers must be in place.
+func createFullRoundHandler(
+	selfID string,
+	currentStep data.Step,
+	currentRoundKey data.RoundKey,
+	mr3Handler *testscommon.MiniRoundThreeHandlerStub,
+) *roundHandler {
+	return NewRoundHandler(RoundHandlerArgs{
+		SelfID:                selfID,
+		CurrentStep:           currentStep,
+		CurrentRoundKey:       currentRoundKey,
+		MiniRoundOneHandler:   &testscommon.MiniRoundOneHandlerStub{},
+		MiniRoundTwoHandler:   &testscommon.MiniRoundTwoHandlerStub{},
+		MiniRoundThreeHandler: mr3Handler,
+		BlockFinalizer:        blockFinalizer.NewFinalizeBlockComponent(),
+	})
+}
+
 func routingClassificationVote(roundKey data.RoundKey) *data.AnswerClassificationVote {
 	return &data.AnswerClassificationVote{
 		Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound,
