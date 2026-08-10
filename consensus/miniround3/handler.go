@@ -468,12 +468,281 @@ func findTransaction(txs []data.Transaction, txHash []byte) data.Transaction {
 	return nil
 }
 
-// HandleSynthesisVote is not yet implemented (next step).
-func (handler *miniRoundThreeHandler) HandleSynthesisVote(_ data.RoundKey, _ *data.SynthesisVote) error {
-	panic("miniround3: HandleSynthesisVote not yet implemented")
+// HandleSynthesisVote is called only on the leader. It verifies the vote,
+// stores it, and at 2f approved votes builds the aggregated certificate,
+// finalizes the block locally, and broadcasts to all validators.
+// The leader itself does not vote — any vote claiming to come from the leader
+// is rejected.
+func (handler *miniRoundThreeHandler) HandleSynthesisVote(key data.RoundKey, vote *data.SynthesisVote) error {
+	if vote == nil {
+		return ErrNilSynthesisVote
+	}
+
+	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+	if leaderID != handler.myID {
+		return ErrOnlyLeaderCanCollectVotes
+	}
+
+	if handler.roundState.IsSynthesisCertificateSet(key) {
+		handler.logger.Info("miniround3.HandleSynthesisVote certificate already set, ignoring", "roundKey", key, "voterID", vote.VoterID)
+		return nil
+	}
+
+	if vote.VoterID == leaderID {
+		handler.logger.Error("miniround3.HandleSynthesisVote leader vote rejected", "roundKey", key, "voterID", vote.VoterID)
+		return ErrLeaderMustNotVote
+	}
+
+	if !handler.validatorRegistry.IsValidatorInConsensusGroup(vote.VoterID) {
+		return ErrSynthesisVoterNotInConsensusGroup
+	}
+
+	proposal, err := handler.roundState.GetProposedSynthesis(key)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(vote.SynthesisBlockHash, proposal.SynthesisBlockHash) {
+		return ErrSynthesisBlockHashMismatch
+	}
+
+	expectedHash, err := hashing.ComputeSynthesisVoteHash(vote)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(expectedHash, vote.VoteHash) {
+		return ErrSynthesisVoteHashMismatch
+	}
+
+	publicKey, err := handler.validatorRegistry.GetPublicKey(vote.VoterID)
+	if err != nil {
+		return err
+	}
+	if err = handler.signer.Verify(publicKey, vote.VoteHash, vote.Signature); err != nil {
+		handler.logger.Error("miniround3.HandleSynthesisVote signature verification failed", "roundKey", key, "voterID", vote.VoterID, "error", err)
+		return err
+	}
+
+	if err = handler.roundState.AddSynthesisVote(key, vote); err != nil {
+		handler.logger.Error("miniround3.HandleSynthesisVote failed to store vote", "roundKey", key, "voterID", vote.VoterID, "error", err)
+		return err
+	}
+
+	handler.logger.Info("miniround3.HandleSynthesisVote vote stored", "roundKey", key, "voterID", vote.VoterID)
+	return handler.buildAndBroadcastAtQuorum(key, proposal)
 }
 
-// HandleAggregatedSynthesisVotes is not yet implemented (next step).
-func (handler *miniRoundThreeHandler) HandleAggregatedSynthesisVotes(_ data.RoundKey, _ *data.AggregatedSynthesisVotes) error {
-	panic("miniround3: HandleAggregatedSynthesisVotes not yet implemented")
+// buildAndBroadcastAtQuorum checks whether 2f votes have been collected. If so
+// it builds the aggregated certificate, finalizes the block locally, and
+// broadcasts the certificate to all validators.
+func (handler *miniRoundThreeHandler) buildAndBroadcastAtQuorum(key data.RoundKey, proposal *data.ProposedSynthesisMessage) error {
+	votes, err := handler.roundState.GetSynthesisVotes(key)
+	if err != nil {
+		return err
+	}
+
+	committeeSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		return err
+	}
+
+	quorum := (2 * committeeSize) / 3
+	if uint64(len(votes)) < quorum {
+		handler.logger.Info("miniround3.buildAndBroadcastAtQuorum waiting for more votes", "roundKey", key, "numVotes", len(votes), "quorum", quorum)
+		return nil
+	}
+
+	handler.logger.Info("miniround3.buildAndBroadcastAtQuorum quorum reached", "roundKey", key, "numVotes", len(votes), "quorum", quorum)
+
+	signers := make([]string, len(votes))
+	voteHashes := make([][]byte, len(votes))
+	signatures := make([][]byte, len(votes))
+	for i, v := range votes {
+		signers[i] = v.VoterID
+		voteHashes[i] = v.VoteHash
+		signatures[i] = v.Signature
+	}
+
+	aggregated := &data.AggregatedSynthesisVotes{
+		Epoch:              key.Epoch,
+		Round:              key.Round,
+		MiniRound:          key.MiniRound,
+		SenderID:           handler.myID,
+		SynthesisBlockHash: proposal.SynthesisBlockHash,
+		Signers:            signers,
+		VoteHashes:         voteHashes,
+		Signatures:         signatures,
+	}
+
+	if err = handler.roundState.SetSynthesisCertificate(key, aggregated); err != nil {
+		return err
+	}
+
+	if err = handler.finalizeBlockMRThree(key, proposal); err != nil {
+		return err
+	}
+
+	validatorIDs := handler.validatorRegistry.GetValidatorsIDs()
+	return handler.broadcaster.BroadcastAggregatedSynthesisVotes(&data.ConsensusMessage{
+		ConsensusMessageType:     data.AggregatedSynthesisVotesConsensusMessage,
+		AggregatedSynthesisVotes: aggregated,
+	}, handler.myID, validatorIDs)
+}
+
+// HandleAggregatedSynthesisVotes is called on non-leader validators when the
+// leader broadcasts the quorum certificate. It verifies every vote in the
+// certificate and finalizes the block.
+func (handler *miniRoundThreeHandler) HandleAggregatedSynthesisVotes(key data.RoundKey, msg *data.AggregatedSynthesisVotes) error {
+	if msg == nil {
+		return ErrNilAggregatedSynthesisVotes
+	}
+
+	if msg.Epoch != key.Epoch || msg.Round != key.Round || msg.MiniRound != key.MiniRound {
+		return ErrAggregatedSynthesisVotesRoundKeyMismatch
+	}
+
+	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	if err != nil {
+		return err
+	}
+	if msg.SenderID != leaderID {
+		return ErrMessageNotFromLeader
+	}
+
+	if handler.roundState.IsSynthesisCertificateSet(key) {
+		handler.logger.Info("miniround3.HandleAggregatedSynthesisVotes certificate already set", "roundKey", key)
+		return nil
+	}
+
+	if len(msg.Signers) != len(msg.VoteHashes) || len(msg.Signers) != len(msg.Signatures) {
+		return ErrParallelSliceLengthMismatch
+	}
+
+	committeeSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		return err
+	}
+	quorum := (2 * committeeSize) / 3
+	if uint64(len(msg.Signers)) < quorum {
+		return ErrNotEnoughSynthesisVotes
+	}
+
+	proposal, err := handler.roundState.GetProposedSynthesis(key)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(msg.SynthesisBlockHash, proposal.SynthesisBlockHash) {
+		return ErrSynthesisBlockHashMismatch
+	}
+
+	for i, signerID := range msg.Signers {
+		if signerID == leaderID {
+			return ErrLeaderMustNotVote
+		}
+		if !handler.validatorRegistry.IsValidatorInConsensusGroup(signerID) {
+			return ErrSynthesisVoterNotInConsensusGroup
+		}
+
+		reconstructed := &data.SynthesisVote{
+			Epoch:              msg.Epoch,
+			Round:              msg.Round,
+			MiniRound:          msg.MiniRound,
+			VoterID:            signerID,
+			SynthesisBlockHash: msg.SynthesisBlockHash,
+		}
+		expectedHash, hashErr := hashing.ComputeSynthesisVoteHash(reconstructed)
+		if hashErr != nil {
+			return hashErr
+		}
+		if !bytes.Equal(expectedHash, msg.VoteHashes[i]) {
+			return ErrSynthesisVoteHashMismatch
+		}
+
+		publicKey, pkErr := handler.validatorRegistry.GetPublicKey(signerID)
+		if pkErr != nil {
+			return pkErr
+		}
+		if verifyErr := handler.signer.Verify(publicKey, msg.VoteHashes[i], msg.Signatures[i]); verifyErr != nil {
+			handler.logger.Error("miniround3.HandleAggregatedSynthesisVotes signature verification failed", "roundKey", key, "signerID", signerID, "error", verifyErr)
+			return verifyErr
+		}
+	}
+
+	if err = handler.roundState.SetSynthesisCertificate(key, msg); err != nil {
+		return err
+	}
+
+	return handler.finalizeBlockMRThree(key, proposal)
+}
+
+// finalizeBlockMRThree builds the FinalAnswers slice — one entry per
+// transaction — and commits it via the block finalizer. Transactions that were
+// eligible for synthesis receive status SYNTHESIZED; all others (NonRelated or
+// InsufficientCorrectAnswers) receive status SKIPPED.
+func (handler *miniRoundThreeHandler) finalizeBlockMRThree(key data.RoundKey, proposal *data.ProposedSynthesisMessage) error {
+	mr2Key := data.RoundKey{Epoch: key.Epoch, Round: key.Round, MiniRound: key.MiniRound - 1}
+	mr2Block, err := handler.blockFinalizer.GetFinalizedBlockInMRTwo(mr2Key)
+	if err != nil {
+		return err
+	}
+
+	synthesizedByTxHash := make(map[string]string, len(proposal.SynthesizedAnswers))
+	for _, sa := range proposal.SynthesizedAnswers {
+		synthesizedByTxHash[string(sa.TxHash)] = sa.Answer
+	}
+
+	nonRelatedSet := make(map[string]struct{}, len(mr2Block.NonRelatedTransactionHashes))
+	for _, h := range mr2Block.NonRelatedTransactionHashes {
+		nonRelatedSet[h] = struct{}{}
+	}
+
+	classificationStatus := make(map[string]data.TransactionAnswerStatus, len(mr2Block.AnswerClassifications))
+	for _, c := range mr2Block.AnswerClassifications {
+		classificationStatus[string(c.TxHash)] = c.Status
+	}
+
+	finalAnswers := make([]data.FinalAnswer, 0, len(mr2Block.Block.Body.Transactions))
+	for _, tx := range mr2Block.Block.Body.Transactions {
+		txHashStr := string(tx.GetTxHash())
+
+		if _, isNonRelated := nonRelatedSet[txHashStr]; isNonRelated {
+			finalAnswers = append(finalAnswers, data.FinalAnswer{
+				TxHash: tx.GetTxHash(),
+				Status: data.FinalAnswerStatusSkipped,
+			})
+			continue
+		}
+
+		status, hasClassification := classificationStatus[txHashStr]
+		if !hasClassification || status == data.TransactionAnswerStatusInsufficientCorrectAnswers {
+			finalAnswers = append(finalAnswers, data.FinalAnswer{
+				TxHash: tx.GetTxHash(),
+				Status: data.FinalAnswerStatusSkipped,
+			})
+			continue
+		}
+
+		finalAnswers = append(finalAnswers, data.FinalAnswer{
+			TxHash: tx.GetTxHash(),
+			Answer: synthesizedByTxHash[txHashStr],
+			Status: data.FinalAnswerStatusSynthesized,
+		})
+	}
+
+	sort.Slice(finalAnswers, func(i, j int) bool {
+		return bytes.Compare(finalAnswers[i].TxHash, finalAnswers[j].TxHash) < 0
+	})
+
+	handler.logger.Info("miniround3.finalizeBlockMRThree finalizing", "roundKey", key, "numFinalAnswers", len(finalAnswers))
+
+	return handler.blockFinalizer.FinalizeBlockMRThree(key, &data.BlockOnChain{
+		Block:                      mr2Block.Block,
+		SubdomainsFrequencies:      mr2Block.SubdomainsFrequencies,
+		AggregatedExecutionResults: mr2Block.AggregatedExecutionResults,
+		AnswerEvidence:             mr2Block.AnswerEvidence,
+		AnswerClassifications:      mr2Block.AnswerClassifications,
+		FinalAnswers:               finalAnswers,
+	})
 }
