@@ -230,6 +230,29 @@ func (broadcaster *OrderedBroadcasterStub) BroadcastAnswerClassificationCertific
 	return broadcaster.network.broadcast(message, myID, receivers)
 }
 
+func (broadcaster *OrderedBroadcasterStub) BroadcastProposedSynthesis(
+	message *data.ConsensusMessage,
+	myID string,
+	receivers []string,
+) error {
+	return broadcaster.network.broadcast(message, myID, receivers)
+}
+
+func (broadcaster *OrderedBroadcasterStub) SendSynthesisVoteToLeader(
+	message *data.ConsensusMessage,
+	leaderID string,
+) error {
+	return broadcaster.network.sendToLeader(broadcaster.nodeID, leaderID, message)
+}
+
+func (broadcaster *OrderedBroadcasterStub) BroadcastAggregatedSynthesisVotes(
+	message *data.ConsensusMessage,
+	myID string,
+	receivers []string,
+) error {
+	return broadcaster.network.broadcast(message, myID, receivers)
+}
+
 func cloneRoundEventInboxes(inboxes map[string]chan data.RoundEvent) map[string]chan data.RoundEvent {
 	cloned := make(map[string]chan data.RoundEvent, len(inboxes))
 	for validatorID, inbox := range inboxes {

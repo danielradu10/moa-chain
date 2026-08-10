@@ -70,6 +70,21 @@ func (b *broadcaster) BroadcastAnswerClassificationCertificate(certificateMessag
 	return b.broadcast(certificateMessage, myID, receivers)
 }
 
+// BroadcastProposedSynthesis sends the leader's synthesis proposal to all validators.
+func (b *broadcaster) BroadcastProposedSynthesis(msg *data.ConsensusMessage, myID string, receivers []string) error {
+	return b.broadcast(msg, myID, receivers)
+}
+
+// SendSynthesisVoteToLeader sends a binary synthesis approval vote to the MR3 leader.
+func (b *broadcaster) SendSynthesisVoteToLeader(msg *data.ConsensusMessage, leaderID string) error {
+	return b.SendVoteToLeader(msg, leaderID)
+}
+
+// BroadcastAggregatedSynthesisVotes sends the quorum certificate to all validators.
+func (b *broadcaster) BroadcastAggregatedSynthesisVotes(msg *data.ConsensusMessage, myID string, receivers []string) error {
+	return b.broadcast(msg, myID, receivers)
+}
+
 func (b *broadcaster) broadcast(message *data.ConsensusMessage, myID string, receivers []string) error {
 	if message == nil {
 		b.logger.Error("cannot broadcast nil consensus message", "senderID", myID)
