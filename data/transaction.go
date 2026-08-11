@@ -36,6 +36,8 @@ type Transaction interface {
 	SetEstimatedFee(estimatedFee uint64)
 	SetEstimatedScore(estimatedScore uint64)
 
+	Clone() Transaction
+
 	IsInterfaceNil() bool
 }
 
