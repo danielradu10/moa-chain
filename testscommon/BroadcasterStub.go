@@ -30,6 +30,20 @@ type BroadcasterStub struct {
 	BroadcastAnswerClassificationCertificateMyID    string
 	BroadcastAnswerClassificationCertificateTargets []string
 	BroadcastAnswerClassificationCertificateErr     error
+
+	BroadcastProposedSynthesisMessage *data.ConsensusMessage
+	BroadcastProposedSynthesisMyID    string
+	BroadcastProposedSynthesisTargets []string
+	BroadcastProposedSynthesisErr     error
+
+	SentSynthesisVoteMessage *data.ConsensusMessage
+	SentSynthesisVoteLeaderID string
+	SendSynthesisVoteErr      error
+
+	BroadcastAggregatedSynthesisVotesMessage *data.ConsensusMessage
+	BroadcastAggregatedSynthesisVotesMyID    string
+	BroadcastAggregatedSynthesisVotesTargets []string
+	BroadcastAggregatedSynthesisVotesErr     error
 }
 
 func (stub *BroadcasterStub) SendAnswerClassificationVoteToLeader(voteMessage *data.ConsensusMessage, leaderID string) error {
@@ -76,4 +90,27 @@ func (stub *BroadcasterStub) BroadcastAnswerClassificationCertificate(certificat
 	stub.BroadcastAnswerClassificationCertificateTargets = receivers
 
 	return stub.BroadcastAnswerClassificationCertificateErr
+}
+
+func (stub *BroadcasterStub) BroadcastProposedSynthesis(msg *data.ConsensusMessage, myID string, receivers []string) error {
+	stub.BroadcastProposedSynthesisMessage = msg
+	stub.BroadcastProposedSynthesisMyID = myID
+	stub.BroadcastProposedSynthesisTargets = receivers
+
+	return stub.BroadcastProposedSynthesisErr
+}
+
+func (stub *BroadcasterStub) SendSynthesisVoteToLeader(msg *data.ConsensusMessage, leaderID string) error {
+	stub.SentSynthesisVoteMessage = msg
+	stub.SentSynthesisVoteLeaderID = leaderID
+
+	return stub.SendSynthesisVoteErr
+}
+
+func (stub *BroadcasterStub) BroadcastAggregatedSynthesisVotes(msg *data.ConsensusMessage, myID string, receivers []string) error {
+	stub.BroadcastAggregatedSynthesisVotesMessage = msg
+	stub.BroadcastAggregatedSynthesisVotesMyID = myID
+	stub.BroadcastAggregatedSynthesisVotesTargets = receivers
+
+	return stub.BroadcastAggregatedSynthesisVotesErr
 }

@@ -43,3 +43,11 @@ var ErrAnswerJudgingTimeout = errors.New("answer judging timeout")
 var ErrNotEnoughAnswerClassificationVotes = errors.New("not enough answer classification votes")
 
 var ErrAnswerClassificationCertificateTimeout = errors.New("answer classification certificate timeout")
+
+var ErrNilProposedSynthesisMessage = errors.New("proposed synthesis message is nil")
+var ErrNilSynthesisVoteMessage = errors.New("synthesis vote is nil")
+var ErrNilAggregatedSynthesisVotesMessage = errors.New("aggregated synthesis votes is nil")
+
+var ErrSynthesisVotesTimeout = errors.New("synthesis votes timeout")
+var ErrProposedSynthesisTimeout = errors.New("proposed synthesis timeout")
+var ErrAggregatedSynthesisVotesTimeout = errors.New("aggregated synthesis votes timeout")

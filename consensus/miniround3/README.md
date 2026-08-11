@@ -343,7 +343,7 @@ round-orchestration activation step.
 
 ### Layer 5 — Mini-round-three handler (`consensus/miniround3/`)
 
-- [ ] `interface.go` — `MiniRoundThreeHandler`:
+- [x] `interface.go` — `MiniRoundThreeHandler`:
   ```go
   HandleConsensusSelection(key RoundKey) (leaderID string, err error)
   HandleSynthesis(key RoundKey) error
@@ -351,13 +351,13 @@ round-orchestration activation step.
   HandleSynthesisVote(key RoundKey, vote *data.SynthesisVote) error
   HandleAggregatedSynthesisVotes(key RoundKey, msg *data.AggregatedSynthesisVotes) error
   ```
-- [ ] `handler.go` — `miniRoundThreeHandler` struct. Dependencies mirror mini-round two: `myID`, `roundState`, `broadcaster`, `signer`, `validatorRegistry`, `blockchainState`, `blockFinalizer`, `synthesisAgent`, `selfInbox`, `synthesisWg`, `evaluationWg`, `logger`. Key internals:
-  - `runSynthesisAndDispatch(key)` goroutine: synthesis call → build and sign proposal → broadcast → re-inject through `selfInbox`.
+- [x] `handler.go` — `miniRoundThreeHandler` struct. Dependencies: `myID`, `roundState`, `broadcaster`, `signer`, `validatorRegistry`, `blockchainState`, `blockFinalizer`, `synthesisAgent`, `logger`. Key internals:
+  - `HandleSynthesis` runs synchronously (no goroutine); the leader does not evaluate its own proposal and does not cast a vote.
   - `extractCorrectAnswerTexts(mr2Block, txHash)` helper: joins `AnswerClassifications.Groups.Correct` with `AnswerEvidence` to recover answer strings.
-  - `runEvaluationAndDispatch(key, proposal)` goroutine: evaluation call → on full approval sign and dispatch `SynthesisVote`.
-  - `buildAggregatedSynthesisVotes(key, votes)`: sorts by voter ID, builds certificate.
+  - `evaluateAndVote(key, proposal, mr2Block)`: evaluation call → on full approval sign and send `SynthesisVote` to leader.
+  - `buildAndBroadcastAtQuorum(key, proposal)`: at `2f` votes (leader excluded from voting) builds and broadcasts the aggregated certificate.
   - `finalizeBlockMRThree(key, proposal)`: builds `[]FinalAnswer` and calls `blockFinalizer.FinalizeBlockMRThree`.
-- [ ] `error.go` — MR3-specific sentinel errors.
+- [x] `error.go` — MR3-specific sentinel errors.
 
 ### Layer 6 — Round orchestration (`consensus/round.go`)
 

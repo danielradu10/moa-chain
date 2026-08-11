@@ -12,6 +12,11 @@ type Broadcaster interface {
 	BroadcastAggregatedVotes(aggregatedVotesMessage *data.ConsensusMessage, myID string, receivers []string) error
 	BroadcastAnswerEvidence(answerEvidenceMessage *data.ConsensusMessage, myID string, receivers []string) error
 	BroadcastAnswerClassificationCertificate(certificateMessage *data.ConsensusMessage, myID string, receivers []string) error
+
+	// Mini-Round Three
+	BroadcastProposedSynthesis(msg *data.ConsensusMessage, myID string, receivers []string) error
+	SendSynthesisVoteToLeader(msg *data.ConsensusMessage, leaderID string) error
+	BroadcastAggregatedSynthesisVotes(msg *data.ConsensusMessage, myID string, receivers []string) error
 }
 
 // PeerRegistry defines what a peer registry should do.
