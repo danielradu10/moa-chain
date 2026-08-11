@@ -142,7 +142,13 @@ func validateMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 		require.Equal(t, scenario.Network.RegisteredNodes, scenario.Expected.FinalizedNodes)
 		require.Empty(t, scenario.Expected.ErrorContains)
 		require.Len(t, scenario.Expected.AnswerEvidenceProducers, scenario.Network.CommitteeSize)
-		require.Len(t, scenario.Expected.ClassificationVoters, scenario.Network.Quorum)
+		// classificationVoters may be empty when the scenario tests delivery-order
+		// robustness rather than voter pinning (leader self-vote timing is non-deterministic).
+		require.True(t,
+			len(scenario.Expected.ClassificationVoters) == 0 ||
+				len(scenario.Expected.ClassificationVoters) == scenario.Network.Quorum,
+			"classificationVoters must be empty or exactly quorum size (%d)", scenario.Network.Quorum,
+		)
 		require.Len(t, scenario.Expected.Transactions, len(scenario.Transactions))
 	} else {
 		require.Less(t, scenario.Expected.FinalizedNodes, scenario.Network.RegisteredNodes)
