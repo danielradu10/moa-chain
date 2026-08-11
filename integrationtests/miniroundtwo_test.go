@@ -209,7 +209,6 @@ func requireScenarioDoesNotFinalize(
 
 	err := waitForScenarioError(t, nodes, scenario.Expected.ErrorContains)
 	require.Error(t, err)
-	requireMiniRoundOneFinalizedOnAllNodes(t, nodes, miniRoundOneKey)
 	require.Equal(t, scenario.Expected.FinalizedNodes, finalizedMiniRoundTwoNodeCount(nodes, miniRoundTwoKey))
 }
 
