@@ -53,6 +53,23 @@ func (sm *sendersMap) getTransactionsListBySender(sender []byte) (*txList, error
 	return txs, nil
 }
 
+// removeTransaction removes a single transaction from the sender's list.
+// If the sender's list becomes empty, the sender entry is also removed.
+func (sm *sendersMap) removeTransaction(sender string, txHash []byte) {
+	sm.mutSendersMap.Lock()
+	defer sm.mutSendersMap.Unlock()
+
+	list, ok := sm.senders[sender]
+	if !ok {
+		return
+	}
+
+	list.remove(txHash)
+	if list.numTransactions() == 0 {
+		delete(sm.senders, sender)
+	}
+}
+
 func (sm *sendersMap) snapshot() *sendersMap {
 	sm.mutSendersMap.RLock()
 	defer sm.mutSendersMap.RUnlock()

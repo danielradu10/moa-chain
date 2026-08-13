@@ -87,6 +87,20 @@ func (txl *txList) getTxByIndex(index uint64) data.Transaction {
 	return txl.transactionList[index]
 }
 
+// remove removes the transaction with the given hash from the list.
+// The order of remaining transactions is preserved.
+func (txl *txList) remove(txHash []byte) {
+	txl.mutTxList.Lock()
+	defer txl.mutTxList.Unlock()
+
+	for i, tx := range txl.transactionList {
+		if bytes.Equal(tx.GetTxHash(), txHash) {
+			txl.transactionList = append(txl.transactionList[:i], txl.transactionList[i+1:]...)
+			return
+		}
+	}
+}
+
 func (txl *txList) snapshot() *txList {
 	txl.mutTxList.RLock()
 	defer txl.mutTxList.RUnlock()
