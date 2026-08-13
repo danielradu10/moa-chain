@@ -1,0 +1,221 @@
+{
+  "name": "unanimous_synthesis_approval",
+  "description": "All producers return correct answers, all judges classify every candidate as CORRECT, and all selected non-leader evaluators approve the leader's synthesis; every transaction is finalized as SYNTHESIZED.",
+  "network": {
+    "registeredNodes": 20,
+    "committeeSize": 10,
+    "quorum": 7
+  },
+  "transactions": [
+    {
+      "role": "control-before",
+      "sender": "alice",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 90,
+      "timestamp": 1,
+      "txHash": "mr3-s01-control-before",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "What are the trade-offs between stack and heap allocation in systems programming?",
+      "labels": [
+        "systems_programming",
+        "back_end_with_apis"
+      ]
+    },
+    {
+      "role": "scenario-target",
+      "sender": "bob",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 80,
+      "timestamp": 2,
+      "txHash": "mr3-s01-scenario-target",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "Why is immutability important for concurrent data structures?",
+      "labels": [
+        "systems_programming",
+        "back_end_with_apis",
+        "blockchain_engineering"
+      ]
+    },
+    {
+      "role": "control-after",
+      "sender": "carol",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 70,
+      "timestamp": 3,
+      "txHash": "mr3-s01-control-after",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "How does a blockchain validator verify a proposed block before signing?",
+      "labels": [
+        "blockchain_engineering",
+        "security"
+      ]
+    }
+  ],
+  "executors": [
+    {
+      "role": "default",
+      "answers": {
+        "mr3-s01-control-before": "Stack allocation is deterministic and fast but size-limited; heap allocation supports dynamic sizes at the cost of explicit management or garbage collection overhead.",
+        "mr3-s01-scenario-target": "Immutable data structures cannot be modified after creation, so concurrent readers never observe partial updates and locks are unnecessary.",
+        "mr3-s01-control-after": "A validator re-executes all transactions, verifies every signature, recomputes body and header hashes, and checks that the previous-block hash links to the known chain tip."
+      }
+    }
+  ],
+  "judges": [
+    {
+      "role": "default",
+      "mode": "valid",
+      "defaultCategory": "CORRECT"
+    }
+  ],
+  "synthesizer": {
+    "answers": {
+      "mr3-s01-control-before": "Stack allocation offers predictable, fast memory reuse without fragmentation but is constrained by frame size; heap allocation provides unbounded dynamic sizing at the cost of explicit deallocation or garbage-collector pauses and potential fragmentation.",
+      "mr3-s01-scenario-target": "Immutability eliminates the possibility of concurrent modification, making shared state safe to read from multiple goroutines without locks and preventing entire classes of data races.",
+      "mr3-s01-control-after": "A validator reconstructs the block by re-executing every transaction, verifying each transaction and block signature against known public keys, recomputing body and header hashes, and confirming the previous-block hash correctly extends the local chain."
+    }
+  },
+  "evaluators": [
+    {
+      "role": "default",
+      "mode": "approve_all"
+    }
+  ],
+  "delivery": {
+    "producerOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "judgeOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "synthesizerVoteOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ]
+  },
+  "expected": {
+    "roundFinalized": true,
+    "finalizedNodes": 20,
+    "answerEvidenceProducers": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "classificationVoters": [],
+    "transactions": [
+      {
+        "txHash": "mr3-s01-control-before",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "groups": {
+          "correct": 10,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "status": "READY_FOR_MINI_ROUND_THREE"
+      },
+      {
+        "txHash": "mr3-s01-scenario-target",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "groups": {
+          "correct": 10,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "status": "READY_FOR_MINI_ROUND_THREE"
+      },
+      {
+        "txHash": "mr3-s01-control-after",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "groups": {
+          "correct": 10,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "status": "READY_FOR_MINI_ROUND_THREE"
+      }
+    ],
+    "mr3RoundFinalized": true,
+    "mr3FinalizedNodes": 20,
+    "synthesisVoters": [],
+    "finalAnswers": [
+      {
+        "txHash": "mr3-s01-control-before",
+        "status": "SYNTHESIZED",
+        "answer": "Stack allocation offers predictable, fast memory reuse without fragmentation but is constrained by frame size; heap allocation provides unbounded dynamic sizing at the cost of explicit deallocation or garbage-collector pauses and potential fragmentation."
+      },
+      {
+        "txHash": "mr3-s01-scenario-target",
+        "status": "SYNTHESIZED",
+        "answer": "Immutability eliminates the possibility of concurrent modification, making shared state safe to read from multiple goroutines without locks and preventing entire classes of data races."
+      },
+      {
+        "txHash": "mr3-s01-control-after",
+        "status": "SYNTHESIZED",
+        "answer": "A validator reconstructs the block by re-executing every transaction, verifying each transaction and block signature against known public keys, recomputing body and header hashes, and confirming the previous-block hash correctly extends the local chain."
+      }
+    ]
+  }
+}
