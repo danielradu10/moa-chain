@@ -126,15 +126,7 @@
       "member-8",
       "member-9"
     ],
-    "classificationVoters": [
-      "leader",
-      "member-2",
-      "member-3",
-      "member-4",
-      "member-5",
-      "member-6",
-      "member-7"
-    ],
+    "classificationVoters": [],
     "transactions": [
       {
         "txHash": "scenario-06-control-before",

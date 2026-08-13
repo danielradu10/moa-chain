@@ -311,6 +311,23 @@ func countValidatorGroups(expandedList []string) int {
 	return count
 }
 
+// SelectConsensusGroupMiniRoundThree selects the committee for mini-round three
+// using the same frequency-weighted algorithm as mini-round two. The caller
+// provides the frequency map derived from the mini-round-one finalized block.
+func (c *consensusSelector) SelectConsensusGroupMiniRoundThree(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey, frequencyMap map[string]uint64) ([]string, error) {
+	provider, err := NewRandomnessProvider(blockchainState)
+	if err != nil {
+		return nil, err
+	}
+
+	selectionSeed, err := provider.SelectionSeed(roundKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.selectConsensusGroupMiniRoundTwo(validators, selectionSeed, frequencyMap)
+}
+
 func (c *consensusSelector) Leader() (string, error) {
 	if c.currentLeader != "" {
 		return c.currentLeader, nil

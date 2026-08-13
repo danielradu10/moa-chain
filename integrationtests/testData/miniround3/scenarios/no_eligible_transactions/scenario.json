@@ -1,0 +1,303 @@
+{
+  "name": "no_eligible_transactions",
+  "description": "All three transactions are INSUFFICIENT_CORRECT_ANSWERS in MR2 because four executors return a wrong answer for every transaction. The MR3 leader has no eligible transactions to synthesize, broadcasts an empty proposal, validators approve vacuously without calling EvaluateSynthesisBatch, and the block finalizes with all three final answers as SKIPPED.",
+  "network": {
+    "registeredNodes": 20,
+    "committeeSize": 10,
+    "quorum": 7
+  },
+  "transactions": [
+    {
+      "role": "control-before",
+      "sender": "alice",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 90,
+      "timestamp": 1,
+      "txHash": "mr3-s03-control-before",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "What does a Bloom filter trade off to achieve constant-time set membership queries?",
+      "labels": [
+        "databases",
+        "systems_programming"
+      ]
+    },
+    {
+      "role": "scenario-target",
+      "sender": "bob",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 80,
+      "timestamp": 2,
+      "txHash": "mr3-s03-scenario-target",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "Why does a microservice expose a health endpoint rather than relying on process-level liveness alone?",
+      "labels": [
+        "back_end_with_apis",
+        "cloud_engineering"
+      ]
+    },
+    {
+      "role": "control-after",
+      "sender": "carol",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 70,
+      "timestamp": 3,
+      "txHash": "mr3-s03-control-after",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "How does a tracing garbage collector decide which objects are unreachable?",
+      "labels": [
+        "systems_programming"
+      ]
+    }
+  ],
+  "executors": [
+    {
+      "role": "default",
+      "answers": {
+        "mr3-s03-control-before": "A Bloom filter uses multiple hash functions to set bits in a fixed bit array, achieving O(1) membership tests at the cost of a tunable false-positive rate and the inability to delete elements or enumerate the set.",
+        "mr3-s03-scenario-target": "A health endpoint lets the orchestrator distinguish a running process that cannot yet serve traffic from one that is fully ready, enabling readiness probes to withhold requests until all dependencies are available without restarting a still-initializing container.",
+        "mr3-s03-control-after": "A tracing collector treats stack variables, globals, and registers as a root set, then follows every pointer reachable from those roots; any object not reached after the full traversal is unreachable and eligible for reclamation."
+      }
+    },
+    {
+      "role": "member-6",
+      "answers": {
+        "mr3-s03-control-before": "A Bloom filter compresses stored values using entropy coding to fit them into a fixed-size buffer, trading decompression latency for reduced memory footprint while guaranteeing zero false positives.",
+        "mr3-s03-scenario-target": "A health endpoint replaces operating-system signals for graceful shutdown by allowing the orchestrator to send a shutdown command over HTTP before terminating the process, ensuring all in-flight requests complete before the container exits.",
+        "mr3-s03-control-after": "A tracing garbage collector tracks object lifetimes using hardware performance counters that record each memory address access; objects whose access count has not incremented within a configurable idle window are classified as unreachable."
+      }
+    },
+    {
+      "role": "member-7",
+      "answers": {
+        "mr3-s03-control-before": "A Bloom filter compresses stored values using entropy coding to fit them into a fixed-size buffer, trading decompression latency for reduced memory footprint while guaranteeing zero false positives.",
+        "mr3-s03-scenario-target": "A health endpoint replaces operating-system signals for graceful shutdown by allowing the orchestrator to send a shutdown command over HTTP before terminating the process, ensuring all in-flight requests complete before the container exits.",
+        "mr3-s03-control-after": "A tracing garbage collector tracks object lifetimes using hardware performance counters that record each memory address access; objects whose access count has not incremented within a configurable idle window are classified as unreachable."
+      }
+    },
+    {
+      "role": "member-8",
+      "answers": {
+        "mr3-s03-control-before": "A Bloom filter compresses stored values using entropy coding to fit them into a fixed-size buffer, trading decompression latency for reduced memory footprint while guaranteeing zero false positives.",
+        "mr3-s03-scenario-target": "A health endpoint replaces operating-system signals for graceful shutdown by allowing the orchestrator to send a shutdown command over HTTP before terminating the process, ensuring all in-flight requests complete before the container exits.",
+        "mr3-s03-control-after": "A tracing garbage collector tracks object lifetimes using hardware performance counters that record each memory address access; objects whose access count has not incremented within a configurable idle window are classified as unreachable."
+      }
+    },
+    {
+      "role": "member-9",
+      "answers": {
+        "mr3-s03-control-before": "A Bloom filter compresses stored values using entropy coding to fit them into a fixed-size buffer, trading decompression latency for reduced memory footprint while guaranteeing zero false positives.",
+        "mr3-s03-scenario-target": "A health endpoint replaces operating-system signals for graceful shutdown by allowing the orchestrator to send a shutdown command over HTTP before terminating the process, ensuring all in-flight requests complete before the container exits.",
+        "mr3-s03-control-after": "A tracing garbage collector tracks object lifetimes using hardware performance counters that record each memory address access; objects whose access count has not incremented within a configurable idle window are classified as unreachable."
+      }
+    }
+  ],
+  "judges": [
+    {
+      "role": "default",
+      "mode": "valid",
+      "defaultCategory": "CORRECT",
+      "classifications": [
+        {
+          "txHash": "mr3-s03-control-before",
+          "answer": "A Bloom filter compresses stored values using entropy coding to fit them into a fixed-size buffer, trading decompression latency for reduced memory footprint while guaranteeing zero false positives.",
+          "category": "WRONG"
+        },
+        {
+          "txHash": "mr3-s03-scenario-target",
+          "answer": "A health endpoint replaces operating-system signals for graceful shutdown by allowing the orchestrator to send a shutdown command over HTTP before terminating the process, ensuring all in-flight requests complete before the container exits.",
+          "category": "WRONG"
+        },
+        {
+          "txHash": "mr3-s03-control-after",
+          "answer": "A tracing garbage collector tracks object lifetimes using hardware performance counters that record each memory address access; objects whose access count has not incremented within a configurable idle window are classified as unreachable.",
+          "category": "WRONG"
+        }
+      ]
+    }
+  ],
+  "synthesizer": {
+    "answers": {}
+  },
+  "evaluators": [
+    {
+      "role": "default",
+      "mode": "approve_all"
+    }
+  ],
+  "delivery": {
+    "producerOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "judgeOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "synthesizerVoteOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ]
+  },
+  "expected": {
+    "roundFinalized": true,
+    "finalizedNodes": 20,
+    "answerEvidenceProducers": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "classificationVoters": [],
+    "transactions": [
+      {
+        "txHash": "mr3-s03-control-before",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "countOverrides": [
+          {
+            "producerRole": "member-6",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-7",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-8",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-9",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          }
+        ],
+        "groups": {
+          "correct": 6,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 4
+        },
+        "status": "INSUFFICIENT_CORRECT_ANSWERS"
+      },
+      {
+        "txHash": "mr3-s03-scenario-target",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "countOverrides": [
+          {
+            "producerRole": "member-6",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-7",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-8",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-9",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          }
+        ],
+        "groups": {
+          "correct": 6,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 4
+        },
+        "status": "INSUFFICIENT_CORRECT_ANSWERS"
+      },
+      {
+        "txHash": "mr3-s03-control-after",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "countOverrides": [
+          {
+            "producerRole": "member-6",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-7",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-8",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          },
+          {
+            "producerRole": "member-9",
+            "counts": { "correct": 0, "hallucination": 0, "malicious": 0, "wrong": 7 }
+          }
+        ],
+        "groups": {
+          "correct": 6,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 4
+        },
+        "status": "INSUFFICIENT_CORRECT_ANSWERS"
+      }
+    ],
+    "mr3RoundFinalized": false,
+    "mr3FinalizedNodes": 0,
+    "mr3Skipped": true,
+    "synthesisVoters": [],
+    "finalAnswers": []
+  }
+}

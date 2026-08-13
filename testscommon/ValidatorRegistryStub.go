@@ -12,6 +12,8 @@ type ValidatorRegistryStub struct {
 	PublicKeysByValidatorID map[string][]byte
 	GetPublicKeyErr         error
 	LeaderID                string
+	LeaderOfConsensusGroupErr              error
+	GenerateConsensusGroupMiniRoundThreeErr error
 	ConsensusGroupSizeValue uint64
 	ConsensusGroupValue     []string
 	ValidatorsIDs           []string
@@ -42,6 +44,9 @@ func (stub *ValidatorRegistryStub) IsNodeLeader(validatorID string) bool {
 }
 
 func (stub *ValidatorRegistryStub) LeaderOfConsensusGroup() (string, error) {
+	if stub.LeaderOfConsensusGroupErr != nil {
+		return "", stub.LeaderOfConsensusGroupErr
+	}
 	return stub.LeaderID, nil
 }
 
@@ -51,6 +56,10 @@ func (stub *ValidatorRegistryStub) GenerateConsensusGroupMiniRoundOne(blockchain
 
 func (stub *ValidatorRegistryStub) GenerateConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error {
 	return nil
+}
+
+func (stub *ValidatorRegistryStub) GenerateConsensusGroupMiniRoundThree(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error {
+	return stub.GenerateConsensusGroupMiniRoundThreeErr
 }
 
 func (stub *ValidatorRegistryStub) ConsensusGroup() ([]string, error) {

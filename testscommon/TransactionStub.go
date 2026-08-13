@@ -1,5 +1,7 @@
 package testscommon
 
+import "moa-chain/data"
+
 type TransactionStub struct {
 	nonce                uint64
 	prompt               []byte
@@ -95,4 +97,27 @@ func (tx *TransactionStub) GetEstimatedConsumption() uint64 {
 }
 func (tx *TransactionStub) GetEstimatedFee() uint64   { return tx.estimatedFee }
 func (tx *TransactionStub) GetEstimatedScore() uint64 { return tx.estimatedScore }
-func (tx *TransactionStub) IsInterfaceNil() bool      { return tx == nil }
+func (tx *TransactionStub) IsInterfaceNil() bool { return tx == nil }
+
+func (tx *TransactionStub) Clone() data.Transaction {
+	cloned := &TransactionStub{
+		nonce:                tx.nonce,
+		prompt:               append([]byte(nil), tx.prompt...),
+		sender:               append([]byte(nil), tx.sender...),
+		receiver:             append([]byte(nil), tx.receiver...),
+		transferredValue:     tx.transferredValue,
+		tip:                  tx.tip,
+		timestamp:            tx.timestamp,
+		txHash:               append([]byte(nil), tx.txHash...),
+		numInputTokens:       tx.numInputTokens,
+		userOutputDimension:  tx.userOutputDimension,
+		thinkingMode:         tx.thinkingMode,
+		estimatedConsumption: tx.estimatedConsumption,
+		estimatedFee:         tx.estimatedFee,
+		estimatedScore:       tx.estimatedScore,
+	}
+	if tx.domainLabels != nil {
+		cloned.domainLabels = append([]string(nil), tx.domainLabels...)
+	}
+	return cloned
+}

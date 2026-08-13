@@ -19,6 +19,7 @@ type ValidatorRegistry interface {
 
 	GenerateConsensusGroupMiniRoundOne(blockchainState state.BlockchainState, roundKey data.RoundKey) error
 	GenerateConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error
+	GenerateConsensusGroupMiniRoundThree(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error
 	ConsensusGroup() ([]string, error)
 	ConsensusGroupSize() (uint64, error)
 
@@ -29,6 +30,7 @@ type ValidatorRegistry interface {
 type ConsensusSelector interface {
 	SelectConsensusGroupMiniRoundOne(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey) ([]string, error)
 	SelectConsensusGroupMiniRoundTwo(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey, frequencyMap map[string]uint64) ([]string, error)
+	SelectConsensusGroupMiniRoundThree(blockchainState state.BlockchainState, validators []*Validator, roundKey data.RoundKey, frequencyMap map[string]uint64) ([]string, error)
 	Leader() (string, error)
 	ConsensusGroup() ([]string, error)
 	ConsensusGroupSize() (uint64, error)

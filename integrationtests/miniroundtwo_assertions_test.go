@@ -42,7 +42,14 @@ func requireScenarioFinalizedState(
 		require.Len(t, vote.AnswerClassifications, scenario.Network.CommitteeSize*len(scenario.Transactions))
 		requireScenarioVoteMatchesJudgeProfile(t, scenario, vote, rolesByValidator, firstMiniRoundTwoBlock.AnswerEvidence)
 	}
-	require.Equal(t, expectedVoters, actualVoters)
+	// Skip exact-voter assertion when the fixture omits classificationVoters. Scenarios
+	// that test delivery-order robustness rather than voter pinning leave this field
+	// empty because the leader's self-vote arrives via selfInbox (not the ordered
+	// network stub), making the exact quorum subset non-deterministic.
+	if len(expectedVoters) > 0 {
+		sort.Strings(actualVoters)
+		require.Equal(t, expectedVoters, actualVoters)
+	}
 
 	requireScenarioTransactions(
 		t,

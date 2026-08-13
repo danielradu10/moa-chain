@@ -219,7 +219,11 @@ func (bp *blockProcessor) validateAndExecuteBlockBody(blockBody *data.BlockBody,
 }
 
 func (bp *blockProcessor) hashProposedBlock(proposedBody *data.BlockBody, proposedHeader *data.BlockHeader) ([]byte, error) {
-	return hashing.ComputeBlockHash(proposedBody, proposedHeader)
+	// ComputeBlockHash writes header.BodyHash as a side effect. The broadcaster
+	// sends the same *ProposedBlockMessage pointer to every receiver, so multiple
+	// goroutines would race on that write. Copy the header to keep the mutation local.
+	headerCopy := *proposedHeader
+	return hashing.ComputeBlockHash(proposedBody, &headerCopy)
 }
 
 func (bp *blockProcessor) hashSubdomains(subdomains data.Subdomains) ([]byte, error) {

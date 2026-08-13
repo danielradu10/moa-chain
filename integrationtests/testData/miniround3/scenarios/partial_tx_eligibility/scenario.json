@@ -1,0 +1,295 @@
+{
+  "name": "partial_tx_eligibility",
+  "description": "One transaction is INSUFFICIENT_CORRECT_ANSWERS in MR2 (four executors return a wrong answer); the two remaining transactions are READY_FOR_MINI_ROUND_THREE. The MR3 leader synthesizes only the eligible pair and skips the insufficient one; the block finalizes with two SYNTHESIZED answers and one SKIPPED.",
+  "network": {
+    "registeredNodes": 20,
+    "committeeSize": 10,
+    "quorum": 7
+  },
+  "transactions": [
+    {
+      "role": "control-before",
+      "sender": "alice",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 90,
+      "timestamp": 1,
+      "txHash": "mr3-s02-control-before",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "What durability guarantee does a write-ahead log provide to a database?",
+      "labels": [
+        "databases",
+        "systems_programming"
+      ]
+    },
+    {
+      "role": "scenario-target",
+      "sender": "bob",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 80,
+      "timestamp": 2,
+      "txHash": "mr3-s02-scenario-target",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "How does the TCP three-way handshake establish a reliable connection?",
+      "labels": [
+        "systems_programming",
+        "back_end_with_apis"
+      ]
+    },
+    {
+      "role": "control-after",
+      "sender": "carol",
+      "receiver": "moa-chain",
+      "nonce": 0,
+      "transferredValue": 0,
+      "tip": 70,
+      "timestamp": 3,
+      "txHash": "mr3-s02-control-after",
+      "thinkingMode": "fast",
+      "userOutputDimension": "short",
+      "prompt": "What mechanism prevents a double-spend attack in a UTXO-based blockchain?",
+      "labels": [
+        "blockchain_engineering",
+        "security"
+      ]
+    }
+  ],
+  "executors": [
+    {
+      "role": "default",
+      "answers": {
+        "mr3-s02-control-before": "A write-ahead log records every change to an append-only file before updating database pages; if the process crashes, recovery replays the log to restore the last committed state, ensuring no confirmed write is ever lost.",
+        "mr3-s02-scenario-target": "The initiator sends SYN with a random sequence number; the receiver responds with SYN-ACK acknowledging that number and proposing its own; the initiator completes with ACK, after which both sides have exchanged initial sequence numbers and connection state is established.",
+        "mr3-s02-control-after": "Each transaction input references a specific unspent output and includes a valid signature from its owner; validators reject any input already consumed in a confirmed transaction, making it impossible to spend the same UTXO twice."
+      }
+    },
+    {
+      "role": "member-6",
+      "answers": {
+        "mr3-s02-control-before": "A write-ahead log records every change to an append-only file before updating database pages; if the process crashes, recovery replays the log to restore the last committed state, ensuring no confirmed write is ever lost.",
+        "mr3-s02-scenario-target": "The TCP three-way handshake establishes a reliable connection by exchanging an encryption key between client and server before any data is sent, ensuring that all subsequent packets are encrypted in transit.",
+        "mr3-s02-control-after": "Each transaction input references a specific unspent output and includes a valid signature from its owner; validators reject any input already consumed in a confirmed transaction, making it impossible to spend the same UTXO twice."
+      }
+    },
+    {
+      "role": "member-7",
+      "answers": {
+        "mr3-s02-control-before": "A write-ahead log records every change to an append-only file before updating database pages; if the process crashes, recovery replays the log to restore the last committed state, ensuring no confirmed write is ever lost.",
+        "mr3-s02-scenario-target": "The TCP three-way handshake establishes a reliable connection by exchanging an encryption key between client and server before any data is sent, ensuring that all subsequent packets are encrypted in transit.",
+        "mr3-s02-control-after": "Each transaction input references a specific unspent output and includes a valid signature from its owner; validators reject any input already consumed in a confirmed transaction, making it impossible to spend the same UTXO twice."
+      }
+    },
+    {
+      "role": "member-8",
+      "answers": {
+        "mr3-s02-control-before": "A write-ahead log records every change to an append-only file before updating database pages; if the process crashes, recovery replays the log to restore the last committed state, ensuring no confirmed write is ever lost.",
+        "mr3-s02-scenario-target": "The TCP three-way handshake establishes a reliable connection by exchanging an encryption key between client and server before any data is sent, ensuring that all subsequent packets are encrypted in transit.",
+        "mr3-s02-control-after": "Each transaction input references a specific unspent output and includes a valid signature from its owner; validators reject any input already consumed in a confirmed transaction, making it impossible to spend the same UTXO twice."
+      }
+    },
+    {
+      "role": "member-9",
+      "answers": {
+        "mr3-s02-control-before": "A write-ahead log records every change to an append-only file before updating database pages; if the process crashes, recovery replays the log to restore the last committed state, ensuring no confirmed write is ever lost.",
+        "mr3-s02-scenario-target": "The TCP three-way handshake establishes a reliable connection by exchanging an encryption key between client and server before any data is sent, ensuring that all subsequent packets are encrypted in transit.",
+        "mr3-s02-control-after": "Each transaction input references a specific unspent output and includes a valid signature from its owner; validators reject any input already consumed in a confirmed transaction, making it impossible to spend the same UTXO twice."
+      }
+    }
+  ],
+  "judges": [
+    {
+      "role": "default",
+      "mode": "valid",
+      "defaultCategory": "CORRECT",
+      "classifications": [
+        {
+          "txHash": "mr3-s02-scenario-target",
+          "answer": "The TCP three-way handshake establishes a reliable connection by exchanging an encryption key between client and server before any data is sent, ensuring that all subsequent packets are encrypted in transit.",
+          "category": "WRONG"
+        }
+      ]
+    }
+  ],
+  "synthesizer": {
+    "answers": {
+      "mr3-s02-control-before": "A write-ahead log guarantees durability by persisting every data modification to an append-only file before the changes reach the database pages; on recovery after a crash the engine replays all log records in sequence to reconstruct the last committed state, ensuring that no confirmed write is ever discarded regardless of where in the update cycle the failure occurred.",
+      "mr3-s02-control-after": "UTXO blockchains prevent double-spending by requiring every transaction input to reference a specific previously unspent output accompanied by a cryptographic proof of ownership; the consensus layer rejects any transaction whose input has already been consumed in an earlier confirmed block, so the same coin cannot appear in two independent spending transactions simultaneously."
+    }
+  },
+  "evaluators": [
+    {
+      "role": "default",
+      "mode": "approve_all"
+    }
+  ],
+  "delivery": {
+    "producerOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "judgeOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "synthesizerVoteOrder": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ]
+  },
+  "expected": {
+    "roundFinalized": true,
+    "finalizedNodes": 20,
+    "answerEvidenceProducers": [
+      "leader",
+      "member-1",
+      "member-2",
+      "member-3",
+      "member-4",
+      "member-5",
+      "member-6",
+      "member-7",
+      "member-8",
+      "member-9"
+    ],
+    "classificationVoters": [],
+    "transactions": [
+      {
+        "txHash": "mr3-s02-control-before",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "groups": {
+          "correct": 10,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "status": "READY_FOR_MINI_ROUND_THREE"
+      },
+      {
+        "txHash": "mr3-s02-scenario-target",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "countOverrides": [
+          {
+            "producerRole": "member-6",
+            "counts": {
+              "correct": 0,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 7
+            }
+          },
+          {
+            "producerRole": "member-7",
+            "counts": {
+              "correct": 0,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 7
+            }
+          },
+          {
+            "producerRole": "member-8",
+            "counts": {
+              "correct": 0,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 7
+            }
+          },
+          {
+            "producerRole": "member-9",
+            "counts": {
+              "correct": 0,
+              "hallucination": 0,
+              "malicious": 0,
+              "wrong": 7
+            }
+          }
+        ],
+        "groups": {
+          "correct": 6,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 4
+        },
+        "status": "INSUFFICIENT_CORRECT_ANSWERS"
+      },
+      {
+        "txHash": "mr3-s02-control-after",
+        "answers": 10,
+        "countsPerAnswer": {
+          "correct": 7,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "groups": {
+          "correct": 10,
+          "hallucination": 0,
+          "malicious": 0,
+          "wrong": 0
+        },
+        "status": "READY_FOR_MINI_ROUND_THREE"
+      }
+    ],
+    "mr3RoundFinalized": true,
+    "mr3FinalizedNodes": 20,
+    "synthesisVoters": [],
+    "finalAnswers": [
+      {
+        "txHash": "mr3-s02-control-before",
+        "status": "SYNTHESIZED",
+        "answer": "A write-ahead log guarantees durability by persisting every data modification to an append-only file before the changes reach the database pages; on recovery after a crash the engine replays all log records in sequence to reconstruct the last committed state, ensuring that no confirmed write is ever discarded regardless of where in the update cycle the failure occurred."
+      },
+      {
+        "txHash": "mr3-s02-scenario-target",
+        "status": "SKIPPED"
+      },
+      {
+        "txHash": "mr3-s02-control-after",
+        "status": "SYNTHESIZED",
+        "answer": "UTXO blockchains prevent double-spending by requiring every transaction input to reference a specific previously unspent output accompanied by a cryptographic proof of ownership; the consensus layer rejects any transaction whose input has already been consumed in an earlier confirmed block, so the same coin cannot appear in two independent spending transactions simultaneously."
+      }
+    ]
+  }
+}

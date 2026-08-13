@@ -149,6 +149,43 @@ func (vr *validatorRegistry) GenerateConsensusGroupMiniRoundTwo(blockchainState 
 	return nil
 }
 
+// GenerateConsensusGroupMiniRoundThree generates the committee for mini-round
+// three using the same frequency-weighted selection as mini-round two.
+func (vr *validatorRegistry) GenerateConsensusGroupMiniRoundThree(blockchainState state.BlockchainState, roundKey data.RoundKey, frequencyMap map[string]uint64) error {
+	vr.logger.Info("validators.GenerateConsensusGroupMiniRoundThree started", "roundKey", roundKey, "numValidators", len(vr.validators))
+
+	ids := make([]string, 0, len(vr.validators))
+	for id := range vr.validators {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	validators := make([]*Validator, 0, len(ids))
+	for _, id := range ids {
+		validators = append(validators, vr.validators[id])
+	}
+
+	consensusGroup, err := vr.cs.SelectConsensusGroupMiniRoundThree(blockchainState, validators, roundKey, frequencyMap)
+	if err != nil {
+		vr.logger.Error("validators.GenerateConsensusGroupMiniRoundThree failed", "roundKey", roundKey, "error", err)
+		return err
+	}
+
+	vr.consensusGroup = make(map[string]struct{})
+	for _, validator := range consensusGroup {
+		vr.consensusGroup[validator] = struct{}{}
+	}
+
+	leader, leaderErr := vr.cs.Leader()
+	if leaderErr != nil {
+		vr.logger.Info("validators.GenerateConsensusGroupMiniRoundThree finished", "roundKey", roundKey, "consensusGroup", consensusGroup)
+		return nil
+	}
+
+	vr.logger.Info("validators.GenerateConsensusGroupMiniRoundThree finished", "roundKey", roundKey, "consensusGroup", consensusGroup, "leaderID", leader)
+	return nil
+}
+
 // ConsensusGroup returns the current consensus group.
 func (vr *validatorRegistry) ConsensusGroup() ([]string, error) {
 	return vr.cs.ConsensusGroup()

@@ -1,5 +1,7 @@
 package mempool
 
+import "moa-chain/data"
+
 // transaction is the data structure used to define a transaction
 type transaction struct {
 	// existent fields
@@ -148,4 +150,27 @@ func (tx *transaction) SetEstimatedFee(estimatedFee uint64) {
 
 func (tx *transaction) SetEstimatedScore(estimatedScore uint64) {
 	tx.estimatedScore = estimatedScore
+}
+
+func (tx *transaction) Clone() data.Transaction {
+	cloned := &transaction{
+		nonce:                tx.nonce,
+		prompt:               append([]byte(nil), tx.prompt...),
+		sender:               append([]byte(nil), tx.sender...),
+		receiver:             append([]byte(nil), tx.receiver...),
+		transferredValue:     tx.transferredValue,
+		tip:                  tx.tip,
+		timestamp:            tx.timestamp,
+		txHash:               append([]byte(nil), tx.txHash...),
+		numInputTokens:       tx.numInputTokens,
+		userOutputDimension:  tx.userOutputDimension,
+		thinkingMode:         tx.thinkingMode,
+		estimatedConsumption: tx.estimatedConsumption,
+		estimatedFee:         tx.estimatedFee,
+		estimatedScore:       tx.estimatedScore,
+	}
+	if tx.domainLabels != nil {
+		cloned.domainLabels = append([]string(nil), tx.domainLabels...)
+	}
+	return cloned
 }

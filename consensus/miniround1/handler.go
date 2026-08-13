@@ -424,14 +424,23 @@ func (handler *handler) aggregateAndFinalize(roundKey data.RoundKey, votes []*da
 	}
 	handler.logger.Info("leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
 
-	for _, tx := range currentProposedBlock.Body.Transactions {
+	// Clone transactions before setting labels so the shared proposed-block pointer
+	// (sent to all validators via the broadcaster) is never mutated concurrently.
+	labeledTxs := make([]data.Transaction, len(currentProposedBlock.Body.Transactions))
+	for i, tx := range currentProposedBlock.Body.Transactions {
+		cloned := tx.Clone()
 		if labels, ok := dominantLabelsPerTx[string(tx.GetTxHash())]; ok {
-			tx.SetDomainLabels(labels)
+			cloned.SetDomainLabels(labels)
 		}
+		labeledTxs[i] = cloned
 	}
+	labeledBody := currentProposedBlock.Body
+	labeledBody.Transactions = labeledTxs
+	labeledBlock := *currentProposedBlock
+	labeledBlock.Body = labeledBody
 
 	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
-		Block:                       *currentProposedBlock,
+		Block:                       labeledBlock,
 		SubdomainsFrequencies:       subdomainsFrequencies,
 		NonRelatedTransactionHashes: nonRelatedTxHashes,
 	})
@@ -582,14 +591,24 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 	}
 	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
 
-	for _, tx := range block.Body.Transactions {
+	// Clone transactions before setting labels so that concurrent HandleAggregatedVotes
+	// calls on different nodes (sharing the same block pointer via the broadcaster)
+	// never race on the same transaction object.
+	labeledTxs := make([]data.Transaction, len(block.Body.Transactions))
+	for i, tx := range block.Body.Transactions {
+		cloned := tx.Clone()
 		if labels, ok := dominantLabelsPerTx[string(tx.GetTxHash())]; ok {
-			tx.SetDomainLabels(labels)
+			cloned.SetDomainLabels(labels)
 		}
+		labeledTxs[i] = cloned
 	}
+	labeledBody := block.Body
+	labeledBody.Transactions = labeledTxs
+	labeledBlock := *block
+	labeledBlock.Body = labeledBody
 
 	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
-		Block:                       *block,
+		Block:                       labeledBlock,
 		SubdomainsFrequencies:       subdomainsFrequencies,
 		NonRelatedTransactionHashes: nonRelatedTxHashes,
 	})

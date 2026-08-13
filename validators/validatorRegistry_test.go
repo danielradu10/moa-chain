@@ -8,6 +8,37 @@ import (
 	"moa-chain/data"
 )
 
+func TestValidatorRegistry_GenerateConsensusGroupMiniRoundThree(t *testing.T) {
+	t.Parallel()
+
+	selector := NewConsensusSelector()
+	registry := NewValidatorRegistry(selector)
+
+	for _, validator := range createMiniRoundTwoSelectionValidators() {
+		err := registry.Register(validator.PublicID(), validator)
+		require.NoError(t, err)
+	}
+
+	roundKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
+	frequencyMap := map[string]uint64{
+		"security":  70,
+		"databases": 30,
+	}
+
+	err := registry.GenerateConsensusGroupMiniRoundThree(createSelectionTestBlockchainState(), roundKey, frequencyMap)
+
+	require.NoError(t, err)
+
+	consensusGroup, err := registry.ConsensusGroup()
+	require.NoError(t, err)
+	require.NotEmpty(t, consensusGroup)
+
+	leader, err := registry.LeaderOfConsensusGroup()
+	require.NoError(t, err)
+	require.Equal(t, consensusGroup[0], leader)
+	require.True(t, registry.IsValidatorInConsensusGroup(leader))
+}
+
 func TestValidatorRegistry_GenerateConsensusGroupMiniRoundTwo(t *testing.T) {
 	t.Parallel()
 

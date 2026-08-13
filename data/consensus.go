@@ -20,6 +20,11 @@ type ConsensusMessage struct {
 	AnswerEvidence                  *AggregatedExecutionResultsMessage
 	AnswerClassificationVote        *AnswerClassificationVote
 	AnswerClassificationCertificate *AnswerClassificationCertificate
+
+	// Mini-Round Three
+	ProposedSynthesis        *ProposedSynthesisMessage
+	SynthesisVote            *SynthesisVote
+	AggregatedSynthesisVotes *AggregatedSynthesisVotes
 }
 
 type ConsensusMessageType int
@@ -33,6 +38,10 @@ const (
 	AnswerEvidenceConsensusMessage                  // Mini-Round Two
 	AnswerClassificationVoteConsensusMessage        // Mini-Round Two
 	AnswerClassificationCertificateConsensusMessage // Mini-Round Two
+
+	ProposedSynthesisConsensusMessage        // Mini-Round Three
+	SynthesisVoteConsensusMessage            // Mini-Round Three
+	AggregatedSynthesisVotesConsensusMessage // Mini-Round Three
 )
 
 // MINI-ROUND ONE
