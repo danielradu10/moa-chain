@@ -43,7 +43,7 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 		return err
 	}
 
-	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Block, message)
+	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Body, message)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleAnswerEvidence failed to build judge requests", "roundKey", roundKey, "error", err)
 		return err
@@ -332,7 +332,7 @@ func (handler *miniRoundTwoHandler) classificationCollectionCandidates(
 		return nil, ErrMissingClassificationCollectionContext
 	}
 
-	requests, err := classification.BuildAnswerJudgeRequests(&canonicalBlock.Block, evidence)
+	requests, err := classification.BuildAnswerJudgeRequests(&canonicalBlock.Body, evidence)
 	if err != nil {
 		return nil, ErrMissingClassificationCollectionContext
 	}
@@ -678,7 +678,7 @@ func (handler *miniRoundTwoHandler) classificationCertificateEvidence(
 		return nil, nil, err
 	}
 
-	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Block, evidence)
+	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Body, evidence)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -728,7 +728,8 @@ func (handler *miniRoundTwoHandler) finalizeClassifiedAnswers(
 	}
 
 	return handler.blockFinalizer.FinalizeBlockMRTwo(roundKey, &data.BlockOnChain{
-		Block:                      finalizedBlock.Block,
+		Header:                     finalizedBlock.Header,
+		Body:                       finalizedBlock.Body,
 		SubdomainsFrequencies:      finalizedBlock.SubdomainsFrequencies,
 		AggregatedExecutionResults: aggregatedResults,
 		AnswerEvidence:             evidence,

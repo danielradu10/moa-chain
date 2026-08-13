@@ -46,13 +46,11 @@ func mr2Block() *data.BlockOnChain {
 	tx2.SetPrompt([]byte("prompt two"))
 
 	return &data.BlockOnChain{
-		Block: data.Block{
-			Header: data.BlockHeader{
-				HeaderHash: []byte("mr1-canonical-hash"),
-			},
-			Body: data.BlockBody{
-				Transactions: []data.Transaction{tx1, tx2},
-			},
+		Header: data.ChainBlockHeader{
+			HeaderHash: []byte("mr1-canonical-hash"),
+		},
+		Body: data.BlockBody{
+			Transactions: []data.Transaction{tx1, tx2},
 		},
 		AnswerEvidence: &data.AggregatedExecutionResultsMessage{
 			Signers:         []string{"validator-1"},
@@ -122,7 +120,7 @@ func signedProposal(
 		Round:              key.Round,
 		MiniRound:          key.MiniRound,
 		SenderID:           signer.ID(),
-		CanonicalBlockHash: block.Block.Header.HeaderHash,
+		CanonicalBlockHash: block.Header.HeaderHash,
 		AnswerEvidenceHash: evidenceHash,
 		SynthesizedAnswers: answers,
 	}
@@ -386,10 +384,8 @@ func TestMiniRoundThreeHandler_HandleSynthesis(t *testing.T) {
 		tx1 := &testscommon.TransactionStub{}
 		tx1.SetTxHash([]byte("txHash1"))
 		skippedBlock := &data.BlockOnChain{
-			Block: data.Block{
-				Header: data.BlockHeader{HeaderHash: []byte("mr1-hash")},
-				Body:   data.BlockBody{Transactions: []data.Transaction{tx1}},
-			},
+			Header: data.ChainBlockHeader{HeaderHash: []byte("mr1-hash")},
+			Body:   data.BlockBody{Transactions: []data.Transaction{tx1}},
 			AnswerEvidence: &data.AggregatedExecutionResultsMessage{
 				Signers:         []string{"validator-1"},
 				BlockHashes:     [][]byte{[]byte("block-hash-v1")},
@@ -1335,11 +1331,9 @@ func TestMiniRoundThreeHandler_finalizeBlockMRThree(t *testing.T) {
 		txNonRelated.SetTxHash([]byte("txNonRelated"))
 
 		block := &data.BlockOnChain{
-			Block: data.Block{
-				Header: data.BlockHeader{HeaderHash: []byte("hash")},
-				Body: data.BlockBody{
-					Transactions: []data.Transaction{txReady, txInsufficient, txNonRelated},
-				},
+			Header: data.ChainBlockHeader{HeaderHash: []byte("hash")},
+			Body: data.BlockBody{
+				Transactions: []data.Transaction{txReady, txInsufficient, txNonRelated},
 			},
 			AnswerEvidence: &data.AggregatedExecutionResultsMessage{
 				Signers:         []string{"validator-1"},

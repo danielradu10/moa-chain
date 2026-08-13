@@ -64,8 +64,8 @@ func defaultIntegrationTestSubdomainScores() validators.SubdomainsScores {
 	return scores
 }
 
-func currentIntegrationTestHeader() *data.BlockHeader {
-	return &data.BlockHeader{
+func currentIntegrationTestHeader() *data.ChainBlockHeader {
+	return &data.ChainBlockHeader{
 		BodyHash:         []byte("body hash 1"),
 		HeaderHash:       []byte("header hash 1"),
 		PreviousHash:     []byte("previous hash 0"),
@@ -73,7 +73,6 @@ func currentIntegrationTestHeader() *data.BlockHeader {
 		PreviousRootHash: []byte("previous root hash 0"),
 		Nonce:            1,
 		Round:            1,
-		MiniRound:        uint64(data.MiniRoundThree),
 		Epoch:            0,
 	}
 }
@@ -244,7 +243,7 @@ func createRoundLoop(
 	blockchainStateStub := &testscommon.BlockchainStateStub{
 		CurrentBlockHeaderValue: currentHeader,
 		CurrentRoundValue:       currentHeader.Round,
-		CurrentMiniRoundValue:   currentHeader.MiniRound,
+		CurrentMiniRoundValue:   uint64(data.MiniRoundThree),
 		CurrentEpochValue:       currentHeader.Epoch,
 	}
 

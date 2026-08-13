@@ -27,7 +27,7 @@ type AccountHandler interface {
 
 // BlockchainState defines what an BlockchainState component should do
 type BlockchainState interface {
-	CurrentBlockHeader() (*data.BlockHeader, error)
+	CurrentBlockHeader() (*data.ChainBlockHeader, error)
 	CurrentRound() (uint64, error)
 	CurrentMiniRound() (uint64, error)
 	CurrentEpoch() (uint64, error)

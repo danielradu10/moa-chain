@@ -7,8 +7,10 @@ type Block struct {
 }
 
 // BlockOnChain defines the block that is finalized on chain.
+// It carries the canonical output of a full round (MR1 → MR2 → MR3).
 type BlockOnChain struct {
-	Block                 Block
+	Header                ChainBlockHeader
+	Body                  BlockBody
 	SubdomainsFrequencies SubdomainsFrequency
 	// NonRelatedTransactionHashes contains the tx hashes of transactions whose
 	// dominant quorum label was non_related. These transactions are excluded from
@@ -30,7 +32,7 @@ type BlockOnChain struct {
 	FinalAnswers []FinalAnswer
 }
 
-// BlockHeader defines the header of a block
+// BlockHeader defines the header of a mini-round block used during consensus.
 type BlockHeader struct {
 	BodyHash []byte
 
@@ -44,6 +46,40 @@ type BlockHeader struct {
 	Round     uint64
 	MiniRound uint64
 	Epoch     uint64
+}
+
+// ChainBlockHeader defines the header of a block stored on the canonical chain.
+// It is the header of the full-round canonical output, distinct from the
+// per-mini-round BlockHeader used during consensus.
+// MiniRound is intentionally absent: the chain block is always the output of the
+// complete round (all three mini-rounds), so tracking the mini-round here is redundant.
+type ChainBlockHeader struct {
+	BodyHash []byte
+
+	HeaderHash   []byte
+	PreviousHash []byte
+
+	RootHash         []byte
+	PreviousRootHash []byte
+
+	Nonce uint64
+	Round uint64
+	Epoch uint64
+}
+
+// ChainBlockHeaderFromMiniRound copies a mini-round BlockHeader into a ChainBlockHeader.
+// Used at MR1 finalization when the canonical block is first assembled.
+func ChainBlockHeaderFromMiniRound(h BlockHeader) ChainBlockHeader {
+	return ChainBlockHeader{
+		BodyHash:         h.BodyHash,
+		HeaderHash:       h.HeaderHash,
+		PreviousHash:     h.PreviousHash,
+		RootHash:         h.RootHash,
+		PreviousRootHash: h.PreviousRootHash,
+		Nonce:            h.Nonce,
+		Round:            h.Round,
+		Epoch:            h.Epoch,
+	}
 }
 
 // BlockBody defines the body of a block

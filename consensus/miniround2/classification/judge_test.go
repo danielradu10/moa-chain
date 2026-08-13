@@ -221,7 +221,7 @@ func (stub *answerJudgeStub) JudgeTransactionAnswers(request agent.AnswerJudgeRe
 	return stub.responses[len(stub.inputs)-1], nil
 }
 
-func answerJudgeBlock() *data.Block {
+func answerJudgeBlock() *data.BlockBody {
 	txA := &testscommon.TransactionStub{}
 	txA.SetTxHash([]byte("tx-a"))
 	txA.SetPrompt([]byte("What is A?"))
@@ -229,7 +229,7 @@ func answerJudgeBlock() *data.Block {
 	txB.SetTxHash([]byte("tx-b"))
 	txB.SetPrompt([]byte("What is B?"))
 
-	return &data.Block{Body: data.BlockBody{Transactions: []data.Transaction{txB, txA}}}
+	return &data.BlockBody{Transactions: []data.Transaction{txB, txA}}
 }
 
 func answerJudgeEvidence() *data.AggregatedExecutionResultsMessage {

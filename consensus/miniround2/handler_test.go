@@ -255,7 +255,8 @@ func TestMiniRoundTwoHandler_HandleExecutedPromptsMessage(t *testing.T) {
 
 		finalizedBlockInMRTwo, err := finalizer.GetFinalizedBlockInMRTwo(roundKey)
 		require.NoError(t, err)
-		require.Equal(t, finalizedBlock.Block, finalizedBlockInMRTwo.Block)
+		require.Equal(t, finalizedBlock.Header, finalizedBlockInMRTwo.Header)
+		require.Equal(t, finalizedBlock.Body, finalizedBlockInMRTwo.Body)
 		require.Equal(t, finalizedBlock.SubdomainsFrequencies, finalizedBlockInMRTwo.SubdomainsFrequencies)
 		require.Equal(t, data.AggregatedExecutionResults{
 			{
@@ -588,13 +589,11 @@ func createTestFinalizedBlock() *data.BlockOnChain {
 	tx2.SetPrompt([]byte("prompt two"))
 
 	return &data.BlockOnChain{
-		Block: data.Block{
-			Header: data.BlockHeader{
-				HeaderHash: []byte("canonical-mr1-header-hash"),
-			},
-			Body: data.BlockBody{
-				Transactions: []data.Transaction{tx1, tx2},
-			},
+		Header: data.ChainBlockHeader{
+			HeaderHash: []byte("canonical-mr1-header-hash"),
+		},
+		Body: data.BlockBody{
+			Transactions: []data.Transaction{tx1, tx2},
 		},
 		SubdomainsFrequencies: data.SubdomainsFrequency{
 			"ml_ai_engineering": 3,
@@ -639,7 +638,7 @@ func createSignedExecutedPromptsMessage(
 		Round:              2,
 		MiniRound:          uint64(data.MiniRoundTwo),
 		SenderID:           signer.ID(),
-		CanonicalBlockHash: finalizedBlock.Block.Header.HeaderHash,
+		CanonicalBlockHash: finalizedBlock.Header.HeaderHash,
 		Answers: data.AnswersTxMessage{
 			"txHash1": executionResult.TxsResults[0],
 			"txHash2": executionResult.TxsResults[1],

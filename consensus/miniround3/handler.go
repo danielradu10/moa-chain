@@ -161,7 +161,7 @@ func (handler *miniRoundThreeHandler) HandleSynthesis(key data.RoundKey) error {
 		Round:              key.Round,
 		MiniRound:          key.MiniRound,
 		SenderID:           handler.myID,
-		CanonicalBlockHash: mr2Block.Block.Header.HeaderHash,
+		CanonicalBlockHash: mr2Block.Header.HeaderHash,
 		AnswerEvidenceHash: evidenceHash,
 		SynthesizedAnswers: synthesizedAnswers,
 	}
@@ -283,7 +283,7 @@ func (handler *miniRoundThreeHandler) evaluateAndVote(
 
 	requests := make([]agent.EvaluateSynthesisRequest, 0, len(proposal.SynthesizedAnswers))
 	for _, sa := range proposal.SynthesizedAnswers {
-		tx := findTransaction(mr2Block.Block.Body.Transactions, sa.TxHash)
+		tx := findTransaction(mr2Block.Body.Transactions, sa.TxHash)
 		if tx == nil {
 			return fmt.Errorf("miniround3: tx hash %q not found in MR2 block", string(sa.TxHash))
 		}
@@ -402,7 +402,7 @@ func filterEligibleTransactions(mr2Block *data.BlockOnChain) []data.Transaction 
 	}
 
 	eligible := make([]data.Transaction, 0, len(eligibleSet))
-	for _, tx := range mr2Block.Block.Body.Transactions {
+	for _, tx := range mr2Block.Body.Transactions {
 		if _, ok := eligibleSet[string(tx.GetTxHash())]; ok {
 			eligible = append(eligible, tx)
 		}
@@ -703,8 +703,8 @@ func (handler *miniRoundThreeHandler) finalizeBlockMRThree(key data.RoundKey, pr
 		classificationStatus[string(c.TxHash)] = c.Status
 	}
 
-	finalAnswers := make([]data.FinalAnswer, 0, len(mr2Block.Block.Body.Transactions))
-	for _, tx := range mr2Block.Block.Body.Transactions {
+	finalAnswers := make([]data.FinalAnswer, 0, len(mr2Block.Body.Transactions))
+	for _, tx := range mr2Block.Body.Transactions {
 		txHashStr := string(tx.GetTxHash())
 
 		if _, isNonRelated := nonRelatedSet[txHashStr]; isNonRelated {
@@ -738,7 +738,8 @@ func (handler *miniRoundThreeHandler) finalizeBlockMRThree(key data.RoundKey, pr
 	handler.logger.Info("miniround3.finalizeBlockMRThree finalizing", "roundKey", key, "numFinalAnswers", len(finalAnswers))
 
 	return handler.blockFinalizer.FinalizeBlockMRThree(key, &data.BlockOnChain{
-		Block:                      mr2Block.Block,
+		Header:                     mr2Block.Header,
+		Body:                       mr2Block.Body,
 		SubdomainsFrequencies:      mr2Block.SubdomainsFrequencies,
 		AggregatedExecutionResults: mr2Block.AggregatedExecutionResults,
 		AnswerEvidence:             mr2Block.AnswerEvidence,

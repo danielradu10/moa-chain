@@ -205,7 +205,7 @@ func createRoundLoopWithMR3(
 	blockchainStateStub := &testscommon.BlockchainStateStub{
 		CurrentBlockHeaderValue: currentHeader,
 		CurrentRoundValue:       currentHeader.Round,
-		CurrentMiniRoundValue:   currentHeader.MiniRound,
+		CurrentMiniRoundValue:   uint64(data.MiniRoundThree),
 		CurrentEpochValue:       currentHeader.Epoch,
 	}
 

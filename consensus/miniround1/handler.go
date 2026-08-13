@@ -440,7 +440,8 @@ func (handler *handler) aggregateAndFinalize(roundKey data.RoundKey, votes []*da
 	labeledBlock.Body = labeledBody
 
 	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
-		Block:                       labeledBlock,
+		Header:                      data.ChainBlockHeaderFromMiniRound(labeledBlock.Header),
+		Body:                        labeledBlock.Body,
 		SubdomainsFrequencies:       subdomainsFrequencies,
 		NonRelatedTransactionHashes: nonRelatedTxHashes,
 	})
@@ -608,7 +609,8 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 	labeledBlock.Body = labeledBody
 
 	err = handler.blockFinalizer.FinalizeBlockMROne(roundKey, &data.BlockOnChain{
-		Block:                       labeledBlock,
+		Header:                      data.ChainBlockHeaderFromMiniRound(labeledBlock.Header),
+		Body:                        labeledBlock.Body,
 		SubdomainsFrequencies:       subdomainsFrequencies,
 		NonRelatedTransactionHashes: nonRelatedTxHashes,
 	})

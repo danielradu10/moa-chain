@@ -253,17 +253,17 @@ func createMiniRoundTwoSelectionValidator(publicID string, scores map[string]int
 
 func createSelectionTestBlockchainState() *selectionTestBlockchainState {
 	return &selectionTestBlockchainState{
-		currentBlockHeader: &data.BlockHeader{
+		currentBlockHeader: &data.ChainBlockHeader{
 			HeaderHash: []byte("selection-test-current-header-hash"),
 		},
 	}
 }
 
 type selectionTestBlockchainState struct {
-	currentBlockHeader *data.BlockHeader
+	currentBlockHeader *data.ChainBlockHeader
 }
 
-func (state *selectionTestBlockchainState) CurrentBlockHeader() (*data.BlockHeader, error) {
+func (state *selectionTestBlockchainState) CurrentBlockHeader() (*data.ChainBlockHeader, error) {
 	return state.currentBlockHeader, nil
 }
 

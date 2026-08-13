@@ -99,10 +99,10 @@ func AnswerJudgePromptHash() []byte {
 // BuildAnswerJudgeRequests creates one canonical, producer-anonymized model
 // request per transaction from already verified answer evidence.
 func BuildAnswerJudgeRequests(
-	block *data.Block,
+	body *data.BlockBody,
 	evidence *data.AggregatedExecutionResultsMessage,
 ) ([]TransactionAnswerJudgeRequest, error) {
-	transactions, err := canonicalJudgeTransactions(block)
+	transactions, err := canonicalJudgeTransactions(body)
 	if err != nil {
 		return nil, err
 	}
@@ -124,14 +124,14 @@ func BuildAnswerJudgeRequests(
 	return requests, nil
 }
 
-// canonicalJudgeTransactions validates the block transaction inputs and returns
+// canonicalJudgeTransactions validates the block body transaction inputs and returns
 // a sorted copy without mutating canonical block data.
-func canonicalJudgeTransactions(block *data.Block) ([]data.Transaction, error) {
-	if block == nil || len(block.Body.Transactions) == 0 {
+func canonicalJudgeTransactions(body *data.BlockBody) ([]data.Transaction, error) {
+	if body == nil || len(body.Transactions) == 0 {
 		return nil, ErrInvalidAnswerJudgeInput
 	}
 
-	transactions := append([]data.Transaction(nil), block.Body.Transactions...)
+	transactions := append([]data.Transaction(nil), body.Transactions...)
 	for _, transaction := range transactions {
 		if transaction == nil || transaction.IsInterfaceNil() ||
 			len(transaction.GetTxHash()) == 0 || len(transaction.GetPrompt()) == 0 {
