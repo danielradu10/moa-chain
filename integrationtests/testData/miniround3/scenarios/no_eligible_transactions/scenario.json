@@ -294,10 +294,14 @@
         "status": "INSUFFICIENT_CORRECT_ANSWERS"
       }
     ],
-    "mr3RoundFinalized": false,
-    "mr3FinalizedNodes": 0,
-    "mr3Skipped": true,
+    "mr3RoundFinalized": true,
+    "mr3FinalizedNodes": 20,
+    "mr3Skipped": false,
     "synthesisVoters": [],
-    "finalAnswers": []
+    "finalAnswers": [
+      {"txHash": "mr3-s03-control-before", "status": "SKIPPED"},
+      {"txHash": "mr3-s03-scenario-target", "status": "SKIPPED"},
+      {"txHash": "mr3-s03-control-after", "status": "SKIPPED"}
+    ]
   }
 }

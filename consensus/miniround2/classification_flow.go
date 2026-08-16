@@ -30,17 +30,24 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 		handler.logger.Error("miniround2.HandleAnswerEvidence failed to store verified evidence", "roundKey", roundKey, "error", err)
 		return err
 	}
-	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
-		handler.logger.Info("miniround2.HandleAnswerEvidence observer stored evidence without voting", "roundKey", roundKey, "validatorID", handler.myID)
-		return nil
-	}
-
 	finalizedBlock, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
 		Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound - 1,
 	})
 	if err != nil {
 		handler.logger.Error("miniround2.HandleAnswerEvidence failed to load canonical block", "roundKey", roundKey, "error", err)
 		return err
+	}
+
+	if len(finalizedBlock.Body.Transactions) == 0 {
+		// Empty block: finalize MR2 immediately on every node (committee members
+		// and observers alike) — no judging or certificate exchange is needed.
+		handler.logger.Info("miniround2.HandleAnswerEvidence empty block — finalizing MR2 with no classifications", "roundKey", roundKey)
+		return handler.finalizeClassifiedAnswers(roundKey, message, nil)
+	}
+
+	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
+		handler.logger.Info("miniround2.HandleAnswerEvidence observer stored evidence without voting", "roundKey", roundKey, "validatorID", handler.myID)
+		return nil
 	}
 
 	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Body, message)

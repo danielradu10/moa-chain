@@ -150,17 +150,25 @@ func (c *consensusSelector) selectConsensusGroupMiniRoundTwo(validators []*Valid
 		totalFreq += frequency
 	}
 
-	if totalFreq == 0 {
-		return nil, ErrTotalFreqIsZero
-	}
-
-	weights := make(map[string]uint64)
-	for subdomain, frequency := range frequencyMap {
-		weights[subdomain] = frequency * miniRoundTwoWeightScale / totalFreq
-	}
-
 	consensusGroupDimension := c.committeeSize(len(validators))
-	expandedList := c.createExpandedListMiniRoundTwo(validators, weights)
+
+	var expandedList []string
+	if totalFreq == 0 {
+		// No subdomain signal — fall back to uniform selection by global score,
+		// the same weighting used in MR1.
+		var err error
+		expandedList, err = c.createExpandedListMiniRoundOne(validators)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		weights := make(map[string]uint64)
+		for subdomain, frequency := range frequencyMap {
+			weights[subdomain] = frequency * miniRoundTwoWeightScale / totalFreq
+		}
+		expandedList = c.createExpandedListMiniRoundTwo(validators, weights)
+	}
+
 	consensusGroup, err := c.selectUniqueFromExpandedList(selectionSeed, expandedList, uint64(consensusGroupDimension))
 	if err != nil {
 		return nil, err

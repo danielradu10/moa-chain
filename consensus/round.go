@@ -421,34 +421,6 @@ func (rh *roundHandler) startNextMiniRound(roundKey data.RoundKey) error {
 			rh.logger.Info("mini-round one finalized; stopping before mini-round two (StopAfterMiniRoundOne=true)", "roundKey", roundKey)
 			return nil
 		}
-
-		finalizedBlock, err := rh.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
-		if err != nil {
-			rh.currentStep = data.StepFailed
-			rh.logger.Error("failed to get finalized mini-round one block before starting mini-round two", "roundKey", roundKey, "error", err)
-			return err
-		}
-
-		if len(finalizedBlock.SubdomainsFrequencies) == 0 {
-			rh.currentStep = data.StepFinished
-			rh.logger.Info("mini-round one finalized without subdomain frequencies; skipping mini-round two", "roundKey", roundKey)
-			return nil
-		}
-	}
-
-	if nextRoundKey.MiniRound == uint64(data.MiniRoundThree) {
-		finalizedBlock, err := rh.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey)
-		if err != nil {
-			rh.currentStep = data.StepFailed
-			rh.logger.Error("failed to get finalized mini-round two block before starting mini-round three", "roundKey", roundKey, "error", err)
-			return err
-		}
-
-		if allEligibleTransactionsSkipped(finalizedBlock) {
-			rh.currentStep = data.StepFinished
-			rh.logger.Info("all MR2 transactions non-eligible; skipping mini-round three", "roundKey", roundKey)
-			return nil
-		}
 	}
 
 	rh.logger.Info("starting next mini-round", "currentRoundKey", roundKey, "nextRoundKey", nextRoundKey)
@@ -910,14 +882,3 @@ func (rh *roundHandler) finalizeRound(mr3RoundKey data.RoundKey) error {
 	return rh.StartRound(nextRoundKey)
 }
 
-// allEligibleTransactionsSkipped returns true when no transaction in the
-// finalized MR2 block has status READY_FOR_MINI_ROUND_THREE, meaning MR3 can
-// be safely skipped.
-func allEligibleTransactionsSkipped(block *data.BlockOnChain) bool {
-	for _, classification := range block.AnswerClassifications {
-		if classification.Status == data.TransactionAnswerStatusReadyForMiniRoundThree {
-			return false
-		}
-	}
-	return true
-}
