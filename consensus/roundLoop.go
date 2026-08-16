@@ -27,6 +27,23 @@ func (rl *RoundLoop) Errors() <-chan error {
 	return rl.errCh
 }
 
+// Shutdown stops the event loop and waits for all in-flight work to finish.
+// It sends StopEvent to the inbox, waits for Run to return (via the provided
+// done channel), then calls WaitForPendingWork on the MR2 handler to join any
+// background judge goroutines.
+func (rl *RoundLoop) Shutdown(done <-chan struct{}) {
+	rl.inbox <- data.RoundEvent{Type: data.StopEvent}
+	<-done
+	rl.handler.miniRoundTwoHandler.WaitForPendingWork()
+}
+
+// WaitForPendingWork blocks until all in-flight MR2 judge goroutines have
+// finished. Use this when the event loop has already stopped (e.g. it
+// received StopEvent from another path).
+func (rl *RoundLoop) WaitForPendingWork() {
+	rl.handler.miniRoundTwoHandler.WaitForPendingWork()
+}
+
 func (rl *RoundLoop) Run() {
 	rl.logger.Info("consensus.RoundLoop.Run started")
 	defer rl.logger.Info("consensus.RoundLoop.Run stopped")

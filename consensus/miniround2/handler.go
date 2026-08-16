@@ -52,6 +52,11 @@ type miniRoundTwoHandler struct {
 	judgeWg sync.WaitGroup
 }
 
+// WaitForPendingWork blocks until all in-flight judge goroutines have finished.
+func (handler *miniRoundTwoHandler) WaitForPendingWork() {
+	handler.judgeWg.Wait()
+}
+
 // MiniRoundTwoHandlerArgs contains the node-local dependencies used by both the
 // answer-evidence and classification phases.
 type MiniRoundTwoHandlerArgs struct {

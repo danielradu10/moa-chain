@@ -66,7 +66,7 @@ func TestContinuousRounds(t *testing.T) {
 	}
 
 	done := startScenarioNodes(nodes)
-	stopNodes := stopScenarioNodesOnce(t, inboxes, done)
+	stopNodes := stopScenarioNodesOnce(t, nodes, done)
 	t.Cleanup(stopNodes)
 
 	startScenarioRound(inboxes, data.RoundKey{

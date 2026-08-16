@@ -106,3 +106,5 @@ func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsMessage(roundKey data.
 func (stub *MiniRoundTwoHandlerStub) HandleExecutedPromptsCollectionTimeout(_ data.RoundKey) error {
 	return nil
 }
+
+func (stub *MiniRoundTwoHandlerStub) WaitForPendingWork() {}

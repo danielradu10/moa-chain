@@ -58,7 +58,7 @@ func runMiniRoundThreeScenario(t *testing.T, scenario miniRoundThreeScenario) {
 	)
 
 	done := startScenarioNodes(nodes)
-	stopNodes := stopScenarioNodesOnce(t, inboxes, done)
+	stopNodes := stopScenarioNodesOnce(t, nodes, done)
 	t.Cleanup(stopNodes)
 
 	miniRoundOneKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundOne)}

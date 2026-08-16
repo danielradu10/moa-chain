@@ -107,7 +107,7 @@ func runMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 	)
 
 	done := startScenarioNodes(nodes)
-	stopNodes := stopScenarioNodesOnce(t, inboxes, done)
+	stopNodes := stopScenarioNodesOnce(t, nodes, done)
 	t.Cleanup(stopNodes)
 
 	miniRoundOneKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundOne)}
@@ -253,7 +253,7 @@ func createMiniRoundTwoScenarioNodes(
 
 func stopScenarioNodesOnce(
 	t *testing.T,
-	inboxes []chan data.RoundEvent,
+	nodes []*integrationTestNode,
 	done []<-chan struct{},
 ) func() {
 	t.Helper()
@@ -261,14 +261,27 @@ func stopScenarioNodesOnce(
 	var stopOnce sync.Once
 	return func() {
 		stopOnce.Do(func() {
-			for _, inbox := range inboxes {
-				inbox <- data.RoundEvent{Type: data.StopEvent}
-			}
-			for _, nodeDone := range done {
+			for i, node := range nodes {
+				nodeDone := done[i]
 				select {
 				case <-nodeDone:
-				case <-time.After(5 * time.Second):
-					t.Errorf("timed out stopping scenario node")
+					// Already stopped; still drain pending work.
+					node.loop.WaitForPendingWork()
+				default:
+					timedOut := make(chan struct{})
+					go func() {
+						select {
+						case <-nodeDone:
+						case <-time.After(5 * time.Second):
+							t.Errorf("timed out stopping node %s", node.id)
+							close(timedOut)
+						}
+					}()
+					node.loop.Shutdown(nodeDone)
+					select {
+					case <-timedOut:
+					default:
+					}
 				}
 			}
 		})
