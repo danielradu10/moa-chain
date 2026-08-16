@@ -21,6 +21,10 @@ type BlockFinalizer interface {
 	GetFinalizedBlockInMROne(key data.RoundKey) (*data.BlockOnChain, error)
 	GetFinalizedBlockInMRTwo(key data.RoundKey) (*data.BlockOnChain, error)
 	GetFinalizedBlockInMRThree(key data.RoundKey) (*data.BlockOnChain, error)
+	// ClearRound removes all three mini-round entries for the given full round.
+	// The roundKey may be any of the three mini-round keys; the base round
+	// (Epoch + Round) is used to derive and delete all three.
+	ClearRound(roundKey data.RoundKey)
 }
 
 // FinalizeBlockComponent stores finalized blocks per round key.
@@ -69,6 +73,20 @@ func (component *FinalizeBlockComponent) FinalizeBlockMRThree(roundKey data.Roun
 // GetFinalizedBlockInMRThree returns the block finalized in mini-round three for the provided round key.
 func (component *FinalizeBlockComponent) GetFinalizedBlockInMRThree(roundKey data.RoundKey) (*data.BlockOnChain, error) {
 	return component.getFinalizedBlock(component.finalizedBlocksInMRThree, roundKey)
+}
+
+// ClearRound removes all three mini-round finalized-block entries for a
+// completed full round (identified by Epoch + Round in the provided key).
+func (component *FinalizeBlockComponent) ClearRound(roundKey data.RoundKey) {
+	component.mutex.Lock()
+	defer component.mutex.Unlock()
+
+	for _, mr := range []data.MiniRound{data.MiniRoundOne, data.MiniRoundTwo, data.MiniRoundThree} {
+		key := data.RoundKey{Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: uint64(mr)}
+		delete(component.finalizedBlocksInMROne, key)
+		delete(component.finalizedBlocksInMRTwo, key)
+		delete(component.finalizedBlocksInMRThree, key)
+	}
 }
 
 func (component *FinalizeBlockComponent) finalizeBlock(

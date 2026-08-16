@@ -278,3 +278,5 @@ func (state *selectionTestBlockchainState) CurrentMiniRound() (uint64, error) {
 func (state *selectionTestBlockchainState) CurrentEpoch() (uint64, error) {
 	return 0, nil
 }
+
+func (state *selectionTestBlockchainState) Update(_ uint64, _ data.MiniRound, _ uint64) {}

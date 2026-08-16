@@ -22,6 +22,8 @@ func (bss *BlockchainStateStub) CurrentBlockHeader() (*data.ChainBlockHeader, er
 	return bss.CurrentBlockHeaderValue, nil
 }
 
+func (bss *BlockchainStateStub) Update(_ uint64, _ data.MiniRound, _ uint64) {}
+
 func (bss *BlockchainStateStub) CurrentRound() (uint64, error) {
 	return bss.CurrentRoundValue, nil
 }
