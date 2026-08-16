@@ -295,6 +295,9 @@ func waitForMiniRoundTwoFinalization(
 		}
 
 		for _, node := range nodes {
+			if roundFinalizedOnChain(node, roundKey) {
+				continue
+			}
 			if _, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey); err != nil {
 				return false
 			}
@@ -349,11 +352,23 @@ func requireMiniRoundOneFinalizedOnAllNodes(
 func finalizedMiniRoundTwoNodeCount(nodes []*integrationTestNode, roundKey data.RoundKey) int {
 	finalized := 0
 	for _, node := range nodes {
+		if roundFinalizedOnChain(node, roundKey) {
+			finalized++
+			continue
+		}
 		if _, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey); err == nil {
 			finalized++
 		}
 	}
 	return finalized
+}
+
+// roundFinalizedOnChain returns true when the full round represented by
+// roundKey was promoted to the canonical chain (and the per-round blockFinalizer
+// entries were consequently pruned by finalizeRound).
+func roundFinalizedOnChain(node *integrationTestNode, roundKey data.RoundKey) bool {
+	head, err := node.chain.Head()
+	return err == nil && head.Header.Round == roundKey.Round
 }
 
 func scenarioValidatorIndex(validatorID string) int {

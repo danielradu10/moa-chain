@@ -21,9 +21,11 @@ import (
 	"moa-chain/blockprocessing/proposing"
 	"moa-chain/blockprocessing/validation"
 	"moa-chain/broadcast"
+	"moa-chain/chain"
 	"moa-chain/consensus"
 	"moa-chain/consensus/miniround1"
 	"moa-chain/consensus/miniround2"
+	"moa-chain/consensus/miniround3"
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
 	"moa-chain/logging"
@@ -36,11 +38,13 @@ import (
 const integrationTestInitialBalance = uint64(10_000)
 
 type integrationTestNode struct {
-	id             string
-	loop           *consensus.RoundLoop
-	roundState     state.RoundState
-	blockFinalizer *blockFinalizer.FinalizeBlockComponent
-	logger         *logging.NodeLogger
+	id              string
+	loop            *consensus.RoundLoop
+	roundState      state.RoundState
+	blockFinalizer  *blockFinalizer.FinalizeBlockComponent
+	chain           chain.Chain
+	blockchainState state.BlockchainState
+	logger          *logging.NodeLogger
 }
 
 func createValidators(pubKeys [][]byte) []*validators.Validator {
@@ -75,6 +79,14 @@ func currentIntegrationTestHeader() *data.ChainBlockHeader {
 		Round:            1,
 		Epoch:            0,
 	}
+}
+
+// seedGenesisBlock appends the genesis block (round 1) so that consensus
+// selection for round 2 can derive a seed from CurrentBlockHeader.
+func seedGenesisBlock(t *testing.T, c chain.Chain) {
+	t.Helper()
+	h := currentIntegrationTestHeader()
+	require.NoError(t, c.Append(&data.BlockOnChain{Header: *h}))
 }
 
 func createNode(
@@ -184,6 +196,11 @@ func createNodeWithBroadcaster(
 	}
 
 	roundState := state.NewRoundState()
+	nodeChain := chain.NewChain()
+	seedGenesisBlock(t, nodeChain)
+	blockchainState := state.NewBlockchainState(nodeChain)
+	genesisHeader := currentIntegrationTestHeader()
+	blockchainState.Update(genesisHeader.Round, data.MiniRoundThree, genesisHeader.Epoch)
 
 	loop := createRoundLoop(
 		validatorID,
@@ -195,6 +212,8 @@ func createNodeWithBroadcaster(
 		batchAgent,
 		broadcaster,
 		roundState,
+		nodeChain,
+		blockchainState,
 		stopAfterMiniRoundOne,
 		voteCollectionDeadline,
 		classificationGracePeriod,
@@ -204,11 +223,13 @@ func createNodeWithBroadcaster(
 	require.NotNil(t, loop)
 
 	return &integrationTestNode{
-		id:             validatorID,
-		loop:           loop,
-		roundState:     roundState,
-		blockFinalizer: finalizer,
-		logger:         nodeLogger,
+		id:              validatorID,
+		loop:            loop,
+		roundState:      roundState,
+		blockFinalizer:  finalizer,
+		chain:           nodeChain,
+		blockchainState: blockchainState,
+		logger:          nodeLogger,
 	}
 }
 
@@ -233,22 +254,15 @@ func createRoundLoop(
 	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
 	roundState state.RoundState,
+	nodeChain chain.Chain,
+	blockchainState state.BlockchainState,
 	stopAfterMiniRoundOne bool,
 	voteCollectionDeadline time.Duration,
 	classificationGracePeriod time.Duration,
 	logger *slog.Logger,
 ) *consensus.RoundLoop {
-	currentHeader := currentIntegrationTestHeader()
-
-	blockchainStateStub := &testscommon.BlockchainStateStub{
-		CurrentBlockHeaderValue: currentHeader,
-		CurrentRoundValue:       currentHeader.Round,
-		CurrentMiniRoundValue:   uint64(data.MiniRoundThree),
-		CurrentEpochValue:       currentHeader.Epoch,
-	}
-
 	protocolAgent := integrationProtocolAgent{delegate: batchAgent}
-	base := createBlockBase(txPool, blockchainStateStub, protocolAgent, logger)
+	base := createBlockBase(txPool, blockchainState, protocolAgent, logger)
 	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
 		MyID:              nodeID,
 		BlockCreator:      proposing.NewBlockCreator(base),
@@ -258,7 +272,7 @@ func createRoundLoop(
 		Broadcaster:       broadcaster,
 		Signer:            signing.NewSigner(nodeID, privateKey),
 		ValidatorRegistry: validatorRegistry,
-		BlockchainState:   blockchainStateStub,
+		BlockchainState:   blockchainState,
 		BlockFinalizer:    blockFinalizer,
 		Logger:            logger,
 	}
@@ -272,7 +286,7 @@ func createRoundLoop(
 		Broadcaster:               broadcaster,
 		Signer:                    signing.NewSigner(nodeID, privateKey),
 		ValidatorRegistry:         validatorRegistry,
-		BlockchainState:           blockchainStateStub,
+		BlockchainState:           blockchainState,
 		BlockFinalizer:            blockFinalizer,
 		AnswerJudge:               protocolAgent,
 		JudgeModelMetadata:        "integration-deterministic-judge",
@@ -283,13 +297,32 @@ func createRoundLoop(
 
 	miniRoundTwoHandler := miniround2.NewMiniRoundTwoHandler(miniRoundTwoHandlerArgs)
 
+	miniRoundThreeHandlerArgs := miniround3.MiniRoundThreeHandlerArgs{
+		MyID:              nodeID,
+		RoundState:        roundState,
+		Broadcaster:       broadcaster,
+		Signer:            signing.NewSigner(nodeID, privateKey),
+		ValidatorRegistry: validatorRegistry,
+		BlockchainState:   blockchainState,
+		BlockFinalizer:    blockFinalizer,
+		SynthesisAgent:    protocolAgent,
+		Logger:            logger,
+	}
+
+	miniRoundThreeHandler := miniround3.NewMiniRoundThreeHandler(miniRoundThreeHandlerArgs)
+
 	roundHandlerArgs := consensus.RoundHandlerArgs{
 		SelfID:                 nodeID,
 		CurrentStep:            data.StepIdle,
 		CurrentRoundKey:        data.RoundKey{},
 		MiniRoundOneHandler:    miniRoundOneHandler,
 		MiniRoundTwoHandler:    miniRoundTwoHandler,
+		MiniRoundThreeHandler:  miniRoundThreeHandler,
 		BlockFinalizer:         blockFinalizer,
+		Chain:                  nodeChain,
+		Mempool:                txPool,
+		RoundState:             roundState,
+		BlockchainState:        blockchainState,
 		StopAfterMiniRoundOne:  stopAfterMiniRoundOne,
 		Logger:                 logger,
 		Inbox:                  inbox,

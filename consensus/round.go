@@ -470,6 +470,14 @@ func (rh *roundHandler) shouldIgnoreFinalizedMiniRoundMessage(roundKey data.Roun
 		return rh.currentStep == data.StepFinished && rh.isFinalizedRoundKey(roundKey)
 	}
 
+	// Messages from a previous epoch or round are always stale; ignore them
+	// rather than returning an error (the round was finalized and the round
+	// state/block-finalizer entries were already pruned by finalizeRound).
+	if roundKey.Epoch < rh.currentRoundKey.Epoch ||
+		(roundKey.Epoch == rh.currentRoundKey.Epoch && roundKey.Round < rh.currentRoundKey.Round) {
+		return true
+	}
+
 	return rh.isFinalizedPreviousMiniRound(roundKey)
 }
 
@@ -891,16 +899,6 @@ func (rh *roundHandler) finalizeRound(mr3RoundKey data.RoundKey) error {
 		txHashes = append(txHashes, tx.GetTxHash())
 	}
 	rh.mempool.RemoveTransactions(txHashes)
-
-	rh.blockFinalizer.ClearRound(mr3RoundKey)
-
-	for _, mr := range []data.MiniRound{data.MiniRoundOne, data.MiniRoundTwo, data.MiniRoundThree} {
-		rh.roundState.ClearRoundState(data.RoundKey{
-			Epoch:     mr3RoundKey.Epoch,
-			Round:     mr3RoundKey.Round,
-			MiniRound: uint64(mr),
-		})
-	}
 
 	rh.blockchainState.Update(mr3RoundKey.Round, data.MiniRoundThree, mr3RoundKey.Epoch)
 
