@@ -55,16 +55,6 @@ func waitForAllNodesMR2Finalization(
 	require.NoError(t, protocolErr)
 }
 
-func finalizedMiniRoundThreeNodeCount(nodes []*integrationTestNode, roundKey data.RoundKey) int {
-	finalized := 0
-	for _, node := range nodes {
-		if _, err := node.blockFinalizer.GetFinalizedBlockInMRThree(roundKey); err == nil {
-			finalized++
-		}
-	}
-	return finalized
-}
-
 func requireMR3ScenarioFinalizedState(
 	t *testing.T,
 	scenario miniRoundThreeScenario,
