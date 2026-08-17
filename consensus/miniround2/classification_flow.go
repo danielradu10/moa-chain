@@ -30,11 +30,6 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 		handler.logger.Error("miniround2.HandleAnswerEvidence failed to store verified evidence", "roundKey", roundKey, "error", err)
 		return err
 	}
-	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
-		handler.logger.Info("miniround2.HandleAnswerEvidence observer stored evidence without voting", "roundKey", roundKey, "validatorID", handler.myID)
-		return nil
-	}
-
 	finalizedBlock, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
 		Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound - 1,
 	})
@@ -43,7 +38,19 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 		return err
 	}
 
-	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Block, message)
+	if len(finalizedBlock.Body.Transactions) == 0 {
+		// Empty block: finalize MR2 immediately on every node (committee members
+		// and observers alike) — no judging or certificate exchange is needed.
+		handler.logger.Info("miniround2.HandleAnswerEvidence empty block — finalizing MR2 with no classifications", "roundKey", roundKey)
+		return handler.finalizeClassifiedAnswers(roundKey, message, nil)
+	}
+
+	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
+		handler.logger.Info("miniround2.HandleAnswerEvidence observer stored evidence without voting", "roundKey", roundKey, "validatorID", handler.myID)
+		return nil
+	}
+
+	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Body, message)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleAnswerEvidence failed to build judge requests", "roundKey", roundKey, "error", err)
 		return err
@@ -332,7 +339,7 @@ func (handler *miniRoundTwoHandler) classificationCollectionCandidates(
 		return nil, ErrMissingClassificationCollectionContext
 	}
 
-	requests, err := classification.BuildAnswerJudgeRequests(&canonicalBlock.Block, evidence)
+	requests, err := classification.BuildAnswerJudgeRequests(&canonicalBlock.Body, evidence)
 	if err != nil {
 		return nil, ErrMissingClassificationCollectionContext
 	}
@@ -678,7 +685,7 @@ func (handler *miniRoundTwoHandler) classificationCertificateEvidence(
 		return nil, nil, err
 	}
 
-	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Block, evidence)
+	requests, err := classification.BuildAnswerJudgeRequests(&finalizedBlock.Body, evidence)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -728,7 +735,8 @@ func (handler *miniRoundTwoHandler) finalizeClassifiedAnswers(
 	}
 
 	return handler.blockFinalizer.FinalizeBlockMRTwo(roundKey, &data.BlockOnChain{
-		Block:                      finalizedBlock.Block,
+		Header:                     finalizedBlock.Header,
+		Body:                       finalizedBlock.Body,
 		SubdomainsFrequencies:      finalizedBlock.SubdomainsFrequencies,
 		AggregatedExecutionResults: aggregatedResults,
 		AnswerEvidence:             evidence,

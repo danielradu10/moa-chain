@@ -49,6 +49,20 @@ func createScenarioAgent(t *testing.T, scenario miniRoundTwoScenario, role strin
 		JudgeAnswersCalled: func(request agent.AnswerJudgeRequest) (string, error) {
 			return executeScenarioJudge(request, judge)
 		},
+		SynthesizeBatchCalled: func(requests []agent.SynthesisRequest) ([]agent.SynthesisResult, error) {
+			results := make([]agent.SynthesisResult, len(requests))
+			for i, req := range requests {
+				results[i] = agent.SynthesisResult{TxHash: req.Tx.GetTxHash(), Answer: "synthesized"}
+			}
+			return results, nil
+		},
+		EvaluateSynthesisBatchCalled: func(requests []agent.EvaluateSynthesisRequest) ([]agent.EvaluateSynthesisResult, error) {
+			results := make([]agent.EvaluateSynthesisResult, len(requests))
+			for i, req := range requests {
+				results[i] = agent.EvaluateSynthesisResult{TxHash: req.Tx.GetTxHash(), Approved: true}
+			}
+			return results, nil
+		},
 	}
 }
 

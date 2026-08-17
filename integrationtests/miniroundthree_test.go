@@ -58,48 +58,13 @@ func runMiniRoundThreeScenario(t *testing.T, scenario miniRoundThreeScenario) {
 	)
 
 	done := startScenarioNodes(nodes)
-	stopNodes := stopScenarioNodesOnce(t, inboxes, done)
+	stopNodes := stopScenarioNodesOnce(t, nodes, done)
 	t.Cleanup(stopNodes)
 
 	miniRoundOneKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundOne)}
 	miniRoundTwoKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundTwo)}
 	miniRoundThreeKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
 	startScenarioRound(inboxes, miniRoundOneKey)
-
-	if scenario.Expected.MR3Skipped {
-		waitForAllNodesMR2Finalization(t, nodes, miniRoundTwoKey)
-		stopNodes()
-		require.NoError(t, firstScenarioError(nodes))
-
-		firstMR1Block, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(miniRoundOneKey)
-		require.NoError(t, err)
-		firstMR2Block, err := nodes[0].blockFinalizer.GetFinalizedBlockInMRTwo(miniRoundTwoKey)
-		require.NoError(t, err)
-
-		mr2LeaderID := committees.miniRoundTwo[0]
-		mr2LeaderNode := scenarioNodeByID(t, nodes, mr2LeaderID)
-		classificationVotes, err := mr2LeaderNode.roundState.GetAnswerClassificationVotes(miniRoundTwoKey)
-		require.NoError(t, err)
-
-		requireScenarioFinalizedState(
-			t,
-			mr3ScenarioAsMR2(scenario),
-			nodes,
-			scenarioCommittees{miniRoundOne: committees.miniRoundOne, miniRoundTwo: committees.miniRoundTwo},
-			frequencies,
-			firstMR1Block,
-			firstMR2Block,
-			classificationVotes,
-			miniRoundOneKey,
-			miniRoundTwoKey,
-		)
-
-		for _, node := range nodes {
-			_, mr3Err := node.blockFinalizer.GetFinalizedBlockInMRThree(miniRoundThreeKey)
-			require.Error(t, mr3Err, "node %s: expected no MR3 block when all txs are skipped", node.id)
-		}
-		return
-	}
 
 	waitForMiniRoundThreeFinalization(t, nodes, miniRoundThreeKey)
 

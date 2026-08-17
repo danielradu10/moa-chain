@@ -3,7 +3,7 @@ package testscommon
 import "moa-chain/data"
 
 type BlockchainStateStub struct {
-	CurrentBlockHeaderValue *data.BlockHeader
+	CurrentBlockHeaderValue *data.ChainBlockHeader
 	CurrentBlockHeaderErr   error
 
 	CurrentBlockValue *data.Block
@@ -14,13 +14,15 @@ type BlockchainStateStub struct {
 	CurrentEpochValue     uint64
 }
 
-func (bss *BlockchainStateStub) CurrentBlockHeader() (*data.BlockHeader, error) {
+func (bss *BlockchainStateStub) CurrentBlockHeader() (*data.ChainBlockHeader, error) {
 	if bss.CurrentBlockHeaderErr != nil {
 		return nil, bss.CurrentBlockHeaderErr
 	}
 
 	return bss.CurrentBlockHeaderValue, nil
 }
+
+func (bss *BlockchainStateStub) Update(_ uint64, _ data.MiniRound, _ uint64) {}
 
 func (bss *BlockchainStateStub) CurrentRound() (uint64, error) {
 	return bss.CurrentRoundValue, nil

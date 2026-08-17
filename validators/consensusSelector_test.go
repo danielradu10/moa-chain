@@ -59,7 +59,7 @@ func TestConsensusSelector_SelectConsensusGroupMiniRoundTwo(t *testing.T) {
 		require.Equal(t, firstConsensusGroup, secondConsensusGroup)
 	})
 
-	t.Run("should return ErrTotalFreqIsZero when frequency sum is zero", func(t *testing.T) {
+	t.Run("should fall back to global-score selection when frequency sum is zero", func(t *testing.T) {
 		t.Parallel()
 
 		selector := NewConsensusSelector()
@@ -73,8 +73,9 @@ func TestConsensusSelector_SelectConsensusGroupMiniRoundTwo(t *testing.T) {
 
 		consensusGroup, err := selector.SelectConsensusGroupMiniRoundTwo(blockchainState, validators, roundKey, frequencyMap)
 
-		require.Nil(t, consensusGroup)
-		require.Equal(t, ErrTotalFreqIsZero, err)
+		require.NoError(t, err)
+		require.NotNil(t, consensusGroup)
+		require.Len(t, consensusGroup, len(validators)/2)
 	})
 
 	t.Run("should return ErrEmptyExpandedList when all effective scores are zero", func(t *testing.T) {
@@ -172,7 +173,7 @@ func TestConsensusSelector_SelectConsensusGroupMiniRoundThree(t *testing.T) {
 		require.NotEqual(t, mr2Group, mr3Group)
 	})
 
-	t.Run("should return ErrTotalFreqIsZero when frequency sum is zero", func(t *testing.T) {
+	t.Run("should fall back to global-score selection when frequency sum is zero", func(t *testing.T) {
 		t.Parallel()
 
 		selector := NewConsensusSelector()
@@ -185,8 +186,9 @@ func TestConsensusSelector_SelectConsensusGroupMiniRoundThree(t *testing.T) {
 
 		consensusGroup, err := selector.SelectConsensusGroupMiniRoundThree(blockchainState, validators, roundKey, frequencyMap)
 
-		require.Nil(t, consensusGroup)
-		require.Equal(t, ErrTotalFreqIsZero, err)
+		require.NoError(t, err)
+		require.NotNil(t, consensusGroup)
+		require.Len(t, consensusGroup, len(validators)/2)
 	})
 }
 
@@ -253,17 +255,17 @@ func createMiniRoundTwoSelectionValidator(publicID string, scores map[string]int
 
 func createSelectionTestBlockchainState() *selectionTestBlockchainState {
 	return &selectionTestBlockchainState{
-		currentBlockHeader: &data.BlockHeader{
+		currentBlockHeader: &data.ChainBlockHeader{
 			HeaderHash: []byte("selection-test-current-header-hash"),
 		},
 	}
 }
 
 type selectionTestBlockchainState struct {
-	currentBlockHeader *data.BlockHeader
+	currentBlockHeader *data.ChainBlockHeader
 }
 
-func (state *selectionTestBlockchainState) CurrentBlockHeader() (*data.BlockHeader, error) {
+func (state *selectionTestBlockchainState) CurrentBlockHeader() (*data.ChainBlockHeader, error) {
 	return state.currentBlockHeader, nil
 }
 
@@ -278,3 +280,5 @@ func (state *selectionTestBlockchainState) CurrentMiniRound() (uint64, error) {
 func (state *selectionTestBlockchainState) CurrentEpoch() (uint64, error) {
 	return 0, nil
 }
+
+func (state *selectionTestBlockchainState) Update(_ uint64, _ data.MiniRound, _ uint64) {}

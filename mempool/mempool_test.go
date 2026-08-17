@@ -400,6 +400,124 @@ func TestMemPool_SelectTransactions(t *testing.T) {
 	})
 }
 
+func TestMemPool_RemoveTransactions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no-op when hash not in pool", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		addTxDirect(mp, createTx(0, 10, []byte("txHash1")))
+
+		mp.RemoveTransactions([][]byte{[]byte("nonexistent")})
+
+		require.Equal(t, uint64(1), mp.NumTransactions())
+	})
+
+	t.Run("no-op for empty hash list", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		addTxDirect(mp, createTx(0, 10, []byte("txHash1")))
+
+		mp.RemoveTransactions(nil)
+		mp.RemoveTransactions([][]byte{})
+
+		require.Equal(t, uint64(1), mp.NumTransactions())
+	})
+
+	t.Run("removes single transaction and its sender", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		tx := createTxWithSenderAndValue(0, 10, []byte("txHash1"), "alice", 0)
+		addTxDirect(mp, tx)
+
+		mp.RemoveTransactions([][]byte{[]byte("txHash1")})
+
+		require.Equal(t, uint64(0), mp.NumTransactions())
+		require.Equal(t, uint64(0), mp.NumAddresses())
+		_, err := mp.getTransactionsListBySender([]byte("alice"))
+		require.ErrorIs(t, err, ErrSenderDoesNotExist)
+	})
+
+	t.Run("removes one transaction but keeps sender with remaining transactions", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		tx0 := createTxWithSenderAndValue(0, 10, []byte("txHash0"), "alice", 0)
+		tx1 := createTxWithSenderAndValue(1, 10, []byte("txHash1"), "alice", 0)
+		tx2 := createTxWithSenderAndValue(2, 10, []byte("txHash2"), "alice", 0)
+		addTxDirect(mp, tx0)
+		addTxDirect(mp, tx1)
+		addTxDirect(mp, tx2)
+
+		mp.RemoveTransactions([][]byte{[]byte("txHash1")})
+
+		require.Equal(t, uint64(2), mp.NumTransactions())
+		require.Equal(t, uint64(1), mp.NumAddresses())
+
+		aliceTxList, err := mp.getTransactionsListBySender([]byte("alice"))
+		require.NoError(t, err)
+		require.Equal(t, 2, aliceTxList.numTransactions())
+		require.Equal(t, []byte("txHash0"), aliceTxList.getTxByIndex(0).GetTxHash())
+		require.Equal(t, []byte("txHash2"), aliceTxList.getTxByIndex(1).GetTxHash())
+	})
+
+	t.Run("removes all transactions of multiple senders and clears pool", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		txA := createTxWithSenderAndValue(0, 10, []byte("txHashA"), "alice", 0)
+		txB := createTxWithSenderAndValue(0, 10, []byte("txHashB"), "bob", 0)
+		txC := createTxWithSenderAndValue(0, 10, []byte("txHashC"), "carol", 0)
+		addTxDirect(mp, txA)
+		addTxDirect(mp, txB)
+		addTxDirect(mp, txC)
+
+		mp.RemoveTransactions([][]byte{[]byte("txHashA"), []byte("txHashB"), []byte("txHashC")})
+
+		require.Equal(t, uint64(0), mp.NumTransactions())
+		require.Equal(t, uint64(0), mp.NumAddresses())
+	})
+
+	t.Run("removes only matching hashes and leaves others intact", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		txA := createTxWithSenderAndValue(0, 10, []byte("txHashA"), "alice", 0)
+		txB := createTxWithSenderAndValue(0, 10, []byte("txHashB"), "bob", 0)
+		txC := createTxWithSenderAndValue(0, 10, []byte("txHashC"), "carol", 0)
+		addTxDirect(mp, txA)
+		addTxDirect(mp, txB)
+		addTxDirect(mp, txC)
+
+		mp.RemoveTransactions([][]byte{[]byte("txHashA"), []byte("nonexistent"), []byte("txHashC")})
+
+		require.Equal(t, uint64(1), mp.NumTransactions())
+		require.Equal(t, uint64(1), mp.NumAddresses())
+		_, err := mp.getTransactionsListBySender([]byte("bob"))
+		require.NoError(t, err)
+	})
+
+	t.Run("transactions remaining after removal are still selectable", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		tx0 := createTxWithSenderAndValue(0, 10, []byte("txHash0"), "alice", 0)
+		tx1 := createTxWithSenderAndValue(1, 10, []byte("txHash1"), "alice", 0)
+		addTxDirect(mp, tx0)
+		addTxDirect(mp, tx1)
+
+		mp.RemoveTransactions([][]byte{[]byte("txHash0")})
+
+		aliceTxList, err := mp.getTransactionsListBySender([]byte("alice"))
+		require.NoError(t, err)
+		require.Equal(t, 1, aliceTxList.numTransactions())
+		require.Equal(t, []byte("txHash1"), aliceTxList.getTxByIndex(0).GetTxHash())
+	})
+}
+
 func TestMemPool_calculateNumTokensFromPrompt(t *testing.T) {
 	t.Parallel()
 

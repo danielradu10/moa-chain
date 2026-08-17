@@ -52,6 +52,11 @@ type miniRoundTwoHandler struct {
 	judgeWg sync.WaitGroup
 }
 
+// WaitForPendingWork blocks until all in-flight judge goroutines have finished.
+func (handler *miniRoundTwoHandler) WaitForPendingWork() {
+	handler.judgeWg.Wait()
+}
+
 // MiniRoundTwoHandlerArgs contains the node-local dependencies used by both the
 // answer-evidence and classification phases.
 type MiniRoundTwoHandlerArgs struct {
@@ -153,7 +158,7 @@ func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey)
 		return err
 	}
 
-	blockBody := filterNonRelatedTransactions(finalizedBlockInMRO.Block.Body, finalizedBlockInMRO.NonRelatedTransactionHashes)
+	blockBody := filterNonRelatedTransactions(finalizedBlockInMRO.Body, finalizedBlockInMRO.NonRelatedTransactionHashes)
 	executionResult, err := handler.blockProcessor.ExecuteBlockPrompts(&blockBody)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleBlockExecution failed when executing the prompts", "err", err)
@@ -180,7 +185,7 @@ func (handler *miniRoundTwoHandler) HandleBlockExecution(roundKey data.RoundKey)
 		return err
 	}
 
-	executedPromptsMessage, err := handler.createExecutePromptsMessage(roundKey, finalizedBlockInMRO.Block.Header.HeaderHash, executionResult)
+	executedPromptsMessage, err := handler.createExecutePromptsMessage(roundKey, finalizedBlockInMRO.Header.HeaderHash, executionResult)
 	if err != nil {
 		handler.logger.Error("miniround2.HandleBlockExecution failed to create execute prompts message", "err", err)
 		return err
@@ -571,12 +576,11 @@ func (handler *miniRoundTwoHandler) computeExecutionResultHashFromMessage(
 		return nil, err
 	}
 
-	canonicalBlock := finalizedBlockInMROne.Block
-	if !bytes.Equal(message.CanonicalBlockHash, canonicalBlock.Header.HeaderHash) {
+	if !bytes.Equal(message.CanonicalBlockHash, finalizedBlockInMROne.Header.HeaderHash) {
 		return nil, ErrCanonicalBlockHashMismatch
 	}
 
-	filteredBody := filterNonRelatedTransactions(canonicalBlock.Body, finalizedBlockInMROne.NonRelatedTransactionHashes)
+	filteredBody := filterNonRelatedTransactions(finalizedBlockInMROne.Body, finalizedBlockInMROne.NonRelatedTransactionHashes)
 	canonicalTxs := filteredBody.Transactions
 	if len(message.Answers) != len(canonicalTxs) {
 		return nil, ErrExecutedPromptsAnswersMismatch

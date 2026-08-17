@@ -47,14 +47,15 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 	t.Run("should return ErrBlockNonceNotContinuous when block nonce is not continuous", func(t *testing.T) {
 		t.Parallel()
 
-		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
-		proposedBlock := createValidBlockForCurrentHeader(currentHeader, nil, map[string]uint64{})
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundOne)
+		proposedBlock := createValidBlockForCurrentHeader(currentHeader, currentMiniRound, nil, map[string]uint64{})
 		proposedBlock.Header.Nonce = currentHeader.Nonce + 2
 
 		blockProcessor := &blockProcessor{
 			blockprocessing.Base{
 				BlockchainState: &testscommon.BlockchainStateStub{
 					CurrentBlockHeaderValue: currentHeader,
+					CurrentMiniRoundValue:   uint64(currentMiniRound),
 				},
 			},
 		}
@@ -68,13 +69,14 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 		t.Parallel()
 
 		expectedErr := errors.New("snapshot factory error")
-		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
-		proposedBlock := createValidBlockForCurrentHeader(currentHeader, nil, map[string]uint64{})
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundOne)
+		proposedBlock := createValidBlockForCurrentHeader(currentHeader, currentMiniRound, nil, map[string]uint64{})
 
 		blockProcessor := &blockProcessor{
 			blockprocessing.Base{
 				BlockchainState: &testscommon.BlockchainStateStub{
 					CurrentBlockHeaderValue: currentHeader,
+					CurrentMiniRoundValue:   uint64(currentMiniRound),
 				},
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					CreateSnapshotErr: expectedErr,
@@ -90,7 +92,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 	t.Run("should return transaction validation error when block contains invalid transaction", func(t *testing.T) {
 		t.Parallel()
 
-		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundOne)
 
 		tx := createTestTransaction(testTransactionArgs{
 			nonce:                0,
@@ -105,6 +107,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 
 		proposedBlock := createValidBlockForCurrentHeader(
 			currentHeader,
+			currentMiniRound,
 			[]data.Transaction{tx},
 			map[string]uint64{
 				"security": 1,
@@ -122,6 +125,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			blockprocessing.Base{
 				BlockchainState: &testscommon.BlockchainStateStub{
 					CurrentBlockHeaderValue: currentHeader,
+					CurrentMiniRoundValue:   uint64(currentMiniRound),
 				},
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
@@ -139,7 +143,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 	t.Run("should validate block successfully and discard snapshot", func(t *testing.T) {
 		t.Parallel()
 
-		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundOne)
 
 		tx := createTestTransaction(testTransactionArgs{
 			nonce:                0,
@@ -154,6 +158,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 
 		proposedBlock := createValidBlockForCurrentHeader(
 			currentHeader,
+			currentMiniRound,
 			[]data.Transaction{tx},
 			map[string]uint64{
 				"security":          1,
@@ -173,6 +178,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			blockprocessing.Base{
 				BlockchainState: &testscommon.BlockchainStateStub{
 					CurrentBlockHeaderValue: currentHeader,
+					CurrentMiniRoundValue:   uint64(currentMiniRound),
 				},
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
@@ -249,10 +255,10 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
-		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundOne)
+		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader, currentMiniRound)
 
-		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
+		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentMiniRound, currentHeader.Round)
 
 		require.NoError(t, err)
 	})
@@ -261,10 +267,10 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(data.MiniRoundTwo)
-		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundTwo)
+		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader, currentMiniRound)
 
-		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
+		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentMiniRound, currentHeader.Round)
 
 		require.NoError(t, err)
 	})
@@ -273,10 +279,10 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(data.MiniRoundThree)
-		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundThree)
+		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader, currentMiniRound)
 
-		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
+		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentMiniRound, currentHeader.Round)
 
 		require.NoError(t, err)
 	})
@@ -285,11 +291,11 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(data.MiniRoundOne)
-		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundOne)
+		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader, currentMiniRound)
 		nextHeader.MiniRound = uint64(data.MiniRoundThree)
 
-		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
+		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentMiniRound, currentHeader.Round)
 
 		require.Equal(t, blockprocessing.ErrWrongMiniBlockRound, err)
 	})
@@ -298,11 +304,11 @@ func TestBlockProcessor_validateRoundAndMiniRoundContinuity(t *testing.T) {
 		t.Parallel()
 
 		blockProcessor := &blockProcessor{}
-		currentHeader := createCurrentBlockHeader(data.MiniRoundThree)
-		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader)
+		currentHeader, currentMiniRound := createCurrentBlockHeader(data.MiniRoundThree)
+		nextHeader := createValidNextHeaderForCurrentHeader(currentHeader, currentMiniRound)
 		nextHeader.Round = currentHeader.Round
 
-		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentHeader)
+		err := blockProcessor.validateRoundAndMiniRoundContinuity(nextHeader, currentMiniRound, currentHeader.Round)
 
 		require.Equal(t, blockprocessing.ErrWrongMiniBlockRound, err)
 	})
@@ -476,22 +482,21 @@ func createTestTransaction(args testTransactionArgs) *testscommon.TransactionStu
 	return ts
 }
 
-func createCurrentBlockHeader(currentMiniRound data.MiniRound) *data.BlockHeader {
-	return &data.BlockHeader{
+func createCurrentBlockHeader(currentMiniRound data.MiniRound) (*data.ChainBlockHeader, data.MiniRound) {
+	return &data.ChainBlockHeader{
 		HeaderHash: []byte("currentHeaderHash"),
 		RootHash:   []byte("currentRootHash"),
 		Nonce:      7,
 		Round:      10,
-		MiniRound:  uint64(currentMiniRound),
 		Epoch:      1,
-	}
+	}, currentMiniRound
 }
 
-func createValidNextHeaderForCurrentHeader(currentHeader *data.BlockHeader) *data.BlockHeader {
+func createValidNextHeaderForCurrentHeader(currentHeader *data.ChainBlockHeader, currentMiniRound data.MiniRound) *data.BlockHeader {
 	nextMiniRound := data.MiniRoundTwo
 	nextRound := currentHeader.Round
 
-	switch data.MiniRound(currentHeader.MiniRound) {
+	switch currentMiniRound {
 	case data.MiniRoundOne:
 		nextMiniRound = data.MiniRoundTwo
 		nextRound = currentHeader.Round
@@ -514,12 +519,13 @@ func createValidNextHeaderForCurrentHeader(currentHeader *data.BlockHeader) *dat
 }
 
 func createValidBlockForCurrentHeader(
-	currentHeader *data.BlockHeader,
+	currentHeader *data.ChainBlockHeader,
+	currentMiniRound data.MiniRound,
 	transactions []data.Transaction,
 	_ map[string]uint64,
 ) *data.Block {
 	return &data.Block{
-		Header: *createValidNextHeaderForCurrentHeader(currentHeader),
+		Header: *createValidNextHeaderForCurrentHeader(currentHeader, currentMiniRound),
 		Body: data.BlockBody{
 			Transactions: transactions,
 		},

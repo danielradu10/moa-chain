@@ -50,7 +50,14 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, data.Subdoma
 		return nil, nil, nil, err
 	}
 
-	err = bp.validateBlockHeader(&block.Header, currentBlockHeader)
+	currentMiniRoundRaw, err := bp.BlockchainState.CurrentMiniRound()
+	if err != nil {
+		bp.Logger.Error("validation.ValidateBlock failed to load current mini-round", "error", err)
+		return nil, nil, nil, err
+	}
+	currentMiniRound := data.MiniRound(currentMiniRoundRaw)
+
+	err = bp.validateBlockHeader(&block.Header, currentBlockHeader, currentMiniRound)
 	if err != nil {
 		bp.Logger.Error("validation.ValidateBlock block header validation failed", "error", err)
 		return nil, nil, nil, err
@@ -107,7 +114,8 @@ func (bp *blockProcessor) ValidateBlock(block *data.Block) ([]byte, data.Subdoma
 
 func (bp *blockProcessor) validateBlockHeader(
 	blockToBeValidated *data.BlockHeader,
-	currentBlockHeader *data.BlockHeader,
+	currentBlockHeader *data.ChainBlockHeader,
+	currentMiniRound data.MiniRound,
 ) error {
 	if blockToBeValidated == nil || currentBlockHeader == nil {
 		return blockprocessing.ErrNilBlock
@@ -118,7 +126,7 @@ func (bp *blockProcessor) validateBlockHeader(
 		return err
 	}
 
-	err = bp.validateRoundAndMiniRoundContinuity(blockToBeValidated, currentBlockHeader)
+	err = bp.validateRoundAndMiniRoundContinuity(blockToBeValidated, currentMiniRound, currentBlockHeader.Round)
 	if err != nil {
 		return err
 	}
@@ -138,9 +146,8 @@ func (bp *blockProcessor) validateBlockHeader(
 
 func (bp *blockProcessor) validateNonceContinuity(
 	blockToBeValidated *data.BlockHeader,
-	currentBlockHeader *data.BlockHeader,
+	currentBlockHeader *data.ChainBlockHeader,
 ) error {
-	// check for nonce continuity
 	blockNonce := blockToBeValidated.Nonce
 	currentChainNonce := currentBlockHeader.Nonce
 	if blockNonce != currentChainNonce+1 {
@@ -152,12 +159,10 @@ func (bp *blockProcessor) validateNonceContinuity(
 
 func (bp *blockProcessor) validateRoundAndMiniRoundContinuity(
 	blockToBeValidated *data.BlockHeader,
-	currentBlockHeader *data.BlockHeader,
+	currentMiniRound data.MiniRound,
+	currentRound uint64,
 ) error {
-	currentRound := currentBlockHeader.Round
 	nextRound := blockToBeValidated.Round
-
-	currentMiniRound := data.MiniRound(currentBlockHeader.MiniRound)
 	nextMiniRound := data.MiniRound(blockToBeValidated.MiniRound)
 
 	switch currentMiniRound {
@@ -182,9 +187,8 @@ func (bp *blockProcessor) validateRoundAndMiniRoundContinuity(
 
 func (bp *blockProcessor) validateRootHashContinuity(
 	blockToBeValidated *data.BlockHeader,
-	currentBlockHeader *data.BlockHeader,
+	currentBlockHeader *data.ChainBlockHeader,
 ) error {
-	// check that the new root hash is constructed over the latest root hash
 	blockPreviousRootHash := blockToBeValidated.PreviousRootHash
 	currentChainLatestRootHash := currentBlockHeader.RootHash
 	if !bytes.Equal(blockPreviousRootHash, currentChainLatestRootHash) {
@@ -196,9 +200,8 @@ func (bp *blockProcessor) validateRootHashContinuity(
 
 func (bp *blockProcessor) validateHashContinuity(
 	blockToBeValidated *data.BlockHeader,
-	currentBlockHeader *data.BlockHeader,
+	currentBlockHeader *data.ChainBlockHeader,
 ) error {
-	// check that the new block is constructed over the last block
 	blockPreviousHash := blockToBeValidated.PreviousHash
 	currentChainHeaderHash := currentBlockHeader.HeaderHash
 	if !bytes.Equal(currentChainHeaderHash, blockPreviousHash) {

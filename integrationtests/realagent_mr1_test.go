@@ -162,15 +162,15 @@ func runRealAgentMR1Round(
 	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
-	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
+	require.NotEmpty(t, firstBlock.Header.HeaderHash)
 
 	for _, node := range nodes {
 		finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
-		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
-		require.Equal(t, firstBlock.Block.Header.BodyHash, finalizedBlock.Block.Header.BodyHash)
+		require.Equal(t, firstBlock.Header.HeaderHash, finalizedBlock.Header.HeaderHash)
+		require.Equal(t, firstBlock.Header.BodyHash, finalizedBlock.Header.BodyHash)
 		require.Equal(t, firstBlock.SubdomainsFrequencies, finalizedBlock.SubdomainsFrequencies)
 		require.Equal(t, firstBlock.NonRelatedTransactionHashes, finalizedBlock.NonRelatedTransactionHashes)
 	}

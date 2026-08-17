@@ -99,7 +99,7 @@ func requireAllScenarioNodesFinalizedSameBlocks(
 	for _, node := range nodes {
 		miniRoundOneBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(miniRoundOneKey)
 		require.NoError(t, err)
-		require.Equal(t, firstMiniRoundOneBlock.Block.Header.HeaderHash, miniRoundOneBlock.Block.Header.HeaderHash)
+		require.Equal(t, firstMiniRoundOneBlock.Header.HeaderHash, miniRoundOneBlock.Header.HeaderHash)
 		require.Equal(t, firstMiniRoundOneBlock.SubdomainsFrequencies, miniRoundOneBlock.SubdomainsFrequencies)
 
 		miniRoundTwoBlock, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(miniRoundTwoKey)

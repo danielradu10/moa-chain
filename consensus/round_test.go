@@ -525,7 +525,7 @@ func TestRoundHandler_MiniRoundTwoToMiniRoundThreeTransition(t *testing.T) {
 		require.Equal(t, data.StepFinished, handler.currentStep)
 	})
 
-	t.Run("all INSUFFICIENT_CORRECT_ANSWERS skips MR3", func(t *testing.T) {
+	t.Run("all INSUFFICIENT_CORRECT_ANSWERS still proceeds to MR3", func(t *testing.T) {
 		t.Parallel()
 
 		mr2RoundKey := createMiniRoundTwoRoundKey()
@@ -548,8 +548,10 @@ func TestRoundHandler_MiniRoundTwoToMiniRoundThreeTransition(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		require.Equal(t, data.StepFinished, handler.currentStep)
-		require.False(t, mr3.HandleConsensusSelectionCalled)
+		// validator-1 is a non-leader in MR3 (leader is validator-2), so it
+		// transitions to StepAwaitProposedSynthesis after MR3 selection runs.
+		require.Equal(t, data.StepAwaitProposedSynthesis, handler.currentStep)
+		require.True(t, mr3.HandleConsensusSelectionCalled)
 	})
 
 	t.Run("eligible MR2 transactions trigger MR3 start", func(t *testing.T) {

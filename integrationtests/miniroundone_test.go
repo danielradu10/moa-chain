@@ -55,6 +55,7 @@ func TestMiniRoundOne_NoErrorsDuringRound(t *testing.T) {
 			nil,
 			&testscommon.LabelerStub{},
 			true,
+			false,
 			0,
 		)
 
@@ -147,6 +148,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 			nil,
 			&testscommon.LabelerStub{},
 			true,
+			false,
 			0,
 		)
 
@@ -206,18 +208,17 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
-	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
+	require.NotEmpty(t, firstBlock.Header.HeaderHash)
 
 	for _, node := range nodes {
 		finalizedBlock, err := node.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
-		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
-		require.Equal(t, firstBlock.Block.Header.BodyHash, finalizedBlock.Block.Header.BodyHash)
-		require.Equal(t, firstBlock.Block.Header.Nonce, finalizedBlock.Block.Header.Nonce)
-		require.Equal(t, firstBlock.Block.Header.Round, finalizedBlock.Block.Header.Round)
-		require.Equal(t, firstBlock.Block.Header.MiniRound, finalizedBlock.Block.Header.MiniRound)
+		require.Equal(t, firstBlock.Header.HeaderHash, finalizedBlock.Header.HeaderHash)
+		require.Equal(t, firstBlock.Header.BodyHash, finalizedBlock.Header.BodyHash)
+		require.Equal(t, firstBlock.Header.Nonce, finalizedBlock.Header.Nonce)
+		require.Equal(t, firstBlock.Header.Round, finalizedBlock.Header.Round)
 		require.Equal(t, firstBlock.SubdomainsFrequencies, finalizedBlock.SubdomainsFrequencies)
 	}
 
@@ -281,6 +282,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 			cloneTransactions(transactions),
 			labelerStub,
 			true,
+			false,
 			0,
 		)
 
@@ -340,9 +342,9 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
-	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
+	require.NotEmpty(t, firstBlock.Header.HeaderHash)
 
-	require.Len(t, firstBlock.Block.Body.Transactions, len(transactions))
+	require.Len(t, firstBlock.Body.Transactions, len(transactions))
 	require.Equal(t, expectedSubdomains(), firstBlock.SubdomainsFrequencies)
 
 	for _, node := range nodes {
@@ -350,13 +352,12 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
-		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
-		require.Equal(t, firstBlock.Block.Header.BodyHash, finalizedBlock.Block.Header.BodyHash)
-		require.Equal(t, firstBlock.Block.Header.Nonce, finalizedBlock.Block.Header.Nonce)
-		require.Equal(t, firstBlock.Block.Header.Round, finalizedBlock.Block.Header.Round)
-		require.Equal(t, firstBlock.Block.Header.MiniRound, finalizedBlock.Block.Header.MiniRound)
+		require.Equal(t, firstBlock.Header.HeaderHash, finalizedBlock.Header.HeaderHash)
+		require.Equal(t, firstBlock.Header.BodyHash, finalizedBlock.Header.BodyHash)
+		require.Equal(t, firstBlock.Header.Nonce, finalizedBlock.Header.Nonce)
+		require.Equal(t, firstBlock.Header.Round, finalizedBlock.Header.Round)
 		require.Equal(t, firstBlock.SubdomainsFrequencies, finalizedBlock.SubdomainsFrequencies)
-		require.Len(t, finalizedBlock.Block.Body.Transactions, len(transactions))
+		require.Len(t, finalizedBlock.Body.Transactions, len(transactions))
 	}
 
 	for _, inbox := range inboxes {
@@ -408,6 +409,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 			cloneTransactions(transactions),
 			labelerStub,
 			true,
+			false,
 			0,
 		)
 
@@ -467,9 +469,9 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 	firstBlock, err := nodes[0].blockFinalizer.GetFinalizedBlockInMROne(roundKey)
 	require.NoError(t, err)
 	require.NotNil(t, firstBlock)
-	require.NotEmpty(t, firstBlock.Block.Header.HeaderHash)
+	require.NotEmpty(t, firstBlock.Header.HeaderHash)
 
-	require.Len(t, firstBlock.Block.Body.Transactions, len(transactions))
+	require.Len(t, firstBlock.Body.Transactions, len(transactions))
 	require.NotEmpty(t, firstBlock.SubdomainsFrequencies)
 
 	consensusGroup := selectedConsensusGroupForRound(t, registeredValidators, roundKey)
@@ -486,13 +488,12 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 		require.NoError(t, err)
 		require.NotNil(t, finalizedBlock)
 
-		require.Equal(t, firstBlock.Block.Header.HeaderHash, finalizedBlock.Block.Header.HeaderHash)
-		require.Equal(t, firstBlock.Block.Header.BodyHash, finalizedBlock.Block.Header.BodyHash)
-		require.Equal(t, firstBlock.Block.Header.Nonce, finalizedBlock.Block.Header.Nonce)
-		require.Equal(t, firstBlock.Block.Header.Round, finalizedBlock.Block.Header.Round)
-		require.Equal(t, firstBlock.Block.Header.MiniRound, finalizedBlock.Block.Header.MiniRound)
+		require.Equal(t, firstBlock.Header.HeaderHash, finalizedBlock.Header.HeaderHash)
+		require.Equal(t, firstBlock.Header.BodyHash, finalizedBlock.Header.BodyHash)
+		require.Equal(t, firstBlock.Header.Nonce, finalizedBlock.Header.Nonce)
+		require.Equal(t, firstBlock.Header.Round, finalizedBlock.Header.Round)
 		require.Equal(t, firstBlock.SubdomainsFrequencies, finalizedBlock.SubdomainsFrequencies)
-		require.Len(t, finalizedBlock.Block.Body.Transactions, len(transactions))
+		require.Len(t, finalizedBlock.Body.Transactions, len(transactions))
 	}
 
 	for _, inbox := range inboxes {

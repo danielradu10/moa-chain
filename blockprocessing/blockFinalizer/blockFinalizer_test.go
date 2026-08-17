@@ -17,9 +17,7 @@ func TestFinalizeBlockComponent(t *testing.T) {
 		component := NewFinalizeBlockComponent()
 		roundKey := data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundOne)}
 		block := &data.BlockOnChain{
-			Block: data.Block{
-				Header: data.BlockHeader{HeaderHash: []byte("block-hash")},
-			},
+			Header: data.ChainBlockHeader{HeaderHash: []byte("block-hash")},
 		}
 
 		err := component.FinalizeBlockMROne(roundKey, block)
@@ -57,8 +55,8 @@ func TestFinalizeBlockComponent(t *testing.T) {
 		component := NewFinalizeBlockComponent()
 		firstRoundKey := data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundOne)}
 		secondRoundKey := data.RoundKey{Epoch: 1, Round: 3, MiniRound: uint64(data.MiniRoundOne)}
-		firstBlock := &data.BlockOnChain{Block: data.Block{Header: data.BlockHeader{HeaderHash: []byte("first")}}}
-		secondBlock := &data.BlockOnChain{Block: data.Block{Header: data.BlockHeader{HeaderHash: []byte("second")}}}
+		firstBlock := &data.BlockOnChain{Header: data.ChainBlockHeader{HeaderHash: []byte("first")}}
+		secondBlock := &data.BlockOnChain{Header: data.ChainBlockHeader{HeaderHash: []byte("second")}}
 
 		require.NoError(t, component.FinalizeBlockMROne(firstRoundKey, firstBlock))
 		require.NoError(t, component.FinalizeBlockMROne(secondRoundKey, secondBlock))
@@ -118,7 +116,7 @@ func TestFinalizeBlockComponent(t *testing.T) {
 		component := NewFinalizeBlockComponent()
 		key := data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundThree)}
 		mr3Block := &data.BlockOnChain{FinalAnswers: []data.FinalAnswer{{TxHash: []byte("tx-mr3")}}}
-		mr1Block := &data.BlockOnChain{Block: data.Block{Header: data.BlockHeader{HeaderHash: []byte("mr1")}}}
+		mr1Block := &data.BlockOnChain{Header: data.ChainBlockHeader{HeaderHash: []byte("mr1")}}
 
 		require.NoError(t, component.FinalizeBlockMRThree(key, mr3Block))
 		require.NoError(t, component.FinalizeBlockMROne(data.RoundKey{Epoch: 1, Round: 2, MiniRound: uint64(data.MiniRoundOne)}, mr1Block))

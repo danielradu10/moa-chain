@@ -27,10 +27,13 @@ type AccountHandler interface {
 
 // BlockchainState defines what an BlockchainState component should do
 type BlockchainState interface {
-	CurrentBlockHeader() (*data.BlockHeader, error)
+	CurrentBlockHeader() (*data.ChainBlockHeader, error)
 	CurrentRound() (uint64, error)
 	CurrentMiniRound() (uint64, error)
 	CurrentEpoch() (uint64, error)
+	// Update records the round, mini-round, and epoch of the mini-round that
+	// just finalized. Called by the round loop after each mini-round completes.
+	Update(round uint64, miniRound data.MiniRound, epoch uint64)
 }
 
 // AccountsSnapshot defines what an AccountsSnapshot should do

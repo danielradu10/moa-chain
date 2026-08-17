@@ -295,6 +295,31 @@ func (mp *memPool) NumAddresses() uint64 {
 	return mp.senders.numAddresses()
 }
 
+// RemoveTransactions removes all transactions with the given hashes from the pool.
+// Hashes that are not present are silently ignored.
+// When all transactions of a sender are removed, the sender entry is also removed.
+func (mp *memPool) RemoveTransactions(txHashes [][]byte) {
+	mp.mempoolMutex.Lock()
+	defer mp.mempoolMutex.Unlock()
+
+	for _, txHash := range txHashes {
+		tx, ok := mp.transactionsByHash[string(txHash)]
+		if !ok {
+			continue
+		}
+
+		delete(mp.transactionsByHash, string(txHash))
+		mp.transactionsCount--
+		mp.senders.removeTransaction(string(tx.GetSender()), txHash)
+		mp.logger.Info(
+			"mempool.RemoveTransactions removed transaction",
+			"txHash", string(txHash),
+			"sender", string(tx.GetSender()),
+			"numTransactions", len(mp.transactionsByHash),
+		)
+	}
+}
+
 func (mp *memPool) getTransactionsListBySender(sender []byte) (*txList, error) {
 	mp.mempoolMutex.RLock()
 	defer mp.mempoolMutex.RUnlock()

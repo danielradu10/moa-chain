@@ -107,7 +107,7 @@ func runMiniRoundTwoScenario(t *testing.T, scenario miniRoundTwoScenario) {
 	)
 
 	done := startScenarioNodes(nodes)
-	stopNodes := stopScenarioNodesOnce(t, inboxes, done)
+	stopNodes := stopScenarioNodesOnce(t, nodes, done)
 	t.Cleanup(stopNodes)
 
 	miniRoundOneKey := data.RoundKey{Epoch: 0, Round: 2, MiniRound: uint64(data.MiniRoundOne)}
@@ -242,6 +242,7 @@ func createMiniRoundTwoScenarioNodes(
 			createScenarioAgent(t, scenario, role),
 			network.BroadcasterForNode(validatorID),
 			false,
+			true,
 			0,
 			validators.CommitteeStrategyHalf,
 			0,
@@ -253,7 +254,7 @@ func createMiniRoundTwoScenarioNodes(
 
 func stopScenarioNodesOnce(
 	t *testing.T,
-	inboxes []chan data.RoundEvent,
+	nodes []*integrationTestNode,
 	done []<-chan struct{},
 ) func() {
 	t.Helper()
@@ -261,14 +262,27 @@ func stopScenarioNodesOnce(
 	var stopOnce sync.Once
 	return func() {
 		stopOnce.Do(func() {
-			for _, inbox := range inboxes {
-				inbox <- data.RoundEvent{Type: data.StopEvent}
-			}
-			for _, nodeDone := range done {
+			for i, node := range nodes {
+				nodeDone := done[i]
 				select {
 				case <-nodeDone:
-				case <-time.After(5 * time.Second):
-					t.Errorf("timed out stopping scenario node")
+					// Already stopped; still drain pending work.
+					node.loop.WaitForPendingWork()
+				default:
+					timedOut := make(chan struct{})
+					go func() {
+						select {
+						case <-nodeDone:
+						case <-time.After(5 * time.Second):
+							t.Errorf("timed out stopping node %s", node.id)
+							close(timedOut)
+						}
+					}()
+					node.loop.Shutdown(nodeDone)
+					select {
+					case <-timedOut:
+					default:
+					}
 				}
 			}
 		})
@@ -295,6 +309,9 @@ func waitForMiniRoundTwoFinalization(
 		}
 
 		for _, node := range nodes {
+			if roundFinalizedOnChain(node, roundKey) {
+				continue
+			}
 			if _, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey); err != nil {
 				return false
 			}
@@ -349,11 +366,23 @@ func requireMiniRoundOneFinalizedOnAllNodes(
 func finalizedMiniRoundTwoNodeCount(nodes []*integrationTestNode, roundKey data.RoundKey) int {
 	finalized := 0
 	for _, node := range nodes {
+		if roundFinalizedOnChain(node, roundKey) {
+			finalized++
+			continue
+		}
 		if _, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey); err == nil {
 			finalized++
 		}
 	}
 	return finalized
+}
+
+// roundFinalizedOnChain returns true when the full round represented by
+// roundKey was promoted to the canonical chain (and the per-round blockFinalizer
+// entries were consequently pruned by finalizeRound).
+func roundFinalizedOnChain(node *integrationTestNode, roundKey data.RoundKey) bool {
+	head, err := node.chain.Head()
+	return err == nil && head.Header.Round == roundKey.Round
 }
 
 func scenarioValidatorIndex(validatorID string) int {

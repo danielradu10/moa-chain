@@ -6,11 +6,14 @@ import (
 	"time"
 
 	"moa-chain/blockprocessing/blockFinalizer"
+	"moa-chain/chain"
 	"moa-chain/consensus/miniround1"
 	"moa-chain/consensus/miniround2"
 	"moa-chain/consensus/miniround3"
 	"moa-chain/data"
 	"moa-chain/logging"
+	"moa-chain/mempool"
+	"moa-chain/state"
 )
 
 type roundHandler struct {
@@ -22,7 +25,12 @@ type roundHandler struct {
 	miniRoundTwoHandler     miniround2.MiniRoundTwoHandler
 	miniRoundThreeHandler   miniround3.MiniRoundThreeHandler
 	blockFinalizer          blockFinalizer.BlockFinalizer
+	chain                   chain.Chain
+	mempool                 mempool.Mempool
+	roundState              state.RoundState
+	blockchainState         state.BlockchainState
 	stopAfterMiniRoundOne   bool
+	stopAfterMiniRoundTwo   bool
 	logger                  *slog.Logger
 
 	// inbox is the write end of this node's event queue, used to self-inject
@@ -46,9 +54,16 @@ type RoundHandlerArgs struct {
 	MiniRoundTwoHandler   miniround2.MiniRoundTwoHandler
 	MiniRoundThreeHandler miniround3.MiniRoundThreeHandler
 	BlockFinalizer        blockFinalizer.BlockFinalizer
+	Chain                 chain.Chain
+	Mempool               mempool.Mempool
+	RoundState            state.RoundState
+	BlockchainState       state.BlockchainState
 	// StopAfterMiniRoundOne prevents the handler from advancing to MR2 after MR1
 	// finalization. Intended for MR1-only tests and benchmarks.
 	StopAfterMiniRoundOne bool
+	// StopAfterMiniRoundTwo prevents the handler from advancing to MR3 after MR2
+	// finalization. Intended for MR2-only tests.
+	StopAfterMiniRoundTwo bool
 	Logger                *slog.Logger
 
 	// Inbox is the node's event channel. Required when VoteCollectionDeadline > 0.
@@ -71,7 +86,12 @@ func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 		miniRoundTwoHandler:                args.MiniRoundTwoHandler,
 		miniRoundThreeHandler:              args.MiniRoundThreeHandler,
 		blockFinalizer:                     args.BlockFinalizer,
+		chain:                              args.Chain,
+		mempool:                            args.Mempool,
+		roundState:                         args.RoundState,
+		blockchainState:                    args.BlockchainState,
 		stopAfterMiniRoundOne:              args.StopAfterMiniRoundOne,
+		stopAfterMiniRoundTwo:              args.StopAfterMiniRoundTwo,
 		logger:                             logging.FromOptional(args.Logger),
 		inbox:                              args.Inbox,
 		voteCollectionDeadline:             args.VoteCollectionDeadline,
@@ -180,11 +200,11 @@ func (rh *roundHandler) startMiniRoundThree(roundKey data.RoundKey) error {
 }
 
 // onMiniRoundTwoFinalized advances to mini-round three when a handler is wired
-// up, or marks the round as finished when running without one (MR1+MR2 tests).
+// up and StopAfterMiniRoundTwo is false; otherwise marks the round finished.
 func (rh *roundHandler) onMiniRoundTwoFinalized(roundKey data.RoundKey) error {
-	if rh.miniRoundThreeHandler == nil {
+	if rh.miniRoundThreeHandler == nil || rh.stopAfterMiniRoundTwo {
 		rh.currentStep = data.StepFinished
-		rh.logger.Info("mini-round two finalized; no mini-round three handler wired (stopping)", "roundKey", roundKey)
+		rh.logger.Info("mini-round two finalized; stopping before mini-round three", "roundKey", roundKey)
 		return nil
 	}
 	return rh.startNextMiniRound(roundKey)
@@ -406,34 +426,6 @@ func (rh *roundHandler) startNextMiniRound(roundKey data.RoundKey) error {
 			rh.logger.Info("mini-round one finalized; stopping before mini-round two (StopAfterMiniRoundOne=true)", "roundKey", roundKey)
 			return nil
 		}
-
-		finalizedBlock, err := rh.blockFinalizer.GetFinalizedBlockInMROne(roundKey)
-		if err != nil {
-			rh.currentStep = data.StepFailed
-			rh.logger.Error("failed to get finalized mini-round one block before starting mini-round two", "roundKey", roundKey, "error", err)
-			return err
-		}
-
-		if len(finalizedBlock.SubdomainsFrequencies) == 0 {
-			rh.currentStep = data.StepFinished
-			rh.logger.Info("mini-round one finalized without subdomain frequencies; skipping mini-round two", "roundKey", roundKey)
-			return nil
-		}
-	}
-
-	if nextRoundKey.MiniRound == uint64(data.MiniRoundThree) {
-		finalizedBlock, err := rh.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey)
-		if err != nil {
-			rh.currentStep = data.StepFailed
-			rh.logger.Error("failed to get finalized mini-round two block before starting mini-round three", "roundKey", roundKey, "error", err)
-			return err
-		}
-
-		if allEligibleTransactionsSkipped(finalizedBlock) {
-			rh.currentStep = data.StepFinished
-			rh.logger.Info("all MR2 transactions non-eligible; skipping mini-round three", "roundKey", roundKey)
-			return nil
-		}
 	}
 
 	rh.logger.Info("starting next mini-round", "currentRoundKey", roundKey, "nextRoundKey", nextRoundKey)
@@ -453,6 +445,14 @@ func (rh *roundHandler) isFinalizedPreviousMiniRound(roundKey data.RoundKey) boo
 func (rh *roundHandler) shouldIgnoreFinalizedMiniRoundMessage(roundKey data.RoundKey) bool {
 	if roundKey == rh.currentRoundKey {
 		return rh.currentStep == data.StepFinished && rh.isFinalizedRoundKey(roundKey)
+	}
+
+	// Messages from a previous epoch or round are always stale; ignore them
+	// rather than returning an error (the round was finalized and the round
+	// state/block-finalizer entries were already pruned by finalizeRound).
+	if roundKey.Epoch < rh.currentRoundKey.Epoch ||
+		(roundKey.Epoch == rh.currentRoundKey.Epoch && roundKey.Round < rh.currentRoundKey.Round) {
+		return true
 	}
 
 	return rh.isFinalizedPreviousMiniRound(roundKey)
@@ -810,6 +810,10 @@ func (rh *roundHandler) handleSynthesisVote(message data.ConsensusMessage) error
 	if rh.isFinalizedRoundKey(roundKey) {
 		rh.currentStep = data.StepFinished
 		rh.logger.Info("mini-round three finalized", "roundKey", roundKey)
+		if err := rh.finalizeRound(roundKey); err != nil {
+			rh.logger.Error("finalizeRound failed", "roundKey", roundKey, "error", err)
+			return err
+		}
 	}
 
 	return nil
@@ -842,17 +846,44 @@ func (rh *roundHandler) handleAggregatedSynthesisVotes(message data.ConsensusMes
 
 	rh.currentStep = data.StepFinished
 	rh.logger.Info("mini-round three finalized", "roundKey", roundKey)
+	if err := rh.finalizeRound(roundKey); err != nil {
+		rh.logger.Error("finalizeRound failed", "roundKey", roundKey, "error", err)
+		return err
+	}
 	return nil
 }
 
-// allEligibleTransactionsSkipped returns true when no transaction in the
-// finalized MR2 block has status READY_FOR_MINI_ROUND_THREE, meaning MR3 can
-// be safely skipped.
-func allEligibleTransactionsSkipped(block *data.BlockOnChain) bool {
-	for _, classification := range block.AnswerClassifications {
-		if classification.Status == data.TransactionAnswerStatusReadyForMiniRoundThree {
-			return false
-		}
+// finalizeRound promotes the MR3 block to the canonical chain, cleans up
+// per-round state, updates blockchainState, and starts the next full round.
+// When chain/mempool/roundState/blockchainState are not wired (e.g. in
+// MR1/MR2-only test setups) the function is a no-op.
+func (rh *roundHandler) finalizeRound(mr3RoundKey data.RoundKey) error {
+	if rh.chain == nil {
+		return nil
 	}
-	return true
+
+	block, err := rh.blockFinalizer.GetFinalizedBlockInMRThree(mr3RoundKey)
+	if err != nil {
+		return err
+	}
+
+	if err = rh.chain.Append(block); err != nil {
+		return err
+	}
+
+	txHashes := make([][]byte, 0, len(block.Body.Transactions))
+	for _, tx := range block.Body.Transactions {
+		txHashes = append(txHashes, tx.GetTxHash())
+	}
+	rh.mempool.RemoveTransactions(txHashes)
+
+	rh.blockchainState.Update(mr3RoundKey.Round, data.MiniRoundThree, mr3RoundKey.Epoch)
+
+	nextRoundKey := data.RoundKey{
+		Epoch:     mr3RoundKey.Epoch,
+		Round:     mr3RoundKey.Round + 1,
+		MiniRound: uint64(data.MiniRoundOne),
+	}
+	return rh.StartRound(nextRoundKey)
 }
+
