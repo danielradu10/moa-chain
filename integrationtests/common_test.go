@@ -99,11 +99,12 @@ func createNode(
 	transactions []data.Transaction,
 	batchAgent agent.BatchAgent,
 	stopAfterMiniRoundOne bool,
+	stopAfterMiniRoundTwo bool,
 	voteCollectionDeadline time.Duration,
 ) *integrationTestNode {
 	return createNodeWithCommitteeStrategy(
 		t, validatorID, privateKey, registeredValidators, inboxes, myInbox,
-		transactions, batchAgent, stopAfterMiniRoundOne, voteCollectionDeadline,
+		transactions, batchAgent, stopAfterMiniRoundOne, stopAfterMiniRoundTwo, voteCollectionDeadline,
 		validators.CommitteeStrategyHalf,
 	)
 }
@@ -118,12 +119,13 @@ func createNodeWithCommitteeStrategy(
 	transactions []data.Transaction,
 	batchAgent agent.BatchAgent,
 	stopAfterMiniRoundOne bool,
+	stopAfterMiniRoundTwo bool,
 	voteCollectionDeadline time.Duration,
 	strategy validators.CommitteeStrategy,
 ) *integrationTestNode {
 	return createNodeWithCommitteeStrategyAndClassificationGrace(
 		t, validatorID, privateKey, registeredValidators, inboxes, myInbox,
-		transactions, batchAgent, stopAfterMiniRoundOne, voteCollectionDeadline,
+		transactions, batchAgent, stopAfterMiniRoundOne, stopAfterMiniRoundTwo, voteCollectionDeadline,
 		strategy, 0,
 	)
 }
@@ -138,6 +140,7 @@ func createNodeWithCommitteeStrategyAndClassificationGrace(
 	transactions []data.Transaction,
 	batchAgent agent.BatchAgent,
 	stopAfterMiniRoundOne bool,
+	stopAfterMiniRoundTwo bool,
 	voteCollectionDeadline time.Duration,
 	strategy validators.CommitteeStrategy,
 	classificationGracePeriod time.Duration,
@@ -151,7 +154,7 @@ func createNodeWithCommitteeStrategyAndClassificationGrace(
 	return createNodeWithBroadcaster(
 		t, validatorID, privateKey, registeredValidators, myInbox,
 		transactions, batchAgent, broadcast.NewBroadcaster(peersRegistry),
-		stopAfterMiniRoundOne, voteCollectionDeadline, strategy, classificationGracePeriod,
+		stopAfterMiniRoundOne, stopAfterMiniRoundTwo, voteCollectionDeadline, strategy, classificationGracePeriod,
 	)
 }
 
@@ -167,6 +170,7 @@ func createNodeWithBroadcaster(
 	batchAgent agent.BatchAgent,
 	broadcaster broadcast.Broadcaster,
 	stopAfterMiniRoundOne bool,
+	stopAfterMiniRoundTwo bool,
 	voteCollectionDeadline time.Duration,
 	strategy validators.CommitteeStrategy,
 	classificationGracePeriod time.Duration,
@@ -215,6 +219,7 @@ func createNodeWithBroadcaster(
 		nodeChain,
 		blockchainState,
 		stopAfterMiniRoundOne,
+		stopAfterMiniRoundTwo,
 		voteCollectionDeadline,
 		classificationGracePeriod,
 		logger,
@@ -257,6 +262,7 @@ func createRoundLoop(
 	nodeChain chain.Chain,
 	blockchainState state.BlockchainState,
 	stopAfterMiniRoundOne bool,
+	stopAfterMiniRoundTwo bool,
 	voteCollectionDeadline time.Duration,
 	classificationGracePeriod time.Duration,
 	logger *slog.Logger,
@@ -324,6 +330,7 @@ func createRoundLoop(
 		RoundState:             roundState,
 		BlockchainState:        blockchainState,
 		StopAfterMiniRoundOne:  stopAfterMiniRoundOne,
+		StopAfterMiniRoundTwo:  stopAfterMiniRoundTwo,
 		Logger:                 logger,
 		Inbox:                  inbox,
 		VoteCollectionDeadline: voteCollectionDeadline,

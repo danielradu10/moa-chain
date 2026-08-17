@@ -242,6 +242,7 @@ func createMiniRoundTwoScenarioNodes(
 			createScenarioAgent(t, scenario, role),
 			network.BroadcasterForNode(validatorID),
 			false,
+			true,
 			0,
 			validators.CommitteeStrategyHalf,
 			0,

@@ -30,6 +30,7 @@ type roundHandler struct {
 	roundState              state.RoundState
 	blockchainState         state.BlockchainState
 	stopAfterMiniRoundOne   bool
+	stopAfterMiniRoundTwo   bool
 	logger                  *slog.Logger
 
 	// inbox is the write end of this node's event queue, used to self-inject
@@ -60,6 +61,9 @@ type RoundHandlerArgs struct {
 	// StopAfterMiniRoundOne prevents the handler from advancing to MR2 after MR1
 	// finalization. Intended for MR1-only tests and benchmarks.
 	StopAfterMiniRoundOne bool
+	// StopAfterMiniRoundTwo prevents the handler from advancing to MR3 after MR2
+	// finalization. Intended for MR2-only tests.
+	StopAfterMiniRoundTwo bool
 	Logger                *slog.Logger
 
 	// Inbox is the node's event channel. Required when VoteCollectionDeadline > 0.
@@ -87,6 +91,7 @@ func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 		roundState:                         args.RoundState,
 		blockchainState:                    args.BlockchainState,
 		stopAfterMiniRoundOne:              args.StopAfterMiniRoundOne,
+		stopAfterMiniRoundTwo:              args.StopAfterMiniRoundTwo,
 		logger:                             logging.FromOptional(args.Logger),
 		inbox:                              args.Inbox,
 		voteCollectionDeadline:             args.VoteCollectionDeadline,
@@ -195,11 +200,11 @@ func (rh *roundHandler) startMiniRoundThree(roundKey data.RoundKey) error {
 }
 
 // onMiniRoundTwoFinalized advances to mini-round three when a handler is wired
-// up, or marks the round as finished when running without one (MR1+MR2 tests).
+// up and StopAfterMiniRoundTwo is false; otherwise marks the round finished.
 func (rh *roundHandler) onMiniRoundTwoFinalized(roundKey data.RoundKey) error {
-	if rh.miniRoundThreeHandler == nil {
+	if rh.miniRoundThreeHandler == nil || rh.stopAfterMiniRoundTwo {
 		rh.currentStep = data.StepFinished
-		rh.logger.Info("mini-round two finalized; no mini-round three handler wired (stopping)", "roundKey", roundKey)
+		rh.logger.Info("mini-round two finalized; stopping before mini-round three", "roundKey", roundKey)
 		return nil
 	}
 	return rh.startNextMiniRound(roundKey)

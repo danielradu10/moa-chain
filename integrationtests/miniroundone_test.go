@@ -55,6 +55,7 @@ func TestMiniRoundOne_NoErrorsDuringRound(t *testing.T) {
 			nil,
 			&testscommon.LabelerStub{},
 			true,
+			false,
 			0,
 		)
 
@@ -147,6 +148,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_NoTransactions(t *testing.T) {
 			nil,
 			&testscommon.LabelerStub{},
 			true,
+			false,
 			0,
 		)
 
@@ -280,6 +282,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithTransactions(t *testing.T) {
 			cloneTransactions(transactions),
 			labelerStub,
 			true,
+			false,
 			0,
 		)
 
@@ -406,6 +409,7 @@ func TestMiniRoundOne_AllNodesFinalizeSameBlock_WithAgentGeneratedLabels(t *test
 			cloneTransactions(transactions),
 			labelerStub,
 			true,
+			false,
 			0,
 		)
 
