@@ -61,7 +61,6 @@ type mr3ScenarioExpectedFixture struct {
 	MR3RoundFinalized       bool                          `json:"mr3RoundFinalized"`
 	MR3FinalizedNodes       int                           `json:"mr3FinalizedNodes"`
 	MR3ErrorContains        string                        `json:"mr3ErrorContains,omitempty"`
-	MR3Skipped              bool                          `json:"mr3Skipped"`
 	SynthesisVoters         []string                      `json:"synthesisVoters"`
 	FinalAnswers            []scenarioExpectedFinalAnswer `json:"finalAnswers"`
 }
@@ -107,12 +106,7 @@ func validateMiniRoundThreeScenario(t *testing.T, scenario miniRoundThreeScenari
 	require.Len(t, scenario.Expected.AnswerEvidenceProducers, scenario.Network.CommitteeSize)
 	require.Len(t, scenario.Expected.Transactions, len(scenario.Transactions))
 
-	if scenario.Expected.MR3Skipped {
-		require.False(t, scenario.Expected.MR3RoundFinalized)
-		require.Zero(t, scenario.Expected.MR3FinalizedNodes)
-		require.Empty(t, scenario.Expected.MR3ErrorContains)
-		require.Empty(t, scenario.Expected.FinalAnswers)
-	} else if scenario.Expected.MR3RoundFinalized {
+	if scenario.Expected.MR3RoundFinalized {
 		require.Equal(t, scenario.Network.RegisteredNodes, scenario.Expected.MR3FinalizedNodes)
 		require.Empty(t, scenario.Expected.MR3ErrorContains)
 		require.Len(t, scenario.Expected.FinalAnswers, len(scenario.Transactions))

@@ -296,7 +296,6 @@
     ],
     "mr3RoundFinalized": true,
     "mr3FinalizedNodes": 20,
-    "mr3Skipped": false,
     "synthesisVoters": [],
     "finalAnswers": [
       {"txHash": "mr3-s03-control-before", "status": "SKIPPED"},

@@ -33,28 +33,6 @@ func waitForMiniRoundThreeFinalization(
 	require.NoError(t, protocolErr)
 }
 
-func waitForAllNodesMR2Finalization(
-	t *testing.T,
-	nodes []*integrationTestNode,
-	roundKey data.RoundKey,
-) {
-	t.Helper()
-
-	var protocolErr error
-	require.Eventually(t, func() bool {
-		if protocolErr = firstScenarioError(nodes); protocolErr != nil {
-			return true
-		}
-		for _, node := range nodes {
-			if _, err := node.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey); err != nil {
-				return false
-			}
-		}
-		return true
-	}, 10*time.Second, 10*time.Millisecond)
-	require.NoError(t, protocolErr)
-}
-
 func requireMR3ScenarioFinalizedState(
 	t *testing.T,
 	scenario miniRoundThreeScenario,

@@ -42,6 +42,3 @@ var ErrNotEnoughValidators = errors.New("not enough validators")
 
 // ErrNotEnoughValidatorsSelected signals not enough selected validators.
 var ErrNotEnoughValidatorsSelected = errors.New("not enough validators selected")
-
-// ErrTotalFreqIsZero signals a zero sum of frequencies.
-var ErrTotalFreqIsZero = errors.New("total frequency is zero")
