@@ -6,9 +6,15 @@ import (
 
 type txHeapComparator func(transactionA *txHeapItem, transactionB *txHeapItem) bool
 
-// isTransactionMoreValuable first sorts by the estimated score (tip / estimatedConsumption)
-// then, it sorts by estimated consumption
-// lastly, it sorts by txHash
+// isTransactionMoreValuable orders candidates by:
+//  1. estimated score descending (tip / estimatedConsumption)
+//  2. estimated consumption ascending
+//  3. sender ascending
+//  4. nonce ascending
+//
+// The final two tiebreakers match the nonce ordering that the mempool enforces
+// within a single sender's transaction sequence, keeping selection and block
+// validation consistent.
 func isTransactionMoreValuable(transactionA *txHeapItem, transactionB *txHeapItem) bool {
 	txA := transactionA.getCurrentTransaction()
 	txB := transactionB.getCurrentTransaction()
@@ -20,5 +26,10 @@ func isTransactionMoreValuable(transactionA *txHeapItem, transactionB *txHeapIte
 		return txA.GetEstimatedConsumption() < txB.GetEstimatedConsumption()
 	}
 
-	return bytes.Compare(txA.GetTxHash(), txB.GetTxHash()) < 0
+	senderCmp := bytes.Compare(txA.GetSender(), txB.GetSender())
+	if senderCmp != 0 {
+		return senderCmp < 0
+	}
+
+	return txA.GetNonce() < txB.GetNonce()
 }

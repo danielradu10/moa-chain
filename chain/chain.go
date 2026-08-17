@@ -19,6 +19,8 @@ type Chain interface {
 	Head() (*data.BlockOnChain, error)
 	// Len returns the number of blocks currently stored in the chain.
 	Len() uint64
+	// Blocks returns a snapshot of all blocks ordered from oldest to newest.
+	Blocks() []*data.BlockOnChain
 }
 
 type chain struct {
@@ -75,4 +77,14 @@ func (c *chain) Len() uint64 {
 	defer c.mu.RUnlock()
 
 	return uint64(len(c.blocks))
+}
+
+// Blocks returns a snapshot of all blocks ordered from oldest to newest.
+func (c *chain) Blocks() []*data.BlockOnChain {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	out := make([]*data.BlockOnChain, len(c.blocks))
+	copy(out, c.blocks)
+	return out
 }

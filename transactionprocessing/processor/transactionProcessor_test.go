@@ -372,18 +372,43 @@ func TestBlockProcessor_validateTransactionsOrdering(t *testing.T) {
 		require.Equal(t, transactionprocessing.ErrTxsDoNotRespectProtocolOrder, err)
 	})
 
-	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score and consumption are equal and hash is out of order", func(t *testing.T) {
+	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score and consumption are equal and sender is out of order", func(t *testing.T) {
 		t.Parallel()
 
 		txProc := &txProcessor{}
 
 		previousTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash2",
+			sender:               "bob",
+			nonce:                0,
 			estimatedScore:       100,
 			estimatedConsumption: 20,
 		})
 		currentTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash1",
+			sender:               "alice",
+			nonce:                0,
+			estimatedScore:       100,
+			estimatedConsumption: 20,
+		})
+
+		err := txProc.ValidateTransactionsOrdering(previousTx, currentTx)
+
+		require.Equal(t, transactionprocessing.ErrTxsDoNotRespectProtocolOrder, err)
+	})
+
+	t.Run("should return ErrTxsDoNotRespectProtocolOrder when score, consumption and sender are equal and nonce decreases", func(t *testing.T) {
+		t.Parallel()
+
+		txProc := &txProcessor{}
+
+		previousTx := createTestTransaction(testTransactionArgs{
+			sender:               "alice",
+			nonce:                5,
+			estimatedScore:       100,
+			estimatedConsumption: 20,
+		})
+		currentTx := createTestTransaction(testTransactionArgs{
+			sender:               "alice",
+			nonce:                3,
 			estimatedScore:       100,
 			estimatedConsumption: 20,
 		})
@@ -399,12 +424,14 @@ func TestBlockProcessor_validateTransactionsOrdering(t *testing.T) {
 		txProc := &txProcessor{}
 
 		previousTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash1",
+			sender:               "alice",
+			nonce:                0,
 			estimatedScore:       100,
 			estimatedConsumption: 20,
 		})
 		currentTx := createTestTransaction(testTransactionArgs{
-			txHash:               "txHash2",
+			sender:               "alice",
+			nonce:                1,
 			estimatedScore:       100,
 			estimatedConsumption: 20,
 		})

@@ -164,7 +164,16 @@ func (tp *txProcessor) ValidateTransactionsOrdering(
 		return nil
 	}
 
-	if bytes.Compare(previousTransaction.GetTxHash(), currentTransaction.GetTxHash()) > 0 {
+	senderCmp := bytes.Compare(previousTransaction.GetSender(), currentTransaction.GetSender())
+	if senderCmp > 0 {
+		return transactionprocessing.ErrTxsDoNotRespectProtocolOrder
+	}
+
+	if senderCmp < 0 {
+		return nil
+	}
+
+	if previousTransaction.GetNonce() > currentTransaction.GetNonce() {
 		return transactionprocessing.ErrTxsDoNotRespectProtocolOrder
 	}
 

@@ -85,6 +85,7 @@ func TestContinuousRounds(t *testing.T) {
 	for _, node := range nodes {
 		requireChainReachedAtLeastRound(t, node, targetRound)
 		requireBlockchainStateUpdatedAtLeast(t, node, targetRound)
+		requireChainHashLinkage(t, node)
 	}
 }
 
@@ -129,6 +130,144 @@ func requireBlockchainStateUpdatedAtLeast(t *testing.T, node *integrationTestNod
 	require.NoError(t, err)
 	require.Equal(t, uint64(data.MiniRoundThree), miniRound,
 		"node %s blockchainState.CurrentMiniRound should be MiniRoundThree after full round", node.id)
+}
+
+// TestMultipleRoundsWithTransactions verifies the inter-round contract:
+//   - round 2 finalizes real transactions
+//   - finalizeRound drains the mempool (round 3 block is empty)
+//   - every block's PreviousHash matches the preceding block's HeaderHash
+//
+// This catches stale-mempool bugs (transactions re-appearing in later rounds)
+// and hash-linkage bugs (incorrect PreviousHash / missing HeaderHash).
+func TestMultipleRoundsWithTransactions(t *testing.T) {
+	t.Parallel()
+
+	const numValidators = 5
+	const targetLen = uint64(3) // genesis + round 2 + round 3
+
+	publicKeys, privateKeys := generateScenarioKeys(t, numValidators)
+	registeredValidators := createScenarioValidators(publicKeys)
+
+	transactions := continuousRoundTransactions()
+
+	inboxes := makeScenarioInboxes(numValidators)
+
+	peersRegistry := broadcast.NewPeerRegistry()
+	for i, v := range registeredValidators {
+		require.NoError(t, peersRegistry.Register(v.PublicID(), inboxes[i]))
+	}
+	broadcaster := broadcast.NewBroadcaster(peersRegistry)
+
+	batchAgent := continuousRoundAgent()
+
+	nodes := make([]*integrationTestNode, numValidators)
+	for i, v := range registeredValidators {
+		nodes[i] = createNodeWithBroadcaster(
+			t,
+			v.PublicID(),
+			privateKeys[i],
+			registeredValidators,
+			inboxes[i],
+			cloneTransactions(transactions),
+			batchAgent,
+			broadcaster,
+			false,
+			0,
+			validators.CommitteeStrategyHalf,
+			0,
+		)
+	}
+
+	done := startScenarioNodes(nodes)
+	stopNodes := stopScenarioNodesOnce(t, nodes, done)
+	t.Cleanup(stopNodes)
+
+	startScenarioRound(inboxes, data.RoundKey{
+		Epoch:     0,
+		Round:     2,
+		MiniRound: uint64(data.MiniRoundOne),
+	})
+
+	waitForChainLen(t, nodes, targetLen, 30*time.Second)
+
+	stopNodes()
+
+	require.NoError(t, firstScenarioError(nodes))
+
+	for _, node := range nodes {
+		requireChainLenAtLeast(t, node, targetLen)
+		requireChainHashLinkage(t, node)
+		requireRoundTwoHadTransactions(t, node)
+		requireMempoolDrainedAfterRoundTwo(t, node)
+	}
+}
+
+// waitForChainLen blocks until every node's chain length is at least targetLen,
+// or a protocol error is observed (in which case it fails the test immediately).
+func waitForChainLen(t *testing.T, nodes []*integrationTestNode, targetLen uint64, timeout time.Duration) {
+	t.Helper()
+	var protocolErr error
+	require.Eventually(t, func() bool {
+		if protocolErr = firstScenarioError(nodes); protocolErr != nil {
+			return true
+		}
+		for _, node := range nodes {
+			if node.chain.Len() < targetLen {
+				return false
+			}
+		}
+		return true
+	}, timeout, 50*time.Millisecond)
+	require.NoError(t, protocolErr)
+}
+
+// requireChainLenAtLeast asserts the node's chain holds at least minLen blocks.
+func requireChainLenAtLeast(t *testing.T, node *integrationTestNode, minLen uint64) {
+	t.Helper()
+	require.GreaterOrEqual(t, node.chain.Len(), minLen,
+		"node %s chain length should be at least %d", node.id, minLen)
+}
+
+// requireRoundTwoHadTransactions asserts that the first non-genesis block (round 2)
+// contains at least one finalized transaction.
+func requireRoundTwoHadTransactions(t *testing.T, node *integrationTestNode) {
+	t.Helper()
+	blocks := node.chain.Blocks()
+	require.Greater(t, len(blocks), 1,
+		"node %s: chain should have more than just the genesis block", node.id)
+	require.NotEmpty(t, blocks[1].Body.Transactions,
+		"node %s: round-2 block should contain transactions", node.id)
+}
+
+// requireMempoolDrainedAfterRoundTwo asserts that round 3's block has no
+// transactions, confirming finalizeRound removed round-2 transactions from the
+// mempool before the next round started.
+func requireMempoolDrainedAfterRoundTwo(t *testing.T, node *integrationTestNode) {
+	t.Helper()
+	blocks := node.chain.Blocks()
+	require.Greater(t, len(blocks), 2,
+		"node %s: chain should have at least 3 blocks (genesis + round 2 + round 3)", node.id)
+	require.Empty(t, blocks[2].Body.Transactions,
+		"node %s: round-3 block should be empty after mempool was drained in round 2", node.id)
+}
+
+// requireChainHashLinkage asserts that every block has a non-empty HeaderHash
+// and that each block's PreviousHash equals the preceding block's HeaderHash.
+func requireChainHashLinkage(t *testing.T, node *integrationTestNode) {
+	t.Helper()
+	blocks := node.chain.Blocks()
+	require.NotEmpty(t, blocks, "node %s: chain should not be empty", node.id)
+	for i, block := range blocks {
+		require.NotEmpty(t, block.Header.HeaderHash,
+			"node %s: block at index %d (round %d) has empty HeaderHash",
+			node.id, i, block.Header.Round)
+		if i == 0 {
+			continue
+		}
+		require.Equal(t, blocks[i-1].Header.HeaderHash, block.Header.PreviousHash,
+			"node %s: block %d PreviousHash should match block %d HeaderHash",
+			node.id, i, i-1)
+	}
 }
 
 // continuousRoundTransactions returns a small set of transactions that will
