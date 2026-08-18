@@ -21,6 +21,7 @@ import (
 	"moa-chain/mempool"
 	"moa-chain/state"
 	"moa-chain/testscommon"
+	"moa-chain/txpipeline"
 	"moa-chain/validators"
 )
 
@@ -151,9 +152,36 @@ func createNodeWithMR3Broadcaster(
 
 	logger := nodeLogger.Logger()
 	txPool := mempool.NewMemPool(logger)
+	store := txpipeline.NewPrecomputedStore()
+	txPreprocessor := txpipeline.NewTxPreprocessor(txpipeline.TxPreprocessorArgs{
+		Agent:   integrationProtocolAgent{delegate: batchAgent},
+		Store:   store,
+		Mempool: txPool,
+		Logger:  logger,
+	})
+	txInbox := make(chan data.Transaction, 128)
+	txInterceptor := txpipeline.NewTxInterceptor(txpipeline.TxInterceptorArgs{
+		Inbox:        txInbox,
+		Preprocessor: txPreprocessor,
+		Broadcaster:  broadcast.NewTxBroadcaster(broadcast.NewTxPeerRegistry()),
+		SelfID:       validatorID,
+		Logger:       logger,
+	})
+
+	txPreprocessor.Start()
+	txInterceptor.Start()
 	for _, tx := range transactions {
-		err = txPool.AddTransaction(tx)
+		err = txInterceptor.Submit(tx)
 		require.NoError(t, err)
+	}
+	if len(transactions) > 0 {
+		txPreprocessor.Stop()
+		t.Cleanup(func() { txInterceptor.Stop() })
+	} else {
+		t.Cleanup(func() {
+			txPreprocessor.Stop()
+			txInterceptor.Stop()
+		})
 	}
 
 	consensusSelector := validators.NewConsensusSelectorWithStrategy(validators.CommitteeStrategyHalf, logger)
@@ -173,6 +201,7 @@ func createNodeWithMR3Broadcaster(
 		myInbox,
 		finalizer,
 		batchAgent,
+		store,
 		broadcaster,
 		roundState,
 		logger,
@@ -185,6 +214,7 @@ func createNodeWithMR3Broadcaster(
 		roundState:     roundState,
 		blockFinalizer: finalizer,
 		logger:         nodeLogger,
+		txInterceptor:  txInterceptor,
 	}
 }
 
@@ -196,6 +226,7 @@ func createRoundLoopWithMR3(
 	inbox chan data.RoundEvent,
 	blockFinalizer blockFinalizer.BlockFinalizer,
 	batchAgent agent.BatchAgent,
+	store txpipeline.PrecomputedStore,
 	broadcaster broadcast.Broadcaster,
 	roundState state.RoundState,
 	logger *slog.Logger,
@@ -210,7 +241,7 @@ func createRoundLoopWithMR3(
 	}
 
 	protocolAgent := integrationProtocolAgent{delegate: batchAgent}
-	base := createBlockBase(txPool, blockchainStateStub, protocolAgent, logger)
+	base := createBlockBase(txPool, blockchainStateStub, store, logger)
 
 	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
 		MyID:              nodeID,

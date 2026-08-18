@@ -145,6 +145,20 @@ func TestTxPreprocessor_MultipleTransactionsProcessedConcurrently(t *testing.T) 
 	}, 2*time.Second, 5*time.Millisecond)
 }
 
+func TestTxPreprocessor_StopDrainsQueuedTransactions(t *testing.T) {
+	const numTxs = 5
+	pool := &mempoolStub{}
+	p, _ := newPreprocessor(&testscommon.LabelerStub{}, pool)
+	p.Start()
+
+	for i := range numTxs {
+		p.Enqueue(newTestTx(string(rune('a' + i))))
+	}
+	p.Stop() // must drain the queue before returning
+
+	require.Len(t, pool.added(), numTxs)
+}
+
 func TestTxPreprocessor_StopWaitsForInFlightWork(t *testing.T) {
 	pool := &mempoolStub{}
 

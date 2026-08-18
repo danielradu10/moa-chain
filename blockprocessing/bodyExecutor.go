@@ -3,25 +3,25 @@ package blockprocessing
 import (
 	"log/slog"
 
-	"moa-chain/agent"
 	"moa-chain/blockprocessing/hashing"
 	"moa-chain/data"
 	"moa-chain/logging"
 	"moa-chain/transactionprocessing"
 	"moa-chain/transactionprocessing/processor"
+	"moa-chain/txpipeline"
 )
 
 const MaxBlockConsumption = 1000
 
 type bodyExecutor struct {
-	logger     *slog.Logger
-	batchAgent agent.BatchAgent
+	logger *slog.Logger
+	store  txpipeline.PrecomputedStore
 }
 
-func NewBodyExecutor(batchAgent agent.BatchAgent, loggers ...*slog.Logger) *bodyExecutor {
+func NewBodyExecutor(store txpipeline.PrecomputedStore, loggers ...*slog.Logger) *bodyExecutor {
 	return &bodyExecutor{
-		logger:     logging.FromOptional(loggers...),
-		batchAgent: batchAgent,
+		logger: logging.FromOptional(loggers...),
+		store:  store,
 	}
 }
 
@@ -81,16 +81,16 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundOne(
 		}
 	}
 
-	results, err := exec.batchAgent.LabelBatch(txs)
-	if err != nil {
-		exec.logger.Error("blockprocessing.ExecuteBlockBodyMiniRoundOne batch label call failed", "error", err)
-		return nil, err
-	}
-
-	labels := make(map[string][]string, len(results))
-	for _, r := range results {
-		labels[string(r.TxHash)] = r.Labels
-		exec.logger.Debug("transaction labeled (batch)", "txHash", string(r.TxHash), "labels", r.Labels)
+	labels := make(map[string][]string, len(txs))
+	for _, tx := range txs {
+		txHash := tx.GetTxHash()
+		l, ok := exec.store.GetLabels(txHash)
+		if !ok {
+			exec.logger.Error("blockprocessing.ExecuteBlockBodyMiniRoundOne missing precomputed labels", "txHash", string(txHash))
+			return nil, ErrMissingPrecomputedLabels
+		}
+		labels[string(txHash)] = l
+		exec.logger.Debug("transaction labels loaded from store", "txHash", string(txHash), "labels", l)
 	}
 
 	exec.logger.Info(
@@ -132,25 +132,26 @@ func (exec *bodyExecutor) ExecuteBlockBodyMiniRoundTwo(
 		uniqueTxHashes[string(tx.GetTxHash())] = struct{}{}
 	}
 
-	answerResults, err := exec.batchAgent.AnswerBatch(txs)
-	if err != nil {
-		exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo answer batch call failed", "error", err)
-		return nil, err
-	}
-
-	txsResults := make([]data.TransactionResult, 0, len(answerResults))
+	txsResults := make([]data.TransactionResult, 0, len(txs))
 	totalConsumption := uint64(0)
 
-	for _, ar := range answerResults {
-		consumption, err := processor.CountTokensFromAnswer(ar.Answer)
+	for _, tx := range txs {
+		txHash := tx.GetTxHash()
+		answer, ok := exec.store.GetAnswer(txHash)
+		if !ok {
+			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo missing precomputed answer", "txHash", string(txHash))
+			return nil, ErrMissingPrecomputedAnswer
+		}
+
+		consumption, err := processor.CountTokensFromAnswer(answer)
 		if err != nil {
-			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo token counting failed", "txHash", string(ar.TxHash), "error", err)
+			exec.logger.Error("bodyExecutor.ExecuteBlockBodyMiniRoundTwo token counting failed", "txHash", string(txHash), "error", err)
 			return nil, err
 		}
 
 		txsResults = append(txsResults, data.TransactionResult{
-			TxHash:            ar.TxHash,
-			Answer:            ar.Answer,
+			TxHash:            txHash,
+			Answer:            answer,
 			ActualConsumption: consumption,
 		})
 		totalConsumption += consumption

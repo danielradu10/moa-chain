@@ -6,11 +6,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"moa-chain/agent"
 	"moa-chain/blockprocessing"
 	"moa-chain/data"
 	"moa-chain/testscommon"
 	"moa-chain/transactionprocessing"
+	"moa-chain/txpipeline"
 )
 
 func TestBlockProcessor_ValidateBlock(t *testing.T) {
@@ -130,7 +130,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
 				},
-				BatchAgent: &testscommon.LabelerStub{},
+				Store: txpipeline.NewPrecomputedStore(),
 			},
 		}
 
@@ -174,6 +174,9 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 			EscrowAccount: testscommon.NewAccountHandlerStub(0, 0),
 		}
 
+		store := txpipeline.NewPrecomputedStore()
+		store.StoreLabels([]byte("txHash1"), []string{"security", "cloud_engineering", "databases"})
+
 		blockProcessor := &blockProcessor{
 			blockprocessing.Base{
 				BlockchainState: &testscommon.BlockchainStateStub{
@@ -183,7 +186,7 @@ func TestBlockProcessor_ValidateBlock(t *testing.T) {
 				AccountsSnapshotFactory: &testscommon.AccountsSnapshotFactoryStub{
 					Snapshot: snapshot,
 				},
-				BatchAgent: &testscommon.LabelerStub{},
+				Store: store,
 			},
 		}
 
@@ -209,25 +212,14 @@ func TestBlockProcessor_ExecuteBlockPrompts(t *testing.T) {
 		snapshotFactory := &testscommon.AccountsSnapshotFactoryStub{
 			CreateSnapshotErr: errors.New("snapshot should not be needed"),
 		}
+		store := txpipeline.NewPrecomputedStore()
+		store.StoreAnswer([]byte("txHash1"), "answer one")
+		store.StoreAnswer([]byte("txHash2"), "answer two")
+
 		blockProcessor := &blockProcessor{
 			Base: blockprocessing.Base{
 				AccountsSnapshotFactory: snapshotFactory,
-				BatchAgent: &testscommon.LabelerStub{
-					AnswerBatchCalled: func(txs []data.Transaction) ([]agent.AnswerResult, error) {
-						answers := map[string]string{
-							"txHash1": "answer one",
-							"txHash2": "answer two",
-						}
-						results := make([]agent.AnswerResult, 0, len(txs))
-						for _, tx := range txs {
-							results = append(results, agent.AnswerResult{
-								TxHash: tx.GetTxHash(),
-								Answer: answers[string(tx.GetTxHash())],
-							})
-						}
-						return results, nil
-					},
-				},
+				Store:                   store,
 			},
 		}
 
@@ -423,9 +415,13 @@ func TestBlockProcessor_validateBlockBody(t *testing.T) {
 	t.Run("should validate block body successfully", func(t *testing.T) {
 		t.Parallel()
 
+		store := txpipeline.NewPrecomputedStore()
+		store.StoreLabels([]byte("txHash1"), []string{"security", "cloud_engineering"})
+		store.StoreLabels([]byte("txHash2"), []string{"security", "databases"})
+
 		blockProcessor := &blockProcessor{
 			Base: blockprocessing.Base{
-				BatchAgent: &testscommon.LabelerStub{},
+				Store: store,
 			},
 		}
 		txProcessor := &testscommon.TxProcessorStub{

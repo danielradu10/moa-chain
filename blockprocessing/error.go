@@ -49,3 +49,9 @@ var ErrTxHashMismatch = errors.New("tx hash mismatch")
 
 // ErrNilTransactionResult signals a nil transaction result.
 var ErrNilTransactionResult = errors.New("nil transaction result")
+
+// ErrMissingPrecomputedLabels signals that the precomputed labels for a transaction were not found in the store.
+var ErrMissingPrecomputedLabels = errors.New("missing precomputed labels")
+
+// ErrMissingPrecomputedAnswer signals that the precomputed answer for a transaction was not found in the store.
+var ErrMissingPrecomputedAnswer = errors.New("missing precomputed answer")

@@ -1,65 +1,50 @@
 package blockprocessing
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"moa-chain/agent"
 	"moa-chain/data"
 	"moa-chain/testscommon"
+	"moa-chain/txpipeline"
 )
 
 func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne(t *testing.T) {
 	t.Parallel()
 
-	t.Run("should call LabelBatch", func(t *testing.T) {
+	t.Run("should read labels from store", func(t *testing.T) {
 		t.Parallel()
 
 		tx1 := createBodyExecutorTestTransaction("txHash1")
 		tx2 := createBodyExecutorTestTransaction("txHash2")
 
-		labelBatchCalled := false
-		batchAgent := &testscommon.LabelerStub{
-			LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
-				labelBatchCalled = true
-				return []agent.LabelResult{
-					{TxHash: []byte("txHash1"), Labels: []string{"databases"}},
-					{TxHash: []byte("txHash2"), Labels: []string{"security", "back_end"}},
-				}, nil
-			},
-		}
+		store := txpipeline.NewPrecomputedStore()
+		store.StoreLabels([]byte("txHash1"), []string{"databases"})
+		store.StoreLabels([]byte("txHash2"), []string{"security", "back_end"})
 
-		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundOne(
+		result, err := NewBodyExecutor(store).ExecuteBlockBodyMiniRoundOne(
 			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
 			&testscommon.TxProcessorStub{},
 		)
 
 		require.NoError(t, err)
-		require.True(t, labelBatchCalled)
 		require.Equal(t, []string{"databases"}, result.Subdomains["txHash1"])
 		require.Equal(t, []string{"security", "back_end"}, result.Subdomains["txHash2"])
 	})
 
-	t.Run("should propagate LabelBatch error", func(t *testing.T) {
+	t.Run("should return ErrMissingPrecomputedLabels when labels not in store", func(t *testing.T) {
 		t.Parallel()
 
-		expectedErr := errors.New("label batch failed")
 		tx := createBodyExecutorTestTransaction("txHash1")
-		batchAgent := &testscommon.LabelerStub{
-			LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
-				return nil, expectedErr
-			},
-		}
 
-		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundOne(
+		result, err := NewBodyExecutor(txpipeline.NewPrecomputedStore()).ExecuteBlockBodyMiniRoundOne(
 			&data.BlockBody{Transactions: []data.Transaction{tx}},
 			&testscommon.TxProcessorStub{},
 		)
 
 		require.Nil(t, result)
-		require.Equal(t, expectedErr, err)
+		require.Equal(t, ErrMissingPrecomputedLabels, err)
 	})
 
 	t.Run("should still run economic processing per-transaction", func(t *testing.T) {
@@ -74,13 +59,11 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne(t *testing.T) {
 				return 10, nil
 			},
 		}
-		batchAgent := &testscommon.LabelerStub{
-			LabelBatchCalled: func(txs []data.Transaction) ([]agent.LabelResult, error) {
-				return []agent.LabelResult{{TxHash: tx.GetTxHash(), Labels: []string{"databases"}}}, nil
-			},
-		}
 
-		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundOne(
+		store := txpipeline.NewPrecomputedStore()
+		store.StoreLabels([]byte("txHash1"), []string{"databases"})
+
+		result, err := NewBodyExecutor(store).ExecuteBlockBodyMiniRoundOne(
 			&data.BlockBody{Transactions: []data.Transaction{tx}},
 			txProcessor,
 		)
@@ -94,22 +77,17 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundOne(t *testing.T) {
 func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
 	t.Parallel()
 
-	t.Run("should call AnswerBatch and compute token consumption", func(t *testing.T) {
+	t.Run("should read answers from store and compute token consumption", func(t *testing.T) {
 		t.Parallel()
 
 		tx1 := createBodyExecutorTestTransaction("txHash1")
 		tx2 := createBodyExecutorTestTransaction("txHash2")
 
-		batchAgent := &testscommon.LabelerStub{
-			AnswerBatchCalled: func(txs []data.Transaction) ([]agent.AnswerResult, error) {
-				return []agent.AnswerResult{
-					{TxHash: []byte("txHash1"), Answer: "solution one"},
-					{TxHash: []byte("txHash2"), Answer: "solution two"},
-				}, nil
-			},
-		}
+		store := txpipeline.NewPrecomputedStore()
+		store.StoreAnswer([]byte("txHash1"), "solution one")
+		store.StoreAnswer([]byte("txHash2"), "solution two")
 
-		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundTwo(
+		result, err := NewBodyExecutor(store).ExecuteBlockBodyMiniRoundTwo(
 			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
 		)
 
@@ -124,29 +102,23 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
 		require.Greater(t, result.TotalConsumption, uint64(0))
 	})
 
-	t.Run("should propagate AnswerBatch error", func(t *testing.T) {
+	t.Run("should return ErrMissingPrecomputedAnswer when answer not in store", func(t *testing.T) {
 		t.Parallel()
 
-		expectedErr := errors.New("answer batch failed")
 		tx := createBodyExecutorTestTransaction("txHash1")
-		batchAgent := &testscommon.LabelerStub{
-			AnswerBatchCalled: func(txs []data.Transaction) ([]agent.AnswerResult, error) {
-				return nil, expectedErr
-			},
-		}
 
-		result, err := NewBodyExecutor(batchAgent).ExecuteBlockBodyMiniRoundTwo(
+		result, err := NewBodyExecutor(txpipeline.NewPrecomputedStore()).ExecuteBlockBodyMiniRoundTwo(
 			&data.BlockBody{Transactions: []data.Transaction{tx}},
 		)
 
 		require.Nil(t, result)
-		require.Equal(t, expectedErr, err)
+		require.Equal(t, ErrMissingPrecomputedAnswer, err)
 	})
 
 	t.Run("should return ErrNilBlock when block body is nil", func(t *testing.T) {
 		t.Parallel()
 
-		result, err := NewBodyExecutor(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(nil)
+		result, err := NewBodyExecutor(txpipeline.NewPrecomputedStore()).ExecuteBlockBodyMiniRoundTwo(nil)
 
 		require.Nil(t, result)
 		require.Equal(t, ErrNilBlock, err)
@@ -155,7 +127,7 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
 	t.Run("should return ErrNilTransaction when block contains nil transaction", func(t *testing.T) {
 		t.Parallel()
 
-		result, err := NewBodyExecutor(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(
+		result, err := NewBodyExecutor(txpipeline.NewPrecomputedStore()).ExecuteBlockBodyMiniRoundTwo(
 			&data.BlockBody{Transactions: []data.Transaction{nil}},
 		)
 
@@ -169,7 +141,7 @@ func TestBodyExecutor_ExecuteBlockBodyMiniRoundTwo(t *testing.T) {
 		tx1 := createBodyExecutorTestTransaction("txHash1")
 		tx2 := createBodyExecutorTestTransaction("txHash1")
 
-		result, err := NewBodyExecutor(&testscommon.LabelerStub{}).ExecuteBlockBodyMiniRoundTwo(
+		result, err := NewBodyExecutor(txpipeline.NewPrecomputedStore()).ExecuteBlockBodyMiniRoundTwo(
 			&data.BlockBody{Transactions: []data.Transaction{tx1, tx2}},
 		)
 

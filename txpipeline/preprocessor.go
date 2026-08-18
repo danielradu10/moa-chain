@@ -72,7 +72,18 @@ func (p *txPreprocessor) run() {
 			}(tx)
 
 		case <-p.stopCh:
-			return
+			for {
+				select {
+				case tx := <-p.queue:
+					p.wg.Add(1)
+					go func(t data.Transaction) {
+						defer p.wg.Done()
+						p.process(t)
+					}(tx)
+				default:
+					return
+				}
+			}
 		}
 	}
 }
