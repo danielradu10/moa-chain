@@ -2,6 +2,20 @@ package txpipeline
 
 import "moa-chain/data"
 
+// TxInterceptor is the single entry point for receiving a transaction on a
+// node. It performs fast admission (validation and deduplication) and then
+// fans out to the preprocessor and, for locally submitted transactions, the
+// broadcaster.
+type TxInterceptor interface {
+	// Submit is called by a local client or test. On success the transaction
+	// is enqueued for preprocessing and broadcast to all peers.
+	Submit(tx data.Transaction) error
+	// Start launches the background goroutine that drains the peer inbox.
+	Start()
+	// Stop signals shutdown and waits for the inbox goroutine to exit.
+	Stop()
+}
+
 // TxPreprocessor runs labeling and answering concurrently for each incoming
 // transaction, stores the results in a PrecomputedStore, and only then makes
 // the transaction eligible for inclusion in the mempool.
