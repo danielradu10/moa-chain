@@ -26,29 +26,45 @@ relevant step, the round handler publishes an immutable `RoundSnapshot` via
 `atomic.Value`. The HTTP handler reads from the snapshot; no mutex needed on
 `RoundState` itself.
 
-### Mempool gap: no GetAll
-
-`mempool.Mempool` only exposes `SelectTransactions` (runs the full selection
-algorithm). A `GetPendingTransactions() []data.Transaction` method will be
-added to the interface and implementation to support the pending-tx view.
-
 ---
 
-## Proposed package layout
+## Package layout
 
 ```
 explorer/
-  node_view.go   — NodeView: aggregates all state references the explorer needs
-  observer.go    — RoundObserver: thread-safe atomic snapshot of round progress
-  tx_tracker.go  — TxTracker: transaction lifecycle events + SSE fan-out
-  server.go      — HTTP server wiring, route registration
-  handlers.go    — HTTP handler functions
-  models.go      — API response structs (view-model / DTO layer)
-  sse.go         — SSE writer helper
+  node_view.go          — NodeView: aggregates raw state references; implements NodeFacade
+  models.go             — API response structs (view-model / DTO layer)
+
+  controllers/
+    server.go           — HTTP server, mux wiring, route registration via RequestHandler
+    request_handler.go  — RequestHandler: pairs HTTP method + path + handler
+    handlers.go         — HTTP handler functions (thin: parse → service call → write JSON)
+
+  service/
+    node_facade.go      — NodeFacade interface: what the service needs from the node
+    service.go          — ExplorerService: query logic, builds view models
 ```
 
+Future files as tasks are completed:
+
+```
+  service/
+    tx_resolver.go      — multi-source tx status (TxTracker + mempool + store + chain)
+    round_resolver.go   — round details from blockFinalizer + chain
+
+  observer.go           — RoundObserver: atomic snapshot of live round progress
+  tx_tracker.go         — TxTracker: transaction lifecycle events + SSE fan-out
+  sse.go                — SSE writer helper
+```
+
+### Design decisions
+
+- **HTTP router**: `net/http` stdlib (Go 1.22+). Method+path routing via `"GET /api/v1/health"` patterns; path params via `r.PathValue("key")`. No external dependency.
+- **`NodeFacade` interface**: `ExplorerService` depends on `NodeFacade`, not on `*NodeView` directly. `NodeView` implements it. Tests substitute a stub — no real components needed.
+- **`RequestHandler` pattern**: each route is a `{httpMethod, path, handler}` triple collected in `routes()`. One place to see all registered endpoints.
+
 The view-model layer (`models.go`) is a deliberate boundary: internal structs
-(data.BlockOnChain, data.AnswerClassificationVote, etc.) are never serialised
+(`data.BlockOnChain`, `data.AnswerClassificationVote`, etc.) are never serialised
 directly. This lets internal types evolve without breaking the API contract.
 
 ---
@@ -268,7 +284,7 @@ must therefore be built before the transaction lookup endpoint, not after.
 |---|---|---|---|
 | 1 | README | `explorer/README.md` | ✓ done |
 | 2 | Mempool extension | Add `GetPendingTransactions()` to `mempool.Mempool` interface + implementation | ✓ done |
-| 3 | `explorer` package skeleton | `NodeView`, `Server`, health endpoint (`GET /api/v1/health`) | |
+| 3 | `explorer` package skeleton | `NodeView`, `NodeFacade`, `ExplorerService`, `controllers/`, `service/`, health endpoint (`GET /api/v1/health`) | ✓ done |
 | 4 | `TxTracker` | Standalone lifecycle tracker; callback hooks into `TxInterceptor` + `TxPreprocessor`; covers SUBMITTED → PREPROCESSING → PENDING | |
 | 5 | Block + round endpoints | `GET /api/v1/blocks/{hash}`, `GET /api/v1/rounds/{round}` | |
 | 6 | Transaction lookup | `GET /api/v1/transactions/{hash}` — full status from TxTracker + mempool + chain | |
