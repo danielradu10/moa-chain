@@ -371,6 +371,7 @@ func createRoundLoop(
 		BlockFinalizer:         blockFinalizer,
 		Chain:                  nodeChain,
 		Mempool:                txPool,
+		Store:                  store,
 		RoundState:             roundState,
 		BlockchainState:        blockchainState,
 		StopAfterMiniRoundOne:  stopAfterMiniRoundOne,

@@ -14,6 +14,7 @@ import (
 	"moa-chain/logging"
 	"moa-chain/mempool"
 	"moa-chain/state"
+	"moa-chain/txpipeline"
 )
 
 type roundHandler struct {
@@ -27,6 +28,7 @@ type roundHandler struct {
 	blockFinalizer          blockFinalizer.BlockFinalizer
 	chain                   chain.Chain
 	mempool                 mempool.Mempool
+	store                   txpipeline.PrecomputedStore
 	roundState              state.RoundState
 	blockchainState         state.BlockchainState
 	stopAfterMiniRoundOne   bool
@@ -56,6 +58,7 @@ type RoundHandlerArgs struct {
 	BlockFinalizer        blockFinalizer.BlockFinalizer
 	Chain                 chain.Chain
 	Mempool               mempool.Mempool
+	Store                 txpipeline.PrecomputedStore
 	RoundState            state.RoundState
 	BlockchainState       state.BlockchainState
 	// StopAfterMiniRoundOne prevents the handler from advancing to MR2 after MR1
@@ -88,6 +91,7 @@ func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 		blockFinalizer:                     args.BlockFinalizer,
 		chain:                              args.Chain,
 		mempool:                            args.Mempool,
+		store:                              args.Store,
 		roundState:                         args.RoundState,
 		blockchainState:                    args.BlockchainState,
 		stopAfterMiniRoundOne:              args.StopAfterMiniRoundOne,
@@ -876,6 +880,11 @@ func (rh *roundHandler) finalizeRound(mr3RoundKey data.RoundKey) error {
 		txHashes = append(txHashes, tx.GetTxHash())
 	}
 	rh.mempool.RemoveTransactions(txHashes)
+	if rh.store != nil {
+		for _, h := range txHashes {
+			rh.store.Remove(h)
+		}
+	}
 
 	rh.blockchainState.Update(mr3RoundKey.Round, data.MiniRoundThree, mr3RoundKey.Epoch)
 

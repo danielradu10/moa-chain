@@ -296,6 +296,7 @@ func createRoundLoopWithMR3(
 		MiniRoundTwoHandler:    miniRoundTwoHandler,
 		MiniRoundThreeHandler:  miniRoundThreeHandler,
 		BlockFinalizer:         blockFinalizer,
+		Store:                  store,
 		StopAfterMiniRoundOne:  false,
 		StopAfterMiniRoundTwo:  false,
 		Logger:                 logger,
