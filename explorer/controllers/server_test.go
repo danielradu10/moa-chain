@@ -16,6 +16,7 @@ import (
 	"moa-chain/mempool"
 	"moa-chain/testscommon"
 	"moa-chain/txpipeline"
+	"moa-chain/tracker"
 )
 
 func newTestNodeView(t *testing.T) *explorer.NodeView {
@@ -27,6 +28,7 @@ func newTestNodeView(t *testing.T) *explorer.NodeView {
 		ValidatorRegistry: &testscommon.ValidatorRegistryStub{},
 		Store:             txpipeline.NewPrecomputedStore(),
 		Mempool:           mempool.NewMemPool(),
+		TxTracker:         tracker.NewTxTracker(),
 	}
 }
 

@@ -18,31 +18,44 @@ type TxPreprocessorArgs struct {
 	Store   PrecomputedStore
 	Mempool mempool.Mempool
 	Logger  *slog.Logger
+	// OnTxPreprocessing is an optional hook called when a tx enters the queue.
+	// Wire TxTracker.OnPreprocessing here.
+	OnTxPreprocessing func(data.Transaction)
+	// OnTxPending is an optional hook called after preprocessing succeeds and
+	// the tx is added to the mempool. Wire TxTracker.OnPending here.
+	OnTxPending func(data.Transaction)
 }
 
 type txPreprocessor struct {
-	agent   agent.BatchAgent
-	store   PrecomputedStore
-	mempool mempool.Mempool
-	queue   chan data.Transaction
-	stopCh  chan struct{}
-	wg      sync.WaitGroup
-	logger  *slog.Logger
+	agent             agent.BatchAgent
+	store             PrecomputedStore
+	mempool           mempool.Mempool
+	onTxPreprocessing func(data.Transaction)
+	onTxPending       func(data.Transaction)
+	queue             chan data.Transaction
+	stopCh            chan struct{}
+	wg                sync.WaitGroup
+	logger            *slog.Logger
 }
 
 // NewTxPreprocessor creates a TxPreprocessor. Call Start before enqueuing transactions.
 func NewTxPreprocessor(args TxPreprocessorArgs) TxPreprocessor {
 	return &txPreprocessor{
-		agent:   args.Agent,
-		store:   args.Store,
-		mempool: args.Mempool,
-		queue:   make(chan data.Transaction, preprocessorQueueSize),
-		stopCh:  make(chan struct{}),
-		logger:  logging.FromOptional(args.Logger),
+		agent:             args.Agent,
+		store:             args.Store,
+		mempool:           args.Mempool,
+		onTxPreprocessing: args.OnTxPreprocessing,
+		onTxPending:       args.OnTxPending,
+		queue:             make(chan data.Transaction, preprocessorQueueSize),
+		stopCh:            make(chan struct{}),
+		logger:            logging.FromOptional(args.Logger),
 	}
 }
 
 func (p *txPreprocessor) Enqueue(tx data.Transaction) {
+	if p.onTxPreprocessing != nil {
+		p.onTxPreprocessing(tx)
+	}
 	p.queue <- tx
 }
 
@@ -102,6 +115,10 @@ func (p *txPreprocessor) process(tx data.Transaction) {
 
 	if err := p.mempool.AddTransaction(tx); err != nil {
 		p.logger.Error("txPreprocessor: failed to add tx to mempool", "txHash", string(txHash), "error", err)
+		return
+	}
+	if p.onTxPending != nil {
+		p.onTxPending(tx)
 	}
 }
 
