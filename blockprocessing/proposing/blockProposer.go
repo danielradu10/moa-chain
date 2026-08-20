@@ -166,7 +166,7 @@ func (bc *blockCreator) createProposedBodyAndDomains() (*data.BlockBody, data.Su
 		Transactions: selectedTxs,
 	}
 
-	bodyExecutor := blockprocessing.NewBodyExecutor(bc.BatchAgent, bc.Logger)
+	bodyExecutor := blockprocessing.NewBodyExecutor(bc.Store, bc.Logger)
 	execResult, err := bodyExecutor.ExecuteBlockBodyMiniRoundOne(proposedBody, txProcessor)
 	if err != nil {
 		bc.Logger.Error("failed to execute proposed block body", "error", err)

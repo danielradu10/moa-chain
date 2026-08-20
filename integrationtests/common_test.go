@@ -32,6 +32,7 @@ import (
 	"moa-chain/mempool"
 	"moa-chain/state"
 	"moa-chain/testscommon"
+	"moa-chain/txpipeline"
 	"moa-chain/validators"
 )
 
@@ -45,6 +46,7 @@ type integrationTestNode struct {
 	chain           chain.Chain
 	blockchainState state.BlockchainState
 	logger          *logging.NodeLogger
+	txInterceptor   txpipeline.TxInterceptor
 }
 
 func createValidators(pubKeys [][]byte) []*validators.Validator {
@@ -155,6 +157,7 @@ func createNodeWithCommitteeStrategyAndClassificationGrace(
 		t, validatorID, privateKey, registeredValidators, myInbox,
 		transactions, batchAgent, broadcast.NewBroadcaster(peersRegistry),
 		stopAfterMiniRoundOne, stopAfterMiniRoundTwo, voteCollectionDeadline, strategy, classificationGracePeriod,
+		nil,
 	)
 }
 
@@ -174,6 +177,7 @@ func createNodeWithBroadcaster(
 	voteCollectionDeadline time.Duration,
 	strategy validators.CommitteeStrategy,
 	classificationGracePeriod time.Duration,
+	txPeerRegistry broadcast.TxPeerRegistry, // nil = per-node isolated registry
 ) *integrationTestNode {
 	t.Helper()
 
@@ -187,9 +191,46 @@ func createNodeWithBroadcaster(
 
 	logger := nodeLogger.Logger()
 	txPool := mempool.NewMemPool(logger)
-	for _, tx := range transactions {
-		err = txPool.AddTransaction(tx)
+	store := txpipeline.NewPrecomputedStore()
+	txPreprocessor := txpipeline.NewTxPreprocessor(txpipeline.TxPreprocessorArgs{
+		Agent:   integrationProtocolAgent{delegate: batchAgent},
+		Store:   store,
+		Mempool: txPool,
+		Logger:  logger,
+	})
+	txInbox := make(chan data.Transaction, 128)
+	txReg := txPeerRegistry
+	if txReg == nil {
+		txReg = broadcast.NewTxPeerRegistry()
+	} else {
+		err = txReg.Register(validatorID, txInbox)
 		require.NoError(t, err)
+	}
+	txInterceptor := txpipeline.NewTxInterceptor(txpipeline.TxInterceptorArgs{
+		Inbox:        txInbox,
+		Preprocessor: txPreprocessor,
+		Broadcaster:  broadcast.NewTxBroadcaster(txReg),
+		SelfID:       validatorID,
+		Logger:       logger,
+	})
+
+	txPreprocessor.Start()
+	txInterceptor.Start()
+	for _, tx := range transactions {
+		err = txInterceptor.Submit(tx)
+		require.NoError(t, err)
+	}
+	if len(transactions) > 0 {
+		// Drain synchronously: blocks until every tx is labeled, answered, and in the mempool.
+		// The preprocessor is stopped here; it won't process txs submitted after this point.
+		txPreprocessor.Stop()
+		t.Cleanup(func() { txInterceptor.Stop() })
+	} else {
+		// No pre-population — preprocessor stays alive so txs submitted during consensus are processed.
+		t.Cleanup(func() {
+			txPreprocessor.Stop()
+			txInterceptor.Stop()
+		})
 	}
 
 	consensusSelector := validators.NewConsensusSelectorWithStrategy(strategy, logger)
@@ -214,6 +255,7 @@ func createNodeWithBroadcaster(
 		myInbox,
 		finalizer,
 		batchAgent,
+		store,
 		broadcaster,
 		roundState,
 		nodeChain,
@@ -235,6 +277,7 @@ func createNodeWithBroadcaster(
 		chain:           nodeChain,
 		blockchainState: blockchainState,
 		logger:          nodeLogger,
+		txInterceptor:   txInterceptor,
 	}
 }
 
@@ -257,6 +300,7 @@ func createRoundLoop(
 	inbox chan data.RoundEvent,
 	blockFinalizer blockFinalizer.BlockFinalizer,
 	batchAgent agent.BatchAgent,
+	store txpipeline.PrecomputedStore,
 	broadcaster broadcast.Broadcaster,
 	roundState state.RoundState,
 	nodeChain chain.Chain,
@@ -268,7 +312,7 @@ func createRoundLoop(
 	logger *slog.Logger,
 ) *consensus.RoundLoop {
 	protocolAgent := integrationProtocolAgent{delegate: batchAgent}
-	base := createBlockBase(txPool, blockchainState, protocolAgent, logger)
+	base := createBlockBase(txPool, blockchainState, store, logger)
 	miniRoundOneHandlerArgs := miniround1.MiniRoundOneHandlerArgs{
 		MyID:              nodeID,
 		BlockCreator:      proposing.NewBlockCreator(base),
@@ -327,6 +371,7 @@ func createRoundLoop(
 		BlockFinalizer:         blockFinalizer,
 		Chain:                  nodeChain,
 		Mempool:                txPool,
+		Store:                  store,
 		RoundState:             roundState,
 		BlockchainState:        blockchainState,
 		StopAfterMiniRoundOne:  stopAfterMiniRoundOne,
@@ -410,7 +455,7 @@ func (testAgent integrationProtocolAgent) JudgeTransactionAnswers(request agent.
 func createBlockBase(
 	mempool mempool.Mempool,
 	blockchainState state.BlockchainState,
-	batchAgent agent.BatchAgent,
+	store txpipeline.PrecomputedStore,
 	logger *slog.Logger,
 ) blockprocessing.Base {
 	aliceAccount := testscommon.NewAccountHandlerStub(0, integrationTestInitialBalance)
@@ -452,7 +497,7 @@ func createBlockBase(
 	return blockprocessing.Base{
 		AccountsSnapshotFactory: &accountSnapshotFactoryMock,
 		BlockchainState:         blockchainState,
-		BatchAgent:              batchAgent,
+		Store:                   store,
 		AccountState:            accountStateStub,
 		Mempool:                 mempool,
 		Logger:                  logger,

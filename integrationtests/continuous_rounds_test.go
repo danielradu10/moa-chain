@@ -63,6 +63,7 @@ func TestContinuousRounds(t *testing.T) {
 			0,
 			validators.CommitteeStrategyHalf,
 			0,
+			nil,
 		)
 	}
 
@@ -177,6 +178,7 @@ func TestMultipleRoundsWithTransactions(t *testing.T) {
 			0,
 			validators.CommitteeStrategyHalf,
 			0,
+			nil,
 		)
 	}
 
