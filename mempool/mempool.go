@@ -295,6 +295,19 @@ func (mp *memPool) NumAddresses() uint64 {
 	return mp.senders.numAddresses()
 }
 
+// GetPendingTransactions returns a snapshot of all transactions currently in
+// the pool. Order is not guaranteed.
+func (mp *memPool) GetPendingTransactions() []data.Transaction {
+	mp.mempoolMutex.RLock()
+	defer mp.mempoolMutex.RUnlock()
+
+	out := make([]data.Transaction, 0, len(mp.transactionsByHash))
+	for _, tx := range mp.transactionsByHash {
+		out = append(out, tx)
+	}
+	return out
+}
+
 // RemoveTransactions removes all transactions with the given hashes from the pool.
 // Hashes that are not present are silently ignored.
 // When all transactions of a sender are removed, the sender entry is also removed.

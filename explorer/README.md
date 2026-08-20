@@ -227,18 +227,52 @@ TxPreprocessor). It receives lifecycle notifications via small callback hooks
 injected at wiring time, keeping the pipeline components free of explorer
 dependencies.
 
+### Note: transaction hash is caller-supplied, not computed by the node
+
+There is no canonical `ComputeTxHash` function in production code. The only
+implementation lives in the integration tests (`computeTestTxHash`) and hashes
+`sender + nonce + prompt + tip + timestamp` with SHA-256 and a domain separator.
+
+`TxInterceptor.validate()` rejects any transaction whose hash is empty
+(`ErrEmptyTxHash`), so the hash must be set by the caller **before** `Submit`
+is called. Today this is fine: the explorer looks up transactions by the hash
+already present on the object.
+
+When `SubmitTransaction` is eventually implemented, the server will need to:
+1. Compute the hash from the submitted fields and set it on the transaction
+   before passing it to the interceptor.
+2. Return the hash immediately as the submission receipt so the client can
+   track the lifecycle via `GET /api/v1/transactions/{hash}` and SSE.
+
+The exact field set for the canonical hash is not yet formally specified. The
+test uses `sender + nonce + prompt + tip + timestamp`. Before submission is
+built, the following should be decided:
+- Whether `timestamp` belongs (client-controlled, weaker collision resistance).
+- Whether `receiver` and `transferredValue` belong (they affect economic outcomes).
+- Which package owns the canonical function (`mempool` or `txpipeline`).
+
+### Why TxTracker must come before the transaction endpoint
+
+`mempool.GetPendingTransactions()` only sees transactions that have **completed**
+preprocessing. Anything earlier — a transaction currently being broadcast or
+actively running LLM inference — is invisible to the mempool. Without TxTracker,
+SUBMITTED and PREPROCESSING states cannot be reported, and the transaction
+endpoint would silently return nothing for in-flight transactions. TxTracker
+must therefore be built before the transaction lookup endpoint, not after.
+
 ---
 
 ## Implementation tasks
 
-| # | Task | What changes |
-|---|---|---|
-| 1 | This README | `explorer/README.md` |
-| 2 | Mempool extension | Add `GetPendingTransactions()` to `mempool.Mempool` interface + implementation |
-| 3 | `explorer` package skeleton | `NodeView`, `Server`, health endpoint (`GET /api/v1/health`) |
-| 4 | Block + round endpoints | `GET /api/v1/blocks/{hash}`, `GET /api/v1/rounds/{round}` |
-| 5 | Transaction lookup | `GET /api/v1/transactions/{hash}` (status derived from chain + mempool + store) |
-| 6 | Live round state | `RoundObserver`, wire into `consensus/round.go`, `GET /api/v1/live/round` |
-| 7 | SSE tx lifecycle | `TxTracker`, callback hooks in `TxInterceptor`/`TxPreprocessor`, `GET /api/v1/transactions/{hash}/events` |
+| # | Task | What changes | Status |
+|---|---|---|---|
+| 1 | README | `explorer/README.md` | ✓ done |
+| 2 | Mempool extension | Add `GetPendingTransactions()` to `mempool.Mempool` interface + implementation | ✓ done |
+| 3 | `explorer` package skeleton | `NodeView`, `Server`, health endpoint (`GET /api/v1/health`) | |
+| 4 | `TxTracker` | Standalone lifecycle tracker; callback hooks into `TxInterceptor` + `TxPreprocessor`; covers SUBMITTED → PREPROCESSING → PENDING | |
+| 5 | Block + round endpoints | `GET /api/v1/blocks/{hash}`, `GET /api/v1/rounds/{round}` | |
+| 6 | Transaction lookup | `GET /api/v1/transactions/{hash}` — full status from TxTracker + mempool + chain | |
+| 7 | Live round state | `RoundObserver`, wire into `consensus/round.go`, `GET /api/v1/live/round` | |
+| 8 | SSE tx lifecycle | Wire TxTracker event fan-out to `GET /api/v1/transactions/{hash}/events` | |
 
 Each task is independently reviewable and leaves tests + the existing suite green.
