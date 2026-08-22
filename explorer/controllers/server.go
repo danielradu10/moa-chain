@@ -40,6 +40,8 @@ func (s *Server) routes() []RequestHandler {
 		newRequestHandler("GET", "/api/v1/health", s.handleHealth),
 		newRequestHandler("GET", "/api/v1/blocks/{hash}", s.handleBlock),
 		newRequestHandler("GET", "/api/v1/rounds/{round}", s.handleRound),
+		newRequestHandler("GET", "/api/v1/round/current", s.handleRoundCurrent),
+		newRequestHandler("GET", "/api/v1/round/stream", s.handleRoundStream),
 		newRequestHandler("GET", "/api/v1/transactions", s.handleTransactions),
 		newRequestHandler("GET", "/api/v1/transactions/{hash}", s.handleTransaction),
 	}

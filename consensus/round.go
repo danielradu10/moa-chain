@@ -3,6 +3,7 @@ package consensus
 import (
 	"errors"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"moa-chain/blockprocessing/blockFinalizer"
@@ -17,11 +18,19 @@ import (
 	"moa-chain/txpipeline"
 )
 
+// roundStateSnapshot is the atomically stored live state of the round handler.
+type roundStateSnapshot struct {
+	roundKey data.RoundKey
+	step     data.Step
+}
+
 type roundHandler struct {
 	selfID string
 
 	currentStep             data.Step
 	currentRoundKey         data.RoundKey
+	snapshot                atomic.Pointer[roundStateSnapshot]
+	onStepChanged           func(data.RoundKey, data.Step)
 	miniRoundOneHandler     miniround1.MiniRoundOneHandler
 	miniRoundTwoHandler     miniround2.MiniRoundTwoHandler
 	miniRoundThreeHandler   miniround3.MiniRoundThreeHandler
@@ -77,6 +86,9 @@ type RoundHandlerArgs struct {
 	// ExecutionResultsCollectionDeadline is the fallback timeout for the MR2 leader's
 	// execution-results collection step. Zero means wait for all G results with no timeout.
 	ExecutionResultsCollectionDeadline time.Duration
+	// OnStepChanged is called on every step transition. Used by the explorer to push
+	// live-round events to SSE subscribers. Optional; nil disables callbacks.
+	OnStepChanged func(data.RoundKey, data.Step)
 }
 
 // NewRoundHandler creates a new round handler
@@ -100,6 +112,7 @@ func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 		inbox:                              args.Inbox,
 		voteCollectionDeadline:             args.VoteCollectionDeadline,
 		executionResultsCollectionDeadline: args.ExecutionResultsCollectionDeadline,
+		onStepChanged:                      args.OnStepChanged,
 	}
 }
 
@@ -131,12 +144,12 @@ func (rh *roundHandler) startMiniRoundOne(roundKey data.RoundKey) error {
 		rh.logger.Info("consensus.StartRound local node is leader; proposing block", "roundKey", roundKey)
 		err = rh.miniRoundOneHandler.HandleProposingBlock(roundKey)
 		if err != nil {
-			rh.currentStep = data.StepFailed
+			rh.updateCurrentStep(data.StepFailed)
 			rh.logger.Error("consensus.StartRound block proposal failed", "roundKey", roundKey, "error", err)
 			return err
 		}
 
-		rh.currentStep = data.StepCollectVotes
+		rh.updateCurrentStep(data.StepCollectVotes)
 		rh.logger.Info("consensus.StartRound step changed", "roundKey", roundKey, "step", rh.currentStep)
 
 		if rh.voteCollectionDeadline > 0 {
@@ -145,7 +158,7 @@ func (rh *roundHandler) startMiniRoundOne(roundKey data.RoundKey) error {
 		return nil
 	}
 
-	rh.currentStep = data.StepAwaitProposal
+	rh.updateCurrentStep(data.StepAwaitProposal)
 	rh.logger.Info("consensus.StartRound step changed", "roundKey", roundKey, "step", rh.currentStep)
 	// return rh.timer.Start(roundKey, StepAwaitProposal)
 
@@ -162,18 +175,18 @@ func (rh *roundHandler) startMiniRoundTwo(roundKey data.RoundKey) error {
 
 	err = rh.miniRoundTwoHandler.HandleBlockExecution(roundKey)
 	if err != nil {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("consensus.StartRound mini-round two block execution failed", "roundKey", roundKey, "error", err)
 		return err
 	}
 
 	if leaderID == rh.selfID {
-		rh.currentStep = data.StepCollectExecutionResults
+		rh.updateCurrentStep(data.StepCollectExecutionResults)
 		if rh.executionResultsCollectionDeadline > 0 {
 			go rh.scheduleExecutionResultsCollectionTimeout(roundKey)
 		}
 	} else {
-		rh.currentStep = data.StepAwaitAnswerEvidence
+		rh.updateCurrentStep(data.StepAwaitAnswerEvidence)
 	}
 
 	rh.logger.Info("consensus.StartRound mini-round two step changed", "roundKey", roundKey, "step", rh.currentStep)
@@ -190,13 +203,13 @@ func (rh *roundHandler) startMiniRoundThree(roundKey data.RoundKey) error {
 
 	if leaderID == rh.selfID {
 		if err = rh.miniRoundThreeHandler.HandleSynthesis(roundKey); err != nil {
-			rh.currentStep = data.StepFailed
+			rh.updateCurrentStep(data.StepFailed)
 			rh.logger.Error("consensus.StartRound mini-round three synthesis failed", "roundKey", roundKey, "error", err)
 			return err
 		}
-		rh.currentStep = data.StepCollectSynthesisVotes
+		rh.updateCurrentStep(data.StepCollectSynthesisVotes)
 	} else {
-		rh.currentStep = data.StepAwaitProposedSynthesis
+		rh.updateCurrentStep(data.StepAwaitProposedSynthesis)
 	}
 
 	rh.logger.Info("consensus.StartRound mini-round three step set", "roundKey", roundKey, "step", rh.currentStep)
@@ -207,7 +220,7 @@ func (rh *roundHandler) startMiniRoundThree(roundKey data.RoundKey) error {
 // up and StopAfterMiniRoundTwo is false; otherwise marks the round finished.
 func (rh *roundHandler) onMiniRoundTwoFinalized(roundKey data.RoundKey) error {
 	if rh.miniRoundThreeHandler == nil || rh.stopAfterMiniRoundTwo {
-		rh.currentStep = data.StepFinished
+		rh.updateCurrentStep(data.StepFinished)
 		rh.logger.Info("mini-round two finalized; stopping before mini-round three", "roundKey", roundKey)
 		return nil
 	}
@@ -309,12 +322,12 @@ func (rh *roundHandler) handleProposedBlock(message data.ConsensusMessage) error
 	rh.logger.Info("handling proposed block", "roundKey", roundKey, "leaderID", proposedBlock.SenderID)
 	err := rh.miniRoundOneHandler.HandleProposedBlock(roundKey, proposedBlock)
 	if err != nil {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("proposed block handling failed", "roundKey", roundKey, "error", err)
 		return err
 	}
 
-	rh.currentStep = data.StepAwaitAggregatedVotes
+	rh.updateCurrentStep(data.StepAwaitAggregatedVotes)
 	rh.logger.Info("round step changed", "roundKey", roundKey, "step", rh.currentStep)
 	// return rh.timer.Start(roundKey, StepAwaitAggregatedVotes)
 
@@ -394,7 +407,7 @@ func (rh *roundHandler) handleAggregatedVotes(message data.ConsensusMessage) err
 	rh.logger.Info("handling aggregated votes", "roundKey", roundKey, "senderID", votes.SenderID, "numSigners", len(votes.Signers))
 	err := rh.miniRoundOneHandler.HandleAggregatedVotes(roundKey, votes)
 	if err != nil {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("aggregated votes handling failed", "roundKey", roundKey, "error", err)
 		return err
 	}
@@ -409,7 +422,7 @@ func (rh *roundHandler) startMiniRoundTwoIfMiniRoundOneWasFinalized(roundKey dat
 			return nil
 		}
 
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("failed to check mini-round one finalization", "roundKey", roundKey, "error", err)
 		return err
 	}
@@ -426,7 +439,7 @@ func (rh *roundHandler) startNextMiniRound(roundKey data.RoundKey) error {
 
 	if nextRoundKey.MiniRound == uint64(data.MiniRoundTwo) {
 		if rh.stopAfterMiniRoundOne {
-			rh.currentStep = data.StepFinished
+			rh.updateCurrentStep(data.StepFinished)
 			rh.logger.Info("mini-round one finalized; stopping before mini-round two (StopAfterMiniRoundOne=true)", "roundKey", roundKey)
 			return nil
 		}
@@ -516,7 +529,7 @@ func (rh *roundHandler) handleExecutedPrompts(message data.ConsensusMessage) err
 	rh.logger.Info("handling executed prompts", "roundKey", roundKey, "senderID", executedPrompts.SenderID)
 	err := rh.miniRoundTwoHandler.HandleExecutedPromptsMessage(roundKey, executedPrompts)
 	if err != nil {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("executed prompts handling failed", "roundKey", roundKey, "error", err)
 		return err
 	}
@@ -527,12 +540,12 @@ func (rh *roundHandler) handleExecutedPrompts(message data.ConsensusMessage) err
 		return rh.onMiniRoundTwoFinalized(roundKey)
 	}
 	if !errors.Is(err, blockFinalizer.ErrFinalizedBlockNotFound) {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("failed to check mini-round two finalization", "roundKey", roundKey, "error", err)
 		return err
 	}
 	if rh.miniRoundTwoHandler.HasVerifiedAnswerEvidence(roundKey) {
-		rh.currentStep = data.StepCollectClassificationVotes
+		rh.updateCurrentStep(data.StepCollectClassificationVotes)
 		rh.logger.Info("mini-round two leader collecting classification votes", "roundKey", roundKey)
 	}
 
@@ -567,18 +580,18 @@ func (rh *roundHandler) handleAnswerEvidence(message data.ConsensusMessage) erro
 		return ErrMessageForDifferentRound
 	}
 
-	rh.currentStep = data.StepJudgeAnswers
+	rh.updateCurrentStep(data.StepJudgeAnswers)
 	rh.logger.Info("judging verified answer evidence", "roundKey", roundKey, "senderID", answerEvidence.SenderID)
 	if err := rh.miniRoundTwoHandler.HandleAnswerEvidence(roundKey, answerEvidence); err != nil {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("answer evidence judging failed", "roundKey", roundKey, "error", err)
 		return err
 	}
 
 	if answerEvidence.SenderID == rh.selfID {
-		rh.currentStep = data.StepCollectClassificationVotes
+		rh.updateCurrentStep(data.StepCollectClassificationVotes)
 	} else {
-		rh.currentStep = data.StepAwaitClassificationCertificate
+		rh.updateCurrentStep(data.StepAwaitClassificationCertificate)
 	}
 
 	rh.logger.Info("answer classification vote produced", "roundKey", roundKey, "step", rh.currentStep)
@@ -658,7 +671,7 @@ func (rh *roundHandler) handleAnswerClassificationCertificate(message data.Conse
 		"promptVersion", certificate.PromptVersion,
 	)
 	if err := rh.miniRoundTwoHandler.HandleAnswerClassificationCertificate(roundKey, certificate); err != nil {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return err
 	}
 
@@ -679,25 +692,25 @@ func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error 
 	rh.logger.Info("round timeout", "roundKey", roundKey, "step", step)
 	switch step {
 	case data.StepAwaitProposal:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrProposalTimeout
 
 	case data.StepCollectVotes:
 		err := rh.miniRoundOneHandler.HandleVoteCollectionTimeout(roundKey)
 		if err != nil {
-			rh.currentStep = data.StepFailed
+			rh.updateCurrentStep(data.StepFailed)
 			return err
 		}
 		return rh.startMiniRoundTwoIfMiniRoundOneWasFinalized(roundKey)
 
 	case data.StepAwaitAggregatedVotes:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrAggregatedVotesTimeout
 
 	case data.StepCollectExecutionResults:
 		err := rh.miniRoundTwoHandler.HandleExecutedPromptsCollectionTimeout(roundKey)
 		if err != nil {
-			rh.currentStep = data.StepFailed
+			rh.updateCurrentStep(data.StepFailed)
 			return err
 		}
 		_, err = rh.blockFinalizer.GetFinalizedBlockInMRTwo(roundKey)
@@ -705,36 +718,36 @@ func (rh *roundHandler) OnTimeout(roundKey data.RoundKey, step data.Step) error 
 			return rh.onMiniRoundTwoFinalized(roundKey)
 		}
 		if rh.miniRoundTwoHandler.HasVerifiedAnswerEvidence(roundKey) {
-			rh.currentStep = data.StepCollectClassificationVotes
+			rh.updateCurrentStep(data.StepCollectClassificationVotes)
 		}
 		return nil
 
 	case data.StepAwaitAnswerEvidence:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrAnswerEvidenceTimeout
 
 	case data.StepJudgeAnswers:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrAnswerJudgingTimeout
 
 	case data.StepCollectClassificationVotes:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrNotEnoughAnswerClassificationVotes
 
 	case data.StepAwaitClassificationCertificate:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrAnswerClassificationCertificateTimeout
 
 	case data.StepAwaitProposedSynthesis:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrProposedSynthesisTimeout
 
 	case data.StepCollectSynthesisVotes:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrSynthesisVotesTimeout
 
 	case data.StepAwaitAggregatedSynthesisVotes:
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		return ErrAggregatedSynthesisVotesTimeout
 
 	default:
@@ -772,12 +785,12 @@ func (rh *roundHandler) handleProposedSynthesis(message data.ConsensusMessage) e
 
 	rh.logger.Info("handling proposed synthesis", "roundKey", roundKey, "senderID", msg.SenderID)
 	if err := rh.miniRoundThreeHandler.HandleProposedSynthesis(roundKey, msg); err != nil {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("proposed synthesis handling failed", "roundKey", roundKey, "error", err)
 		return err
 	}
 
-	rh.currentStep = data.StepAwaitAggregatedSynthesisVotes
+	rh.updateCurrentStep(data.StepAwaitAggregatedSynthesisVotes)
 	rh.logger.Info("round step changed", "roundKey", roundKey, "step", rh.currentStep)
 	return nil
 }
@@ -812,7 +825,7 @@ func (rh *roundHandler) handleSynthesisVote(message data.ConsensusMessage) error
 	}
 
 	if rh.isFinalizedRoundKey(roundKey) {
-		rh.currentStep = data.StepFinished
+		rh.updateCurrentStep(data.StepFinished)
 		rh.logger.Info("mini-round three finalized", "roundKey", roundKey)
 		if err := rh.finalizeRound(roundKey); err != nil {
 			rh.logger.Error("finalizeRound failed", "roundKey", roundKey, "error", err)
@@ -843,12 +856,12 @@ func (rh *roundHandler) handleAggregatedSynthesisVotes(message data.ConsensusMes
 
 	rh.logger.Info("handling aggregated synthesis votes", "roundKey", roundKey, "senderID", msg.SenderID, "numSigners", len(msg.Signers))
 	if err := rh.miniRoundThreeHandler.HandleAggregatedSynthesisVotes(roundKey, msg); err != nil {
-		rh.currentStep = data.StepFailed
+		rh.updateCurrentStep(data.StepFailed)
 		rh.logger.Error("aggregated synthesis votes handling failed", "roundKey", roundKey, "error", err)
 		return err
 	}
 
-	rh.currentStep = data.StepFinished
+	rh.updateCurrentStep(data.StepFinished)
 	rh.logger.Info("mini-round three finalized", "roundKey", roundKey)
 	if err := rh.finalizeRound(roundKey); err != nil {
 		rh.logger.Error("finalizeRound failed", "roundKey", roundKey, "error", err)
@@ -896,3 +909,22 @@ func (rh *roundHandler) finalizeRound(mr3RoundKey data.RoundKey) error {
 	return rh.StartRound(nextRoundKey)
 }
 
+// updateCurrentStep sets the current consensus step and atomically publishes
+// a snapshot so that the live-round HTTP endpoint can read it safely from
+// another goroutine without acquiring a lock.
+func (rh *roundHandler) updateCurrentStep(step data.Step) {
+	rh.currentStep = step
+	ss := &roundStateSnapshot{roundKey: rh.currentRoundKey, step: step}
+	rh.snapshot.Store(ss)
+	if rh.onStepChanged != nil {
+		rh.onStepChanged(ss.roundKey, ss.step)
+	}
+}
+
+// liveState returns the latest atomically stored round key and step.
+func (rh *roundHandler) liveState() (data.RoundKey, data.Step) {
+	if s := rh.snapshot.Load(); s != nil {
+		return s.roundKey, s.step
+	}
+	return rh.currentRoundKey, rh.currentStep
+}

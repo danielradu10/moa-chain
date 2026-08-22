@@ -44,6 +44,12 @@ func (rl *RoundLoop) WaitForPendingWork() {
 	rl.handler.miniRoundTwoHandler.WaitForPendingWork()
 }
 
+// LiveState returns the current round key and consensus step as an atomic
+// snapshot. Safe to call from any goroutine while the loop is running.
+func (rl *RoundLoop) LiveState() (data.RoundKey, data.Step) {
+	return rl.handler.liveState()
+}
+
 func (rl *RoundLoop) Run() {
 	rl.logger.Info("consensus.RoundLoop.Run started")
 	defer rl.logger.Info("consensus.RoundLoop.Run stopped")

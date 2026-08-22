@@ -11,6 +11,12 @@ import (
 	"moa-chain/validators"
 )
 
+// LiveStateReader provides a thread-safe snapshot of the current consensus
+// round key and step. *consensus.RoundLoop satisfies this interface.
+type LiveStateReader interface {
+	LiveState() (data.RoundKey, data.Step)
+}
+
 // NodeView aggregates the read-only state references the explorer needs.
 // All fields are set once at wiring time and never mutated after that.
 // Every referenced component is already thread-safe (RWMutex or atomic),
@@ -24,6 +30,8 @@ type NodeView struct {
 	Mempool           mempool.Mempool
 	TxTracker         *tracker.TxTracker
 	RoundTracker      *tracker.RoundTracker
+	RoundLoop         LiveStateReader
+	RoundHub          *RoundHub
 }
 
 // ChainLength returns the number of finalized blocks on the chain.
@@ -76,4 +84,24 @@ func (nv *NodeView) AllBlocks() []*data.BlockOnChain { return nv.Chain.Blocks() 
 // GetRound returns the tracked state for a specific epoch/round pair.
 func (nv *NodeView) GetRound(epoch, round uint64) (tracker.RoundEntry, bool) {
 	return nv.RoundTracker.GetRound(epoch, round)
+}
+
+// GetLiveRoundState returns the current round key and consensus step.
+// Returns false if no round loop is wired (e.g. in tests).
+func (nv *NodeView) GetLiveRoundState() (data.RoundKey, data.Step, bool) {
+	if nv.RoundLoop == nil {
+		return data.RoundKey{}, 0, false
+	}
+	key, step := nv.RoundLoop.LiveState()
+	return key, step, true
+}
+
+// SubscribeLiveRound returns a channel of StepEvents for SSE streaming and an
+// unsubscribe function. Returns false when no round hub is wired.
+func (nv *NodeView) SubscribeLiveRound() (<-chan StepEvent, func(), bool) {
+	if nv.RoundHub == nil {
+		return nil, nil, false
+	}
+	ch, unsub := nv.RoundHub.Subscribe()
+	return ch, unsub, true
 }

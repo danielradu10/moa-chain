@@ -1,11 +1,13 @@
 package controllers_test
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -210,6 +212,87 @@ func TestServer_Round(t *testing.T) {
 		require.NotNil(t, resp.MR1)
 		require.Nil(t, resp.MR2)
 	})
+}
+
+func TestServer_RoundCurrent(t *testing.T) {
+	t.Parallel()
+
+	t.Run("503 when round loop not wired", func(t *testing.T) {
+		t.Parallel()
+
+		s := newTestServer(t, newTestNodeView(t))
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/round/current")
+
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	})
+
+	t.Run("200 with step from round loop", func(t *testing.T) {
+		t.Parallel()
+
+		node := newTestNodeView(t)
+		node.RoundLoop = &liveStateReaderStub{
+			key:  data.RoundKey{Epoch: 1, Round: 3, MiniRound: 0},
+			step: data.StepCollectVotes,
+		}
+
+		s := newTestServer(t, node)
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/round/current")
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var resp explorer.LiveRoundResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+		require.Equal(t, uint64(1), resp.Epoch)
+		require.Equal(t, uint64(3), resp.Round)
+		require.Equal(t, "COLLECT_VOTES", resp.Step)
+	})
+}
+
+func TestServer_RoundStream(t *testing.T) {
+	t.Parallel()
+
+	t.Run("503 when hub not wired", func(t *testing.T) {
+		t.Parallel()
+
+		s := newTestServer(t, newTestNodeView(t))
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/round/stream")
+
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	})
+
+	t.Run("streams step event as SSE", func(t *testing.T) {
+		t.Parallel()
+
+		node := newTestNodeView(t)
+		hub := explorer.NewRoundHub()
+		node.RoundHub = hub
+		// Publish state before subscribing; new subscribers receive it immediately.
+		hub.OnStepChanged(data.RoundKey{Epoch: 1, Round: 2}, data.StepCollectVotes)
+
+		s := newTestServer(t, node)
+
+		// 50ms is enough for the handler to subscribe, drain the buffered event,
+		// and write it before the context cancels.
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/round/stream", nil)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))
+		require.Contains(t, rec.Body.String(), "COLLECT_VOTES")
+	})
+}
+
+type liveStateReaderStub struct {
+	key  data.RoundKey
+	step data.Step
+}
+
+func (s *liveStateReaderStub) LiveState() (data.RoundKey, data.Step) {
+	return s.key, s.step
 }
 
 func TestServer_Transactions(t *testing.T) {

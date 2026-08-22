@@ -1,6 +1,7 @@
 package service
 
 import (
+	"moa-chain/data"
 	"moa-chain/explorer"
 	"moa-chain/explorer/resolvers"
 )
@@ -57,4 +58,75 @@ func (s *ExplorerService) GetTransaction(hash string) (explorer.TransactionRespo
 // GetTransactions returns all known transactions: finalized from the chain, then in-flight from the mempool.
 func (s *ExplorerService) GetTransactions() []explorer.TransactionResponse {
 	return s.txResolver.ResolveAll()
+}
+
+// GetLiveRound returns the current consensus step of the local node.
+// Returns false if the round loop has not yet started.
+func (s *ExplorerService) GetLiveRound() (explorer.LiveRoundResponse, bool) {
+	key, step, ok := s.node.GetLiveRoundState()
+	if !ok {
+		return explorer.LiveRoundResponse{}, false
+	}
+
+	return explorer.LiveRoundResponse{
+		Epoch:     key.Epoch,
+		Round:     key.Round,
+		MiniRound: key.MiniRound,
+		Step:      stepName(step),
+	}, true
+}
+
+// StreamLiveRound returns a channel of StepEvents for SSE streaming and an
+// unsubscribe function. Returns false when the round hub is not wired.
+func (s *ExplorerService) StreamLiveRound() (<-chan explorer.StepEvent, func(), bool) {
+	return s.node.SubscribeLiveRound()
+}
+
+// MakeLiveRoundResponse converts a StepEvent to an HTTP-ready LiveRoundResponse.
+func (s *ExplorerService) MakeLiveRoundResponse(e explorer.StepEvent) explorer.LiveRoundResponse {
+	return explorer.LiveRoundResponse{
+		Epoch:     e.RoundKey.Epoch,
+		Round:     e.RoundKey.Round,
+		MiniRound: e.RoundKey.MiniRound,
+		Step:      stepName(e.Step),
+	}
+}
+
+func stepName(s data.Step) string {
+	switch s {
+	case data.StepIdle:
+		return "IDLE"
+	case data.StepSelectConsensusGroup:
+		return "SELECT_CONSENSUS_GROUP"
+	case data.StepAwaitProposal:
+		return "AWAIT_PROPOSAL"
+	case data.StepCollectVotes:
+		return "COLLECT_VOTES"
+	case data.StepAwaitAggregatedVotes:
+		return "AWAIT_AGGREGATED_VOTES"
+	case data.StepCollectExecutionResults:
+		return "COLLECT_EXECUTION_RESULTS"
+	case data.StepAwaitAnswerEvidence:
+		return "AWAIT_ANSWER_EVIDENCE"
+	case data.StepJudgeAnswers:
+		return "JUDGE_ANSWERS"
+	case data.StepCollectClassificationVotes:
+		return "COLLECT_CLASSIFICATION_VOTES"
+	case data.StepAwaitClassificationCertificate:
+		return "AWAIT_CLASSIFICATION_CERTIFICATE"
+	case data.StepSynthesizeAnswers:
+		return "SYNTHESIZE_ANSWERS"
+	case data.StepCollectSynthesisVotes:
+		return "COLLECT_SYNTHESIS_VOTES"
+	case data.StepAwaitProposedSynthesis:
+		return "AWAIT_PROPOSED_SYNTHESIS"
+	case data.StepAwaitAggregatedSynthesisVotes:
+		return "AWAIT_AGGREGATED_SYNTHESIS_VOTES"
+	case data.StepFinished:
+		return "FINISHED"
+	case data.StepFailed:
+		return "FAILED"
+	default:
+		return "UNKNOWN"
+	}
 }

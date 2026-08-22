@@ -6,6 +6,8 @@ import (
 	"moa-chain/tracker"
 )
 
+
+
 var _ explorer.NodeFacade = (*NodeFacadeStub)(nil)
 
 // NodeFacadeStub is a test double for explorer.NodeFacade.
@@ -57,4 +59,12 @@ func (s *NodeFacadeStub) AllBlocks() []*data.BlockOnChain { return s.Blocks }
 func (s *NodeFacadeStub) GetRound(epoch, round uint64) (tracker.RoundEntry, bool) {
 	e, ok := s.RoundEntries[round]
 	return e, ok
+}
+
+func (s *NodeFacadeStub) GetLiveRoundState() (data.RoundKey, data.Step, bool) {
+	return data.RoundKey{}, 0, false
+}
+
+func (s *NodeFacadeStub) SubscribeLiveRound() (<-chan explorer.StepEvent, func(), bool) {
+	return nil, nil, false
 }

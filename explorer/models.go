@@ -81,6 +81,15 @@ type MR3Response struct {
 	FinalAnswers []FinalAnswerSummary `json:"final_answers"`
 }
 
+// LiveRoundResponse is returned by GET /api/v1/live/round.
+// It reflects the finest-grained step the local node is currently executing.
+type LiveRoundResponse struct {
+	Epoch     uint64 `json:"epoch"`
+	Round     uint64 `json:"round"`
+	MiniRound uint64 `json:"mini_round"`
+	Step      string `json:"step"`
+}
+
 // TransactionResponse is returned by GET /api/v1/transactions/{hash}.
 // Fields are populated progressively: basic status is always present;
 // sender/prompt/labels appear once preprocessing starts; block_hash,

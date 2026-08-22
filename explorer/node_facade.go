@@ -30,4 +30,10 @@ type NodeFacade interface {
 	AllBlocks() []*data.BlockOnChain
 	// GetRound returns the tracked state for a specific epoch/round pair.
 	GetRound(epoch, round uint64) (tracker.RoundEntry, bool)
+	// GetLiveRoundState returns the current round key and consensus step as seen
+	// by the local node. Returns false if the round loop has not yet started.
+	GetLiveRoundState() (data.RoundKey, data.Step, bool)
+	// SubscribeLiveRound returns a channel of StepEvents for SSE streaming and an
+	// unsubscribe function. Returns false when the round hub is not wired.
+	SubscribeLiveRound() (<-chan StepEvent, func(), bool)
 }
