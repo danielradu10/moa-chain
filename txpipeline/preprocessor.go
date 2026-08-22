@@ -113,7 +113,11 @@ func (p *txPreprocessor) process(tx data.Transaction) {
 	p.store.StoreLabels(txHash, labels)
 	p.store.StoreAnswer(txHash, answer)
 
-	if err := p.mempool.AddTransaction(tx); err != nil {
+	// Clone before AddTransaction so that concurrent preprocessors on different
+	// nodes cannot race on SetEstimatedConsumption/SetEstimatedScore when they
+	// share the same *transaction pointer (e.g. when a tx is submitted to all
+	// nodes directly in tests).
+	if err := p.mempool.AddTransaction(tx.Clone()); err != nil {
 		p.logger.Error("txPreprocessor: failed to add tx to mempool", "txHash", string(txHash), "error", err)
 		return
 	}
