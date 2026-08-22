@@ -1,17 +1,28 @@
 package service
 
-import "moa-chain/explorer"
+import (
+	"moa-chain/explorer"
+	"moa-chain/explorer/resolvers"
+)
 
-// ExplorerService contains the query logic for the explorer API.
-// No HTTP knowledge lives here — controllers call service methods and write the result.
+// ExplorerService answers explorer queries. It owns no HTTP knowledge;
+// controllers call its methods and write the results.
 type ExplorerService struct {
-	node NodeFacade
+	node          explorer.NodeFacade
+	blockResolver resolvers.BlockResolver
+	roundResolver resolvers.RoundResolver
 }
 
-func NewExplorerService(node NodeFacade) *ExplorerService {
-	return &ExplorerService{node: node}
+// NewExplorerService creates a service wired to the given node.
+func NewExplorerService(node explorer.NodeFacade) *ExplorerService {
+	return &ExplorerService{
+		node:          node,
+		blockResolver: resolvers.NewBlockResolver(node),
+		roundResolver: resolvers.NewRoundResolver(node),
+	}
 }
 
+// GetHealth returns a snapshot of the node's current chain and round state.
 func (s *ExplorerService) GetHealth() explorer.HealthResponse {
 	round, _ := s.node.CurrentRound()
 	miniRound, _ := s.node.CurrentMiniRound()
@@ -24,4 +35,14 @@ func (s *ExplorerService) GetHealth() explorer.HealthResponse {
 		CurrentMiniRound: miniRound,
 		CurrentEpoch:     epoch,
 	}
+}
+
+// GetBlock returns the block with the given hex-encoded header hash.
+func (s *ExplorerService) GetBlock(hash string) (explorer.BlockResponse, bool) {
+	return s.blockResolver.ResolveHash(hash)
+}
+
+// GetRound returns the state of the given round number.
+func (s *ExplorerService) GetRound(round uint64) (explorer.RoundResponse, bool) {
+	return s.roundResolver.Resolve(round)
 }

@@ -13,6 +13,11 @@ func newRequestHandler(httpMethod, path string, handler http.HandlerFunc) Reques
 	return RequestHandler{httpMethod: httpMethod, path: path, handler: handler}
 }
 
-func (rh RequestHandler) GetHttpMethod() string        { return rh.httpMethod }
-func (rh RequestHandler) GetPath() string              { return rh.path }
+// GetHttpMethod returns the HTTP method this handler is registered for.
+func (rh RequestHandler) GetHttpMethod() string { return rh.httpMethod }
+
+// GetPath returns the URL path pattern this handler is registered for.
+func (rh RequestHandler) GetPath() string { return rh.path }
+
+// GetHandler returns the handler function for this route.
 func (rh RequestHandler) GetHandler() http.HandlerFunc { return rh.handler }

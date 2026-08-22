@@ -13,6 +13,7 @@ type Server struct {
 	srv *http.Server
 }
 
+// NewServer creates an HTTP server that serves the explorer API on addr.
 func NewServer(svc *service.ExplorerService, addr string) *Server {
 	mux := http.NewServeMux()
 	s := &Server{
@@ -37,6 +38,8 @@ func (s *Server) Stop(ctx context.Context) error { return s.srv.Shutdown(ctx) }
 func (s *Server) routes() []RequestHandler {
 	return []RequestHandler{
 		newRequestHandler("GET", "/api/v1/health", s.handleHealth),
+		newRequestHandler("GET", "/api/v1/blocks/{hash}", s.handleBlock),
+		newRequestHandler("GET", "/api/v1/rounds/{round}", s.handleRound),
 	}
 }
 
