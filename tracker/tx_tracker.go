@@ -23,6 +23,10 @@ const (
 type TxTracker struct {
 	mu      sync.RWMutex
 	entries map[string]TxStatus
+	// OnStatusChanged is called after every status transition, outside the
+	// internal lock. Used by the explorer to push events to SSE subscribers.
+	// Optional; nil disables callbacks.
+	OnStatusChanged func(txHash string, status TxStatus)
 }
 
 func NewTxTracker() *TxTracker {
@@ -63,6 +67,9 @@ func (t *TxTracker) GetStatus(txHash string) (TxStatus, bool) {
 
 func (t *TxTracker) set(txHash string, status TxStatus) {
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	t.entries[txHash] = status
+	t.mu.Unlock()
+	if t.OnStatusChanged != nil {
+		t.OnStatusChanged(txHash, status)
+	}
 }

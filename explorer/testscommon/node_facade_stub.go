@@ -68,3 +68,7 @@ func (s *NodeFacadeStub) GetLiveRoundState() (data.RoundKey, data.Step, bool) {
 func (s *NodeFacadeStub) SubscribeLiveRound() (<-chan explorer.StepEvent, func(), bool) {
 	return nil, nil, false
 }
+
+func (s *NodeFacadeStub) SubscribeTxEvents(_ []byte) (<-chan explorer.TxEvent, func(), bool) {
+	return nil, nil, false
+}

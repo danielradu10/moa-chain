@@ -32,6 +32,7 @@ type NodeView struct {
 	RoundTracker      *tracker.RoundTracker
 	RoundLoop         LiveStateReader
 	RoundHub          *RoundHub
+	TxHub             *TxHub
 }
 
 // ChainLength returns the number of finalized blocks on the chain.
@@ -103,5 +104,15 @@ func (nv *NodeView) SubscribeLiveRound() (<-chan StepEvent, func(), bool) {
 		return nil, nil, false
 	}
 	ch, unsub := nv.RoundHub.Subscribe()
+	return ch, unsub, true
+}
+
+// SubscribeTxEvents returns a channel of TxEvents for the given transaction
+// and an unsubscribe function. Returns false when no tx hub is wired.
+func (nv *NodeView) SubscribeTxEvents(txHash []byte) (<-chan TxEvent, func(), bool) {
+	if nv.TxHub == nil {
+		return nil, nil, false
+	}
+	ch, unsub := nv.TxHub.Subscribe(string(txHash))
 	return ch, unsub, true
 }

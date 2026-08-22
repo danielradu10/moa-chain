@@ -5,6 +5,22 @@ frontend. No transaction submission in this version.
 
 ---
 
+## One explorer per chain
+
+The explorer is **per-node**: it reads directly from one node's in-memory
+state (its own `chain.Chain`, mempool, trackers, and consensus loop). Each
+node has its own finalizer and its own chain instance — they are not shared.
+After consensus completes, all honest nodes independently finalize the same
+blocks in the same order, so any fully-synced node is a valid source for
+finalized data.
+
+Do **not** start an explorer server for every node. One server, wired to
+one `NodeView`, is enough. For live consensus state (`/round/current`,
+`/round/stream`) the data reflects that specific node's perspective, which
+is expected and honest.
+
+---
+
 ## What state already exists (and where)
 
 | Component | Thread-safe | What it holds |

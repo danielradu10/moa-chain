@@ -1,6 +1,8 @@
 package service
 
 import (
+	"encoding/hex"
+
 	"moa-chain/data"
 	"moa-chain/explorer"
 	"moa-chain/explorer/resolvers"
@@ -80,6 +82,17 @@ func (s *ExplorerService) GetLiveRound() (explorer.LiveRoundResponse, bool) {
 // unsubscribe function. Returns false when the round hub is not wired.
 func (s *ExplorerService) StreamLiveRound() (<-chan explorer.StepEvent, func(), bool) {
 	return s.node.SubscribeLiveRound()
+}
+
+// StreamTxEvents returns a channel of TxEvents for SSE streaming on the given
+// hex-encoded transaction hash and an unsubscribe function.
+// Returns false when the tx hub is not wired or the hash is invalid.
+func (s *ExplorerService) StreamTxEvents(hexHash string) (<-chan explorer.TxEvent, func(), bool) {
+	hashBytes, err := hex.DecodeString(hexHash)
+	if err != nil {
+		return nil, nil, false
+	}
+	return s.node.SubscribeTxEvents(hashBytes)
 }
 
 // MakeLiveRoundResponse converts a StepEvent to an HTTP-ready LiveRoundResponse.

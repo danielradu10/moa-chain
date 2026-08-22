@@ -99,6 +99,42 @@ func (s *Server) handleRound(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (s *Server) handleTxStream(w http.ResponseWriter, r *http.Request) {
+	hexHash := r.PathValue("hash")
+	ch, unsub, ok := s.svc.StreamTxEvents(hexHash)
+	if !ok {
+		writeError(w, http.StatusServiceUnavailable, "tx hub not started")
+		return
+	}
+	defer unsub()
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	flusher, _ := w.(http.Flusher)
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case event, open := <-ch:
+			if !open {
+				return
+			}
+			payload, err := json.Marshal(event)
+			if err != nil {
+				return
+			}
+			fmt.Fprintf(w, "data: %s\n\n", payload)
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+	}
+}
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

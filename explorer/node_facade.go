@@ -36,4 +36,7 @@ type NodeFacade interface {
 	// SubscribeLiveRound returns a channel of StepEvents for SSE streaming and an
 	// unsubscribe function. Returns false when the round hub is not wired.
 	SubscribeLiveRound() (<-chan StepEvent, func(), bool)
+	// SubscribeTxEvents returns a channel of TxEvents for the given transaction
+	// and an unsubscribe function. Returns false when the tx hub is not wired.
+	SubscribeTxEvents(txHash []byte) (<-chan TxEvent, func(), bool)
 }

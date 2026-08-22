@@ -295,6 +295,63 @@ func (s *liveStateReaderStub) LiveState() (data.RoundKey, data.Step) {
 	return s.key, s.step
 }
 
+func TestServer_TxStream(t *testing.T) {
+	t.Parallel()
+
+	t.Run("503 when hub not wired", func(t *testing.T) {
+		t.Parallel()
+
+		s := newTestServer(t, newTestNodeView(t))
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/transactions/"+hex.EncodeToString([]byte("any"))+"/events")
+
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	})
+
+	t.Run("streams status event", func(t *testing.T) {
+		t.Parallel()
+
+		hashBytes := []byte("tx-stream")
+		node := newTestNodeView(t)
+		hub := explorer.NewTxHub()
+		node.TxHub = hub
+		// Publish before subscribing; new subscriber receives it immediately.
+		hub.OnStatusChanged(string(hashBytes), tracker.TxStatusSubmitted)
+
+		s := newTestServer(t, node)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/transactions/"+hex.EncodeToString(hashBytes)+"/events", nil)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))
+		require.Contains(t, rec.Body.String(), "SUBMITTED")
+	})
+
+	t.Run("stream closes naturally on FINALIZED", func(t *testing.T) {
+		t.Parallel()
+
+		hashBytes := []byte("tx-finalized-stream")
+		node := newTestNodeView(t)
+		hub := explorer.NewTxHub()
+		node.TxHub = hub
+		hub.OnStatusChanged(string(hashBytes), tracker.TxStatusFinalized)
+
+		s := newTestServer(t, node)
+
+		// No timeout needed: FINALIZED closes the channel and the handler returns.
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/"+hex.EncodeToString(hashBytes)+"/events", nil)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Contains(t, rec.Body.String(), "FINALIZED")
+	})
+}
+
 func TestServer_Transactions(t *testing.T) {
 	t.Parallel()
 

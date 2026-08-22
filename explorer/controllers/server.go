@@ -44,6 +44,7 @@ func (s *Server) routes() []RequestHandler {
 		newRequestHandler("GET", "/api/v1/round/stream", s.handleRoundStream),
 		newRequestHandler("GET", "/api/v1/transactions", s.handleTransactions),
 		newRequestHandler("GET", "/api/v1/transactions/{hash}", s.handleTransaction),
+		newRequestHandler("GET", "/api/v1/transactions/{hash}/events", s.handleTxStream),
 	}
 }
 
