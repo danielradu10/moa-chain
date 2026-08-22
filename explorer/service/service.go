@@ -11,6 +11,7 @@ type ExplorerService struct {
 	node          explorer.NodeFacade
 	blockResolver resolvers.BlockResolver
 	roundResolver resolvers.RoundResolver
+	txResolver    resolvers.TxResolver
 }
 
 // NewExplorerService creates a service wired to the given node.
@@ -19,6 +20,7 @@ func NewExplorerService(node explorer.NodeFacade) *ExplorerService {
 		node:          node,
 		blockResolver: resolvers.NewBlockResolver(node),
 		roundResolver: resolvers.NewRoundResolver(node),
+		txResolver:    resolvers.NewTxResolver(node),
 	}
 }
 
@@ -45,4 +47,14 @@ func (s *ExplorerService) GetBlock(hash string) (explorer.BlockResponse, bool) {
 // GetRound returns the state of the given round number.
 func (s *ExplorerService) GetRound(round uint64) (explorer.RoundResponse, bool) {
 	return s.roundResolver.Resolve(round)
+}
+
+// GetTransaction returns the full lifecycle state of a transaction by hex-encoded hash.
+func (s *ExplorerService) GetTransaction(hash string) (explorer.TransactionResponse, bool) {
+	return s.txResolver.Resolve(hash)
+}
+
+// GetTransactions returns all known transactions: finalized from the chain, then in-flight from the mempool.
+func (s *ExplorerService) GetTransactions() []explorer.TransactionResponse {
+	return s.txResolver.ResolveAll()
 }

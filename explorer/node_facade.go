@@ -16,8 +16,16 @@ type NodeFacade interface {
 	CurrentMiniRound() (uint64, error)
 	// CurrentEpoch returns the current epoch number.
 	CurrentEpoch() (uint64, error)
-	// GetTransactionStatus returns the lifecycle status of a transaction by hash.
-	GetTransactionStatus(hash string) (tracker.TxStatus, bool)
+	// GetTransactionStatus returns the lifecycle status of a transaction by its raw hash bytes.
+	GetTransactionStatus(txHash []byte) (tracker.TxStatus, bool)
+	// GetPendingTransactions returns a snapshot of all transactions currently in the mempool.
+	GetPendingTransactions() []data.Transaction
+	// GetPendingTransaction returns a transaction currently in the mempool by its raw hash bytes.
+	GetPendingTransaction(txHash []byte) (data.Transaction, bool)
+	// GetPrecomputedLabels returns the domain labels assigned to a transaction during preprocessing.
+	GetPrecomputedLabels(txHash []byte) ([]string, bool)
+	// GetPrecomputedAnswer returns the local model answer for a transaction from the precomputed store.
+	GetPrecomputedAnswer(txHash []byte) (string, bool)
 	// AllBlocks returns all finalized blocks on the chain, oldest first.
 	AllBlocks() []*data.BlockOnChain
 	// GetRound returns the tracked state for a specific epoch/round pair.

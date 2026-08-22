@@ -23,6 +23,21 @@ func (s *Server) handleBlock(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, block)
 }
 
+func (s *Server) handleTransactions(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.svc.GetTransactions())
+}
+
+func (s *Server) handleTransaction(w http.ResponseWriter, r *http.Request) {
+	hash := r.PathValue("hash")
+	resp, ok := s.svc.GetTransaction(hash)
+	if !ok {
+		writeError(w, http.StatusNotFound, "transaction not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) handleRound(w http.ResponseWriter, r *http.Request) {
 	round, err := strconv.ParseUint(r.PathValue("round"), 10, 64)
 	if err != nil {

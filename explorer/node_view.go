@@ -40,9 +40,34 @@ func (nv *NodeView) CurrentMiniRound() (uint64, error) {
 // CurrentEpoch returns the current epoch number.
 func (nv *NodeView) CurrentEpoch() (uint64, error) { return nv.BlockchainState.CurrentEpoch() }
 
-// GetTransactionStatus returns the lifecycle status of a transaction by hash.
-func (nv *NodeView) GetTransactionStatus(hash string) (tracker.TxStatus, bool) {
-	return nv.TxTracker.GetStatus(hash)
+// GetTransactionStatus returns the lifecycle status of a transaction by its raw hash bytes.
+func (nv *NodeView) GetTransactionStatus(txHash []byte) (tracker.TxStatus, bool) {
+	return nv.TxTracker.GetStatus(string(txHash))
+}
+
+// GetPendingTransactions returns a snapshot of all transactions currently in the mempool.
+func (nv *NodeView) GetPendingTransactions() []data.Transaction {
+	return nv.Mempool.GetPendingTransactions()
+}
+
+// GetPendingTransaction returns a transaction currently in the mempool by its raw hash bytes.
+func (nv *NodeView) GetPendingTransaction(txHash []byte) (data.Transaction, bool) {
+	for _, tx := range nv.Mempool.GetPendingTransactions() {
+		if string(tx.GetTxHash()) == string(txHash) {
+			return tx, true
+		}
+	}
+	return nil, false
+}
+
+// GetPrecomputedLabels returns the domain labels assigned to a transaction during preprocessing.
+func (nv *NodeView) GetPrecomputedLabels(txHash []byte) ([]string, bool) {
+	return nv.Store.GetLabels(txHash)
+}
+
+// GetPrecomputedAnswer returns the local model answer for a transaction from the precomputed store.
+func (nv *NodeView) GetPrecomputedAnswer(txHash []byte) (string, bool) {
+	return nv.Store.GetAnswer(txHash)
 }
 
 // AllBlocks returns all finalized blocks on the chain, oldest first.

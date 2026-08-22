@@ -211,3 +211,123 @@ func TestServer_Round(t *testing.T) {
 		require.Nil(t, resp.MR2)
 	})
 }
+
+func TestServer_Transactions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("200 with empty list on empty node", func(t *testing.T) {
+		t.Parallel()
+
+		s := newTestServer(t, newTestNodeView(t))
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/transactions")
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var resp []explorer.TransactionResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+		require.Empty(t, resp)
+	})
+
+	t.Run("200 includes finalized transactions from chain", func(t *testing.T) {
+		t.Parallel()
+
+		hashBytes := []byte("tx-list")
+		tx := &testscommon.TransactionStub{}
+		tx.SetTxHash(hashBytes)
+		tx.SetSender([]byte("alice"))
+
+		block := &data.BlockOnChain{
+			Header: data.ChainBlockHeader{HeaderHash: []byte("block-hash")},
+			Body:   data.BlockBody{Transactions: []data.Transaction{tx}},
+		}
+
+		node := newTestNodeView(t)
+		require.NoError(t, node.Chain.Append(block))
+
+		s := newTestServer(t, node)
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/transactions")
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var resp []explorer.TransactionResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+		require.Len(t, resp, 1)
+		require.Equal(t, "FINALIZED", resp[0].Status)
+		require.Equal(t, "alice", resp[0].Sender)
+	})
+}
+
+func TestServer_Transaction(t *testing.T) {
+	t.Parallel()
+
+	t.Run("404 when tx not tracked", func(t *testing.T) {
+		t.Parallel()
+
+		s := newTestServer(t, newTestNodeView(t))
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/transactions/"+hex.EncodeToString([]byte("unknown")))
+
+		require.Equal(t, http.StatusNotFound, rec.Code)
+
+		var errResp explorer.ErrorResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&errResp))
+		require.NotEmpty(t, errResp.Error)
+	})
+
+	t.Run("200 with submitted status", func(t *testing.T) {
+		t.Parallel()
+
+		hashBytes := []byte("tx-submitted")
+		tx := &testscommon.TransactionStub{}
+		tx.SetTxHash(hashBytes)
+
+		node := newTestNodeView(t)
+		node.TxTracker.OnSubmitted(tx)
+
+		s := newTestServer(t, node)
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/transactions/"+hex.EncodeToString(hashBytes))
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var resp explorer.TransactionResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+		require.Equal(t, "SUBMITTED", resp.Status)
+		require.Equal(t, hex.EncodeToString(hashBytes), resp.TxHash)
+	})
+
+	t.Run("200 finalized with block data", func(t *testing.T) {
+		t.Parallel()
+
+		hashBytes := []byte("tx-finalized")
+		blockHash := []byte("block-hash")
+
+		tx := &testscommon.TransactionStub{}
+		tx.SetTxHash(hashBytes)
+		tx.SetSender([]byte("alice"))
+		tx.SetPrompt([]byte("what is 1+1?"))
+
+		block := &data.BlockOnChain{
+			Header: data.ChainBlockHeader{HeaderHash: blockHash},
+			Body:   data.BlockBody{Transactions: []data.Transaction{tx}},
+			FinalAnswers: []data.FinalAnswer{
+				{TxHash: hashBytes, Status: data.FinalAnswerStatusSynthesized, Answer: "2"},
+			},
+		}
+
+		node := newTestNodeView(t)
+		node.TxTracker.OnFinalized(string(hashBytes))
+		require.NoError(t, node.Chain.Append(block))
+
+		s := newTestServer(t, node)
+		rec := doRequest(t, s, http.MethodGet, "/api/v1/transactions/"+hex.EncodeToString(hashBytes))
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var resp explorer.TransactionResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+		require.Equal(t, "FINALIZED", resp.Status)
+		require.Equal(t, "alice", resp.Sender)
+		require.Equal(t, hex.EncodeToString(blockHash), resp.BlockHash)
+		require.Equal(t, "2", resp.FinalAnswer)
+		require.Equal(t, "SYNTHESIZED", resp.FinalStatus)
+	})
+}

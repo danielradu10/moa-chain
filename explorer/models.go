@@ -80,3 +80,19 @@ type MR3Response struct {
 	BlockHash    string               `json:"block_hash"`
 	FinalAnswers []FinalAnswerSummary `json:"final_answers"`
 }
+
+// TransactionResponse is returned by GET /api/v1/transactions/{hash}.
+// Fields are populated progressively: basic status is always present;
+// sender/prompt/labels appear once preprocessing starts; block_hash,
+// final_answer, and final_status appear only when finalized.
+type TransactionResponse struct {
+	TxHash      string   `json:"tx_hash"`
+	Status      string   `json:"status"`
+	Sender      string   `json:"sender,omitempty"`
+	Prompt      string   `json:"prompt,omitempty"`
+	Labels      []string `json:"labels,omitempty"`
+	LocalAnswer string   `json:"local_answer,omitempty"`
+	BlockHash   string   `json:"block_hash,omitempty"`
+	FinalAnswer string   `json:"final_answer,omitempty"`
+	FinalStatus string   `json:"final_status,omitempty"`
+}
