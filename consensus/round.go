@@ -55,6 +55,10 @@ type roundHandler struct {
 	// execution results before falling back to aggregating with whatever Q+ arrived.
 	// Zero disables the fallback timer (leader waits indefinitely).
 	executionResultsCollectionDeadline time.Duration
+	// miniRoundDuration is a fixed delay inserted before each mini-round transition
+	// so that every mini-round takes at least this long regardless of whether
+	// transactions are present. Zero means advance immediately (suitable for tests).
+	miniRoundDuration time.Duration
 }
 
 type RoundHandlerArgs struct {
@@ -86,6 +90,10 @@ type RoundHandlerArgs struct {
 	// ExecutionResultsCollectionDeadline is the fallback timeout for the MR2 leader's
 	// execution-results collection step. Zero means wait for all G results with no timeout.
 	ExecutionResultsCollectionDeadline time.Duration
+	// MiniRoundDuration is a fixed slot enforced between mini-round transitions so that
+	// every mini-round takes at least this long regardless of whether transactions are
+	// present. Zero means advance immediately (suitable for tests).
+	MiniRoundDuration time.Duration
 	// OnStepChanged is called on every step transition. Used by the explorer to push
 	// live-round events to SSE subscribers. Optional; nil disables callbacks.
 	OnStepChanged func(data.RoundKey, data.Step)
@@ -112,6 +120,7 @@ func NewRoundHandler(args RoundHandlerArgs) *roundHandler {
 		inbox:                              args.Inbox,
 		voteCollectionDeadline:             args.VoteCollectionDeadline,
 		executionResultsCollectionDeadline: args.ExecutionResultsCollectionDeadline,
+		miniRoundDuration:                  args.MiniRoundDuration,
 		onStepChanged:                      args.OnStepChanged,
 	}
 }
@@ -446,6 +455,9 @@ func (rh *roundHandler) startNextMiniRound(roundKey data.RoundKey) error {
 	}
 
 	rh.logger.Info("starting next mini-round", "currentRoundKey", roundKey, "nextRoundKey", nextRoundKey)
+	if rh.miniRoundDuration > 0 {
+		time.Sleep(rh.miniRoundDuration)
+	}
 	return rh.StartRound(nextRoundKey)
 }
 
@@ -905,6 +917,9 @@ func (rh *roundHandler) finalizeRound(mr3RoundKey data.RoundKey) error {
 		Epoch:     mr3RoundKey.Epoch,
 		Round:     mr3RoundKey.Round + 1,
 		MiniRound: uint64(data.MiniRoundOne),
+	}
+	if rh.miniRoundDuration > 0 {
+		time.Sleep(rh.miniRoundDuration)
 	}
 	return rh.StartRound(nextRoundKey)
 }

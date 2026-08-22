@@ -3,17 +3,26 @@ package mock
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"moa-chain/agent"
 	"moa-chain/data"
 )
 
-// BatchAgent returns instant deterministic results for all agent operations.
-// Suitable for local development and integration testing where real LLM calls
-// are not needed.
-type BatchAgent struct{}
+// BatchAgent returns deterministic results for all agent operations.
+// Set Delay to simulate LLM latency; zero means instant (suitable for tests).
+type BatchAgent struct {
+	Delay time.Duration
+}
+
+func (a *BatchAgent) sleep() {
+	if a.Delay > 0 {
+		time.Sleep(a.Delay)
+	}
+}
 
 func (a *BatchAgent) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error) {
+	a.sleep()
 	results := make([]agent.LabelResult, len(txs))
 	for i, tx := range txs {
 		results[i] = agent.LabelResult{
@@ -25,6 +34,7 @@ func (a *BatchAgent) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, er
 }
 
 func (a *BatchAgent) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, error) {
+	a.sleep()
 	results := make([]agent.AnswerResult, len(txs))
 	for i, tx := range txs {
 		results[i] = agent.AnswerResult{
@@ -36,6 +46,7 @@ func (a *BatchAgent) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, 
 }
 
 func (a *BatchAgent) SynthesizeBatch(requests []agent.SynthesisRequest) ([]agent.SynthesisResult, error) {
+	a.sleep()
 	results := make([]agent.SynthesisResult, len(requests))
 	for i, req := range requests {
 		results[i] = agent.SynthesisResult{
@@ -47,6 +58,7 @@ func (a *BatchAgent) SynthesizeBatch(requests []agent.SynthesisRequest) ([]agent
 }
 
 func (a *BatchAgent) EvaluateSynthesisBatch(requests []agent.EvaluateSynthesisRequest) ([]agent.EvaluateSynthesisResult, error) {
+	a.sleep()
 	results := make([]agent.EvaluateSynthesisResult, len(requests))
 	for i, req := range requests {
 		results[i] = agent.EvaluateSynthesisResult{
@@ -61,6 +73,7 @@ func (a *BatchAgent) EvaluateSynthesisBatch(requests []agent.EvaluateSynthesisRe
 // JSON-encoded with a "candidates" array; this mock parses it and echoes every
 // candidateId back with category "Correct".
 func (a *BatchAgent) JudgeTransactionAnswers(request agent.AnswerJudgeRequest) (string, error) {
+	a.sleep()
 	var input struct {
 		Candidates []struct {
 			CandidateID string `json:"candidateId"`

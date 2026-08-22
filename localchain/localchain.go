@@ -5,9 +5,12 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"sync"
+	"time"
 
 	"moa-chain/agent/mock"
+	"moa-chain/logging"
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/blockprocessing/proposing"
@@ -36,7 +39,16 @@ const InitialBalance uint64 = 1_000_000
 type Config struct {
 	NumNodes   int
 	StartRound uint64
-	Logger     *slog.Logger
+	AgentDelay time.Duration // simulated LLM latency per agent call; 0 = instant
+	// MiniRoundDuration is a fixed slot enforced between mini-round transitions so
+	// every mini-round takes at least this long regardless of whether there are
+	// transactions. 0 means advance immediately (suitable for tests).
+	MiniRoundDuration time.Duration
+	// LogDir, when non-empty, writes each node's log to <LogDir>/<validatorID>.log
+	// at INFO level while keeping the console at INFO. Leave empty to log all
+	// nodes to the parent Logger only (suitable for tests).
+	LogDir string
+	Logger *slog.Logger
 }
 
 // Chain is a self-contained N-node simulator with a mocked LLM agent.
@@ -94,7 +106,7 @@ func New(cfg Config) (*Chain, error) {
 
 	roundHub := explorer.NewRoundHub()
 	txHub := explorer.NewTxHub()
-	agentImpl := &mock.BatchAgent{}
+	agentImpl := &mock.BatchAgent{Delay: cfg.AgentDelay}
 
 	nodes := make([]*localNode, cfg.NumNodes)
 	for i, v := range vs {
@@ -102,6 +114,21 @@ func New(cfg Config) (*Chain, error) {
 		if i == 0 {
 			onStepChanged = roundHub.OnStepChanged
 		}
+
+		var nodeLog *slog.Logger
+		var nl *logging.NodeLogger
+		if cfg.LogDir != "" {
+			logPath := filepath.Join(cfg.LogDir, v.PublicID()+".log")
+			created, err := logging.NewNodeLoggerWithLevels(v.PublicID(), logPath, slog.LevelInfo, slog.LevelInfo)
+			if err != nil {
+				return nil, fmt.Errorf("create logger for %s: %w", v.PublicID(), err)
+			}
+			nl = created
+			nodeLog = nl.Logger()
+		} else {
+			nodeLog = cfg.Logger.With("node", v.PublicID())
+		}
+
 		nd, err := createNode(
 			v.PublicID(),
 			privKeys[i],
@@ -111,11 +138,13 @@ func New(cfg Config) (*Chain, error) {
 			broadcaster,
 			txPeerRegistry,
 			onStepChanged,
-			cfg.Logger.With("node", v.PublicID()),
+			cfg.MiniRoundDuration,
+			nodeLog,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("create node %s: %w", v.PublicID(), err)
 		}
+		nd.nodeLogger = nl
 		nodes[i] = nd
 	}
 
@@ -180,6 +209,15 @@ func (c *Chain) Start() {
 	}
 }
 
+// Close closes all per-node log files. Call after Stop.
+func (c *Chain) Close() {
+	for _, n := range c.nodes {
+		if n.nodeLogger != nil {
+			_ = n.nodeLogger.Close()
+		}
+	}
+}
+
 // Stop shuts down all node loops and tx pipeline components. Safe to call if
 // Start was never called.
 func (c *Chain) Stop() {
@@ -208,6 +246,7 @@ type localNode struct {
 	store            txpipeline.PrecomputedStore
 	mempool          mempool.Mempool
 	inbox            chan data.RoundEvent
+	nodeLogger       *logging.NodeLogger // non-nil when LogDir is set
 	stopPreprocessor func()
 	stopInterceptor  func()
 }
@@ -221,6 +260,7 @@ func createNode(
 	broadcaster broadcast.Broadcaster,
 	txPeerRegistry broadcast.TxPeerRegistry,
 	onStepChanged func(data.RoundKey, data.Step),
+	miniRoundDuration time.Duration,
 	logger *slog.Logger,
 ) (*localNode, error) {
 	finalizer := blockFinalizer.NewFinalizeBlockComponent()
@@ -330,6 +370,7 @@ func createNode(
 		BlockchainState:       blockchainState,
 		Logger:                logger,
 		Inbox:                 inbox,
+		MiniRoundDuration:     miniRoundDuration,
 		OnStepChanged:         onStepChanged,
 	})
 

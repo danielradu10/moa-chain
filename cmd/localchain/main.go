@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -25,20 +26,27 @@ import (
 )
 
 func main() {
-	numNodes   := flag.Int("nodes", 10, "number of validator nodes")
-	startRound := flag.Uint64("start-round", 2, "round number to start from (genesis is round 1)")
-	addr       := flag.String("addr", ":8080", "explorer HTTP server address")
+	numNodes          := flag.Int("nodes", 10, "number of validator nodes")
+	startRound        := flag.Uint64("start-round", 2, "round number to start from (genesis is round 1)")
+	addr              := flag.String("addr", ":8080", "explorer HTTP server address")
+	agentDelay        := flag.Duration("agent-delay", 5*time.Second, "simulated LLM latency per agent call")
+	miniRoundDuration := flag.Duration("mini-round-duration", 6*time.Second, "fixed slot per mini-round; 0 = advance immediately")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	fmt.Fprintf(os.Stderr, "localchain: starting %d nodes, round %d, server %s\n",
-		*numNodes, *startRound, *addr)
+	logDir := filepath.Join("logs", "localchain", time.Now().Format("20060102T150405"))
+	fmt.Fprintf(os.Stderr, "localchain: starting %d nodes, round %d, server %s, agent-delay %s, mini-round-duration %s\n",
+		*numNodes, *startRound, *addr, *agentDelay, *miniRoundDuration)
+	fmt.Fprintf(os.Stderr, "localchain: node logs → %s/\n", logDir)
 
 	lc, err := localchain.New(localchain.Config{
-		NumNodes:   *numNodes,
-		StartRound: *startRound,
-		Logger:     logger,
+		NumNodes:          *numNodes,
+		StartRound:        *startRound,
+		AgentDelay:        *agentDelay,
+		MiniRoundDuration: *miniRoundDuration,
+		LogDir:            logDir,
+		Logger:            logger,
 	})
 	if err != nil {
 		log.Fatalf("localchain: setup failed: %v", err)
@@ -63,6 +71,7 @@ func main() {
 	fmt.Fprintln(os.Stderr, "\nlocalchain: shutting down…")
 
 	lc.Stop()
+	lc.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

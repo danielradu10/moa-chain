@@ -192,8 +192,8 @@
       },
       {
         "judge": {
-          "role": "member-4",
-          "validatorId": "validator-14"
+          "role": "leader",
+          "validatorId": "validator-2"
         },
         "classificationCount": 30,
         "categoryTotals": {
