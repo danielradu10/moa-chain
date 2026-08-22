@@ -72,3 +72,7 @@ func (s *NodeFacadeStub) SubscribeLiveRound() (<-chan explorer.StepEvent, func()
 func (s *NodeFacadeStub) SubscribeTxEvents(_ []byte) (<-chan explorer.TxEvent, func(), bool) {
 	return nil, nil, false
 }
+
+func (s *NodeFacadeStub) SubmitTransaction(_ explorer.SubmitTransactionRequest) (explorer.SubmitTransactionResponse, error) {
+	return explorer.SubmitTransactionResponse{}, nil
+}

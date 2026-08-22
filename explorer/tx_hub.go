@@ -18,7 +18,7 @@ type TxEvent struct {
 type TxHub struct {
 	mu   sync.Mutex
 	subs map[string]map[uint64]chan TxEvent // raw txHash → id → channel
-	last map[string]TxEvent                // raw txHash → last known event
+	last map[string]TxEvent                 // raw txHash → last known event
 	next uint64
 }
 

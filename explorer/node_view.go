@@ -1,6 +1,10 @@
 package explorer
 
 import (
+	"encoding/hex"
+	"errors"
+	"time"
+
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/chain"
 	"moa-chain/data"
@@ -10,6 +14,12 @@ import (
 	"moa-chain/txpipeline"
 	"moa-chain/validators"
 )
+
+// TxSubmitter accepts and validates a new transaction for processing.
+// *txpipeline.TxInterceptor satisfies this interface.
+type TxSubmitter interface {
+	Submit(tx data.Transaction) error
+}
 
 // LiveStateReader provides a thread-safe snapshot of the current consensus
 // round key and step. *consensus.RoundLoop satisfies this interface.
@@ -33,6 +43,7 @@ type NodeView struct {
 	RoundLoop         LiveStateReader
 	RoundHub          *RoundHub
 	TxHub             *TxHub
+	TxSubmitter       TxSubmitter
 }
 
 // ChainLength returns the number of finalized blocks on the chain.
@@ -115,4 +126,35 @@ func (nv *NodeView) SubscribeTxEvents(txHash []byte) (<-chan TxEvent, func(), bo
 	}
 	ch, unsub := nv.TxHub.Subscribe(string(txHash))
 	return ch, unsub, true
+}
+
+// SubmitTransaction builds a transaction from the request, computes its
+// canonical hash, and forwards it to the wired TxSubmitter.
+// Returns an error when no submitter is wired or submission fails.
+func (nv *NodeView) SubmitTransaction(req SubmitTransactionRequest) (SubmitTransactionResponse, error) {
+	if nv.TxSubmitter == nil {
+		return SubmitTransactionResponse{}, errors.New("transaction submission not enabled")
+	}
+	timestamp := uint64(time.Now().UnixNano())
+	txHash := txpipeline.ComputeTxHash(req.Sender, req.Nonce, req.Prompt, req.Tip, timestamp)
+
+	tx := mempool.NewTransaction()
+	tx.SetSender([]byte(req.Sender))
+	tx.SetReceiver([]byte("moa-chain"))
+	tx.SetPrompt([]byte(req.Prompt))
+	tx.SetNonce(req.Nonce)
+	tx.SetTip(req.Tip)
+	tx.SetTimestamp(timestamp)
+	tx.SetEstimatedFee(1)
+	tx.SetThinkingMode("fast")
+	tx.SetUserOutputDimension("short")
+	tx.SetTxHash(txHash)
+
+	if err := nv.TxSubmitter.Submit(tx); err != nil {
+		return SubmitTransactionResponse{}, err
+	}
+	return SubmitTransactionResponse{
+		TxHash:    hex.EncodeToString(txHash),
+		Timestamp: timestamp,
+	}, nil
 }

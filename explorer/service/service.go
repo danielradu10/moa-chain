@@ -95,6 +95,11 @@ func (s *ExplorerService) StreamTxEvents(hexHash string) (<-chan explorer.TxEven
 	return s.node.SubscribeTxEvents(hashBytes)
 }
 
+// SubmitTransaction forwards the request to the node's TxSubmitter.
+func (s *ExplorerService) SubmitTransaction(req explorer.SubmitTransactionRequest) (explorer.SubmitTransactionResponse, error) {
+	return s.node.SubmitTransaction(req)
+}
+
 // MakeLiveRoundResponse converts a StepEvent to an HTTP-ready LiveRoundResponse.
 func (s *ExplorerService) MakeLiveRoundResponse(e explorer.StepEvent) explorer.LiveRoundResponse {
 	return explorer.LiveRoundResponse{

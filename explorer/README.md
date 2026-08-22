@@ -1,7 +1,7 @@
 # MoA Chain Explorer API
 
-Read-only HTTP API that exposes the local simulator's state to a future
-frontend. No transaction submission in this version.
+HTTP API that exposes the local simulator's state and accepts transaction
+submission. Backed by an in-process node; best run via `cmd/localchain`.
 
 ---
 
@@ -49,7 +49,10 @@ relevant step, the round handler publishes an immutable `RoundSnapshot` via
 ```
 explorer/
   node_view.go          — NodeView: aggregates raw state references; implements NodeFacade
-  models.go             — API response structs (view-model / DTO layer)
+  node_facade.go        — NodeFacade interface (what ExplorerService needs from the node)
+  models.go             — API request/response structs (view-model / DTO layer)
+  round_hub.go          — RoundHub: fan-out for step events → SSE subscribers
+  tx_hub.go             — TxHub: fan-out for tx status events → SSE subscribers; closes on FINALIZED
 
   controllers/
     server.go           — HTTP server, mux wiring, route registration via RequestHandler
@@ -57,19 +60,16 @@ explorer/
     handlers.go         — HTTP handler functions (thin: parse → service call → write JSON)
 
   service/
-    node_facade.go      — NodeFacade interface: what the service needs from the node
-    service.go          — ExplorerService: query logic, builds view models
-```
-
-Future files as tasks are completed:
-
-```
-  service/
+    service.go          — ExplorerService: query + submit logic, builds view models
     tx_resolver.go      — multi-source tx status (TxTracker + mempool + store + chain)
     round_resolver.go   — round details from RoundTracker + chain
 
-  observer.go           — RoundObserver: atomic snapshot of live round progress
-  sse.go                — SSE writer helper
+  testscommon/
+    node_facade_stub.go — NodeFacadeStub for unit tests
+
+cmd/
+  localchain/
+    main.go             — runnable simulator: N nodes, mock agent, explorer on node 0
 ```
 
 The `tracker/` package lives at the repository root alongside `mempool/` and `txpipeline/`:
@@ -96,32 +96,77 @@ directly. This lets internal types evolve without breaking the API contract.
 
 ---
 
+## Running a local chain
+
+`cmd/localchain` starts N validators with a mocked LLM agent, wires an
+explorer server to node 0, and runs rounds continuously until you press
+Ctrl+C. Transactions submitted to the HTTP endpoint are broadcast to all
+validators automatically.
+
+```
+go run ./cmd/localchain [--nodes N] [--start-round R] [--addr :PORT]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--nodes` | `10` | Number of validator nodes |
+| `--start-round` | `2` | First round (genesis is round 1) |
+| `--addr` | `:8080` | Explorer HTTP server address |
+
+Example:
+
+```sh
+go run ./cmd/localchain --nodes 5 --start-round 2 --addr :9090
+```
+
+The binary pre-funds six known accounts (`alice`, `bob`, `carol`, `david`,
+`eveline`, `frank`) with 1 000 000 balance each. Transactions with those
+senders are accepted by block validation; any other sender will be rejected.
+
+---
+
 ## Endpoints
 
-### Live round state
+### Submit transaction
 
 ```
-GET /api/v1/live/round
+POST /api/v1/transactions
+Content-Type: application/json
 ```
 
-Returns the current consensus state of this node (derived from
-`BlockchainState`, `RoundObserver`, and `ValidatorRegistry`).
+Computes the canonical transaction hash (SHA-256 of
+`"moa-chain-transaction-v1" + sender + nonce + prompt + tip + timestamp`),
+builds a transaction, and submits it to node 0's tx interceptor which
+broadcasts it to all validators.
+
+Request body:
 
 ```json
 {
-  "epoch": 0,
-  "round": 3,
-  "mini_round": 1,
-  "step": "StepCollectVotes",
-  "leader": "validator-2",
-  "committee": ["validator-1", "validator-2", "validator-3"],
-  "votes_collected": 2,
-  "quorum": 2,
-  "status": "in_progress"
+  "sender": "alice",
+  "prompt": "Implement a concurrent hash map in Go.",
+  "nonce": 0,
+  "tip": 50
 }
 ```
 
-### Round details
+Response `201 Created`:
+
+```json
+{
+  "tx_hash": "<hex-encoded SHA-256 hash>",
+  "timestamp": 1724078400000000000
+}
+```
+
+Use `tx_hash` to track the transaction's lifecycle via
+`GET /api/v1/transactions/{hash}` or subscribe to real-time updates via
+`GET /api/v1/transactions/{hash}/events`.
+
+Errors:
+- `400 Bad Request` — `sender` or `prompt` is empty
+
+### Live round state
 
 ```
 GET /api/v1/rounds/{round}
@@ -270,29 +315,24 @@ TxPreprocessor). It receives lifecycle notifications via small callback hooks
 injected at wiring time, keeping the pipeline components free of explorer
 dependencies.
 
-### Note: transaction hash is caller-supplied, not computed by the node
+### Canonical transaction hash
 
-There is no canonical `ComputeTxHash` function in production code. The only
-implementation lives in the integration tests (`computeTestTxHash`) and hashes
-`sender + nonce + prompt + tip + timestamp` with SHA-256 and a domain separator.
+`txpipeline.ComputeTxHash(sender, nonce, prompt, tip, timestamp)` is the
+single authoritative implementation. It computes SHA-256 of:
+
+```
+"moa-chain-transaction-v1" || sender || nonce || prompt || tip || timestamp
+```
+
+where strings are length-prefixed and integers are big-endian 8-byte. The
+domain separator prevents cross-protocol hash collisions. `timestamp` is set
+by the server at submission time (`time.Now().UnixNano()`), so the caller
+does not control it.
 
 `TxInterceptor.validate()` rejects any transaction whose hash is empty
-(`ErrEmptyTxHash`), so the hash must be set by the caller **before** `Submit`
-is called. Today this is fine: the explorer looks up transactions by the hash
-already present on the object.
-
-When `SubmitTransaction` is eventually implemented, the server will need to:
-1. Compute the hash from the submitted fields and set it on the transaction
-   before passing it to the interceptor.
-2. Return the hash immediately as the submission receipt so the client can
-   track the lifecycle via `GET /api/v1/transactions/{hash}` and SSE.
-
-The exact field set for the canonical hash is not yet formally specified. The
-test uses `sender + nonce + prompt + tip + timestamp`. Before submission is
-built, the following should be decided:
-- Whether `timestamp` belongs (client-controlled, weaker collision resistance).
-- Whether `receiver` and `transferredValue` belong (they affect economic outcomes).
-- Which package owns the canonical function (`mempool` or `txpipeline`).
+(`ErrEmptyTxHash`). The `POST /api/v1/transactions` handler always sets the
+hash before passing the transaction to the interceptor and returns it to the
+client as the lookup key.
 
 ### Why TxTracker must come before the transaction endpoint
 
@@ -338,9 +378,12 @@ need to be captured at broadcast time.
 | 2 | Mempool extension | Add `GetPendingTransactions()` to `mempool.Mempool` interface + implementation | ✓ done |
 | 3 | `explorer` package skeleton | `NodeView`, `NodeFacade`, `ExplorerService`, `controllers/`, `service/`, health endpoint (`GET /api/v1/health`) | ✓ done |
 | 4 | `TxTracker` + `RoundTracker` | Lifecycle trackers in `tracker/`; callback hooks into pipeline and `blockFinalizer` | ✓ done |
-| 5 | Block + round endpoints | `GET /api/v1/blocks/{hash}`, `GET /api/v1/rounds/{round}` | |
-| 6 | Transaction lookup | `GET /api/v1/transactions/{hash}` — full status from TxTracker + mempool + chain | |
-| 7 | Live round state | `RoundObserver`, wire into `consensus/round.go`, `GET /api/v1/live/round` | |
-| 8 | SSE tx lifecycle | Wire TxTracker event fan-out to `GET /api/v1/transactions/{hash}/events` | |
+| 5 | Block + round endpoints | `GET /api/v1/blocks/{hash}`, `GET /api/v1/rounds/{round}` | ✓ done |
+| 6 | Transaction lookup | `GET /api/v1/transactions/{hash}` — full status from TxTracker + mempool + chain | ✓ done |
+| 7 | Live round state | `RoundHub` (fan-out), `GET /api/v1/round/current`, `GET /api/v1/round/stream` (SSE) | ✓ done |
+| 8 | SSE tx lifecycle | `TxHub` fan-out, `GET /api/v1/transactions/{hash}/events`, closes on FINALIZED | ✓ done |
+| 9 | Transaction submission | `POST /api/v1/transactions`, `txpipeline.ComputeTxHash`, `NodeView.TxSubmitter` | ✓ done |
+| 10 | `cmd/localchain` binary | N-node simulator with mock agent, explorer on node 0, SIGINT/SIGTERM shutdown | ✓ done |
+| 11 | Explorer integration test | `TestExplorerIntegration` — snapshot + live SSE + POST tx + lifecycle to FINALIZED | ✓ done |
 
-Each task is independently reviewable and leaves tests + the existing suite green.
+Each task is independently reviewable and leaves the existing test suite green.

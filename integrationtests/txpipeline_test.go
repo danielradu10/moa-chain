@@ -63,7 +63,7 @@ func TestTxPipeline_TransactionAppearsAfterPreprocessingCompletes(t *testing.T) 
 			0,
 			validators.CommitteeStrategyHalf,
 			0,
-			nil,
+			nil, nil,
 		)
 	}
 
@@ -211,7 +211,7 @@ func TestTxPipeline_BroadcastPropagatesTransactionToAllNodes(t *testing.T) {
 			0,
 			validators.CommitteeStrategyHalf,
 			0,
-			txRegistry,
+			txRegistry, nil,
 		)
 	}
 

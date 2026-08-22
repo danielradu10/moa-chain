@@ -90,6 +90,20 @@ type LiveRoundResponse struct {
 	Step      string `json:"step"`
 }
 
+// SubmitTransactionRequest is the body of POST /api/v1/transactions.
+type SubmitTransactionRequest struct {
+	Sender string `json:"sender"`
+	Prompt string `json:"prompt"`
+	Nonce  uint64 `json:"nonce"`
+	Tip    uint64 `json:"tip"`
+}
+
+// SubmitTransactionResponse is returned by POST /api/v1/transactions.
+type SubmitTransactionResponse struct {
+	TxHash    string `json:"tx_hash"`
+	Timestamp uint64 `json:"timestamp"`
+}
+
 // TransactionResponse is returned by GET /api/v1/transactions/{hash}.
 // Fields are populated progressively: basic status is always present;
 // sender/prompt/labels appear once preprocessing starts; block_hash,

@@ -68,6 +68,24 @@ func (s *Server) handleRoundStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) handleSubmitTransaction(w http.ResponseWriter, r *http.Request) {
+	var req explorer.SubmitTransactionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Sender == "" || req.Prompt == "" {
+		writeError(w, http.StatusBadRequest, "sender and prompt are required")
+		return
+	}
+	resp, err := s.svc.SubmitTransaction(req)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, resp)
+}
+
 func (s *Server) handleTransactions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.svc.GetTransactions())
 }

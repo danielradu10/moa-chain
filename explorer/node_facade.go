@@ -39,4 +39,7 @@ type NodeFacade interface {
 	// SubscribeTxEvents returns a channel of TxEvents for the given transaction
 	// and an unsubscribe function. Returns false when the tx hub is not wired.
 	SubscribeTxEvents(txHash []byte) (<-chan TxEvent, func(), bool)
+	// SubmitTransaction builds and submits a new transaction. Returns an error
+	// when submission is not enabled or the transaction fails validation.
+	SubmitTransaction(req SubmitTransactionRequest) (SubmitTransactionResponse, error)
 }

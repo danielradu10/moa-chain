@@ -42,6 +42,7 @@ func (s *Server) routes() []RequestHandler {
 		newRequestHandler("GET", "/api/v1/rounds/{round}", s.handleRound),
 		newRequestHandler("GET", "/api/v1/round/current", s.handleRoundCurrent),
 		newRequestHandler("GET", "/api/v1/round/stream", s.handleRoundStream),
+		newRequestHandler("POST", "/api/v1/transactions", s.handleSubmitTransaction),
 		newRequestHandler("GET", "/api/v1/transactions", s.handleTransactions),
 		newRequestHandler("GET", "/api/v1/transactions/{hash}", s.handleTransaction),
 		newRequestHandler("GET", "/api/v1/transactions/{hash}/events", s.handleTxStream),
