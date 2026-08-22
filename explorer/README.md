@@ -50,12 +50,23 @@ Future files as tasks are completed:
 ```
   service/
     tx_resolver.go      — multi-source tx status (TxTracker + mempool + store + chain)
-    round_resolver.go   — round details from blockFinalizer + chain
+    round_resolver.go   — round details from RoundTracker + chain
 
   observer.go           — RoundObserver: atomic snapshot of live round progress
-  tx_tracker.go         — TxTracker: transaction lifecycle events + SSE fan-out
   sse.go                — SSE writer helper
 ```
+
+The `tracker/` package lives at the repository root alongside `mempool/` and `txpipeline/`:
+
+```
+tracker/
+  tx_tracker.go         — TxTracker: SUBMITTED → PREPROCESSING → PENDING → FINALIZED per tx
+  round_tracker.go      — RoundTracker: MR1/MR2/MR3 block snapshots per round
+```
+
+`RoundTracker` is updated via `blockFinalizer.Callbacks` hooks (injected with `WithCallbacks`
+at wiring time). `blockFinalizer` is cleared after chain append; `RoundTracker` is not —
+it is the persistent store that `GET /api/v1/rounds/{round}` reads from.
 
 ### Design decisions
 
@@ -278,6 +289,31 @@ must therefore be built before the transaction lookup endpoint, not after.
 
 ---
 
+## Future improvements
+
+### Per-validator data visibility
+
+The explorer currently shows only **aggregated consensus outputs** — the quorum-agreed
+result for each mini-round. Individual validator contributions are not stored in
+`BlockOnChain` and are lost after vote aggregation.
+
+It would be valuable to expose what each validator generated per mini-round:
+
+| Mini-round | Per-validator data | Currently visible |
+|---|---|---|
+| MR1 | Each validator's label set per transaction | ✗ — only aggregate `SubdomainsFrequencies` |
+| MR2 | Each validator's answer + consumption per transaction | ✗ — only `AggregatedExecutionResults` |
+| MR3 | Each validator's synthesized answer | ✗ — only the canonical `FinalAnswers` |
+
+Implementing this would require hooking into the vote collection phase of each
+mini-round (before aggregation), not just the finalization step that
+`blockFinalizer.Callbacks` exposes. Each `BlockVote` carries a signature and
+block hash but not the individual label/answer payloads — those live in each
+validator's local `BlockBodyExecutionResultMROne/Two/Three` structs and would
+need to be captured at broadcast time.
+
+---
+
 ## Implementation tasks
 
 | # | Task | What changes | Status |
@@ -285,7 +321,7 @@ must therefore be built before the transaction lookup endpoint, not after.
 | 1 | README | `explorer/README.md` | ✓ done |
 | 2 | Mempool extension | Add `GetPendingTransactions()` to `mempool.Mempool` interface + implementation | ✓ done |
 | 3 | `explorer` package skeleton | `NodeView`, `NodeFacade`, `ExplorerService`, `controllers/`, `service/`, health endpoint (`GET /api/v1/health`) | ✓ done |
-| 4 | `TxTracker` | Standalone lifecycle tracker; callback hooks into `TxInterceptor` + `TxPreprocessor`; covers SUBMITTED → PREPROCESSING → PENDING | |
+| 4 | `TxTracker` + `RoundTracker` | Lifecycle trackers in `tracker/`; callback hooks into pipeline and `blockFinalizer` | ✓ done |
 | 5 | Block + round endpoints | `GET /api/v1/blocks/{hash}`, `GET /api/v1/rounds/{round}` | |
 | 6 | Transaction lookup | `GET /api/v1/transactions/{hash}` — full status from TxTracker + mempool + chain | |
 | 7 | Live round state | `RoundObserver`, wire into `consensus/round.go`, `GET /api/v1/live/round` | |

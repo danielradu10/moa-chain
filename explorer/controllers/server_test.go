@@ -29,6 +29,7 @@ func newTestNodeView(t *testing.T) *explorer.NodeView {
 		Store:             txpipeline.NewPrecomputedStore(),
 		Mempool:           mempool.NewMemPool(),
 		TxTracker:         tracker.NewTxTracker(),
+		RoundTracker:      tracker.NewRoundTracker(),
 	}
 }
 

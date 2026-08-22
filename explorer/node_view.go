@@ -3,10 +3,11 @@ package explorer
 import (
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/chain"
+	"moa-chain/data"
 	"moa-chain/mempool"
 	"moa-chain/state"
-	"moa-chain/txpipeline"
 	"moa-chain/tracker"
+	"moa-chain/txpipeline"
 	"moa-chain/validators"
 )
 
@@ -22,6 +23,7 @@ type NodeView struct {
 	Store             txpipeline.PrecomputedStore
 	Mempool           mempool.Mempool
 	TxTracker         *tracker.TxTracker
+	RoundTracker      *tracker.RoundTracker
 }
 
 func (nv *NodeView) ChainLength() uint64               { return nv.Chain.Len() }
@@ -30,4 +32,8 @@ func (nv *NodeView) CurrentMiniRound() (uint64, error) { return nv.BlockchainSta
 func (nv *NodeView) CurrentEpoch() (uint64, error)     { return nv.BlockchainState.CurrentEpoch() }
 func (nv *NodeView) GetTransactionStatus(hash string) (tracker.TxStatus, bool) {
 	return nv.TxTracker.GetStatus(hash)
+}
+func (nv *NodeView) AllBlocks() []*data.BlockOnChain { return nv.Chain.Blocks() }
+func (nv *NodeView) GetRound(epoch, round uint64) (tracker.RoundEntry, bool) {
+	return nv.RoundTracker.GetRound(epoch, round)
 }
