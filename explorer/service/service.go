@@ -52,6 +52,11 @@ func (s *ExplorerService) GetRound(round uint64) (explorer.RoundResponse, bool) 
 	return s.roundResolver.Resolve(round)
 }
 
+// GetRounds returns a summary of all known rounds, newest first.
+func (s *ExplorerService) GetRounds() []explorer.RoundSummary {
+	return s.roundResolver.ResolveAll()
+}
+
 // GetTransaction returns the full lifecycle state of a transaction by hex-encoded hash.
 func (s *ExplorerService) GetTransaction(hash string) (explorer.TransactionResponse, bool) {
 	return s.txResolver.Resolve(hash)

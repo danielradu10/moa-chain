@@ -1,6 +1,8 @@
 package resolvers
 
 import (
+	"encoding/hex"
+
 	"moa-chain/data"
 	"moa-chain/explorer"
 	"moa-chain/tracker"
@@ -11,6 +13,8 @@ type RoundResolver interface {
 	// Resolve returns the state of a round by number. It checks finalized chain
 	// blocks first, then falls back to the RoundTracker for in-progress rounds.
 	Resolve(round uint64) (explorer.RoundResponse, bool)
+	// ResolveAll returns a summary of all known rounds, newest first.
+	ResolveAll() []explorer.RoundSummary
 }
 
 type roundResolver struct {
@@ -57,6 +61,48 @@ func (r *roundResolver) fromChainBlock(block *data.BlockOnChain) explorer.RoundR
 	}
 
 	return resp
+}
+
+func (r *roundResolver) ResolveAll() []explorer.RoundSummary {
+	seen := make(map[uint64]struct{})
+	var result []explorer.RoundSummary
+
+	all := r.node.AllBlocks()
+	for i := len(all) - 1; i >= 0; i-- {
+		block := all[i]
+		round := block.Header.Round
+		if _, ok := seen[round]; ok {
+			continue
+		}
+		seen[round] = struct{}{}
+		result = append(result, explorer.RoundSummary{
+			Round:     round,
+			Epoch:     block.Header.Epoch,
+			Status:    "FINALIZED",
+			TxCount:   len(block.Body.Transactions),
+			BlockHash: hex.EncodeToString(block.Header.HeaderHash),
+		})
+	}
+
+	epoch, _ := r.node.CurrentEpoch()
+	currentRound, _ := r.node.CurrentRound()
+	if _, ok := seen[currentRound]; !ok {
+		if entry, ok := r.node.GetRound(epoch, currentRound); ok {
+			result = append([]explorer.RoundSummary{{
+				Round:  entry.Round,
+				Epoch:  entry.Epoch,
+				Status: string(entry.Status),
+				TxCount: func() int {
+					if entry.MR1Block != nil {
+						return len(entry.MR1Block.Body.Transactions)
+					}
+					return 0
+				}(),
+			}}, result...)
+		}
+	}
+
+	return result
 }
 
 func (r *roundResolver) fromTrackerEntry(entry tracker.RoundEntry) explorer.RoundResponse {

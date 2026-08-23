@@ -50,6 +50,15 @@ type FinalAnswerSummary struct {
 	Answer string `json:"answer,omitempty"`
 }
 
+// RoundSummary is the compact round representation used in the rounds list.
+type RoundSummary struct {
+	Round   uint64 `json:"round"`
+	Epoch   uint64 `json:"epoch"`
+	Status  string `json:"status"`
+	TxCount int    `json:"tx_count"`
+	BlockHash string `json:"block_hash,omitempty"`
+}
+
 // RoundResponse is returned by GET /api/v1/rounds/{round}.
 // Mini-round fields are omitted when that mini-round has not yet completed.
 type RoundResponse struct {
@@ -140,6 +149,7 @@ type ValidatorAnswer struct {
 type TransactionResponse struct {
 	TxHash           string             `json:"tx_hash"`
 	Status           string             `json:"status"`
+	Round            uint64             `json:"round,omitempty"`
 	Sender           string             `json:"sender,omitempty"`
 	Prompt           string             `json:"prompt,omitempty"`
 	Labels           []string           `json:"labels,omitempty"`
