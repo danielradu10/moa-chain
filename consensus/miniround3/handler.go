@@ -580,7 +580,7 @@ func (handler *miniRoundThreeHandler) buildAndBroadcastAtQuorum(key data.RoundKe
 		return err
 	}
 
-	if err = handler.finalizeBlockMRThree(key, proposal); err != nil {
+	if err = handler.finalizeBlockMRThree(key, proposal, signers); err != nil {
 		return err
 	}
 
@@ -674,14 +674,14 @@ func (handler *miniRoundThreeHandler) HandleAggregatedSynthesisVotes(key data.Ro
 		return err
 	}
 
-	return handler.finalizeBlockMRThree(key, proposal)
+	return handler.finalizeBlockMRThree(key, proposal, msg.Signers)
 }
 
 // finalizeBlockMRThree builds the FinalAnswers slice — one entry per
 // transaction — and commits it via the block finalizer. Transactions that were
 // eligible for synthesis receive status SYNTHESIZED; all others (NonRelated or
 // InsufficientCorrectAnswers) receive status SKIPPED.
-func (handler *miniRoundThreeHandler) finalizeBlockMRThree(key data.RoundKey, proposal *data.ProposedSynthesisMessage) error {
+func (handler *miniRoundThreeHandler) finalizeBlockMRThree(key data.RoundKey, proposal *data.ProposedSynthesisMessage, approvers []string) error {
 	mr2Key := data.RoundKey{Epoch: key.Epoch, Round: key.Round, MiniRound: key.MiniRound - 1}
 	mr2Block, err := handler.blockFinalizer.GetFinalizedBlockInMRTwo(mr2Key)
 	if err != nil {
@@ -746,6 +746,8 @@ func (handler *miniRoundThreeHandler) finalizeBlockMRThree(key data.RoundKey, pr
 		AnswerClassifications:      mr2Block.AnswerClassifications,
 		ClassificationVotes:        mr2Block.ClassificationVotes,
 		LabelVotes:                 mr2Block.LabelVotes,
+		SynthesisProposerID:        proposal.SenderID,
+		SynthesisApprovers:         approvers,
 		FinalAnswers:               finalAnswers,
 	})
 }

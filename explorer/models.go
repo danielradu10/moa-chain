@@ -147,6 +147,8 @@ type TransactionResponse struct {
 	BlockHash        string             `json:"block_hash,omitempty"`
 	FinalAnswer      string             `json:"final_answer,omitempty"`
 	FinalStatus      string             `json:"final_status,omitempty"`
-	ValidatorAnswers []ValidatorAnswer  `json:"validator_answers,omitempty"`
-	LabelVotes       []ValidatorLabelVote `json:"label_votes,omitempty"`
+	ValidatorAnswers    []ValidatorAnswer    `json:"validator_answers,omitempty"`
+	LabelVotes         []ValidatorLabelVote `json:"label_votes,omitempty"`
+	SynthesisProposer  string               `json:"synthesis_proposer,omitempty"`
+	SynthesisApprovers []string             `json:"synthesis_approvers,omitempty"`
 }

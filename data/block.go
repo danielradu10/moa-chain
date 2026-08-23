@@ -32,6 +32,12 @@ type BlockOnChain struct {
 	// assignments, retained for auditability. Aligned with SubdomainsFrequencies.
 	LabelVotes []ValidatorLabelVote
 
+	// SynthesisProposerID is the MR3 leader who proposed the synthesized answer.
+	SynthesisProposerID string
+	// SynthesisApprovers lists the validator IDs who voted to approve the synthesis.
+	// Validators who rejected silently abstained and are not listed.
+	SynthesisApprovers []string
+
 	// FinalAnswers is populated by mini-round three. Each entry holds the
 	// synthesized answer for eligible transactions or a SKIPPED status for
 	// transactions that did not reach a correct-answer quorum in MR2.

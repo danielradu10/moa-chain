@@ -152,6 +152,8 @@ func (r *txResolver) enrichFromChain(txHash []byte, resp *explorer.TransactionRe
 
 			resp.ValidatorAnswers = buildValidatorAnswers(block, txHash)
 			resp.LabelVotes = buildLabelVotes(block, txHash)
+			resp.SynthesisProposer = block.SynthesisProposerID
+			resp.SynthesisApprovers = block.SynthesisApprovers
 			return
 		}
 	}
