@@ -141,6 +141,7 @@ func (r *txResolver) enrichFromChain(txHash []byte, resp *explorer.TransactionRe
 			resp.Sender = string(tx.GetSender())
 			resp.Prompt = string(tx.GetPrompt())
 			resp.Labels = tx.GetDomainLabels()
+			resp.Round = block.Header.Round
 			resp.BlockHash = hex.EncodeToString(block.Header.HeaderHash)
 
 			for _, fa := range block.FinalAnswers {
