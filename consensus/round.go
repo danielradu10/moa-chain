@@ -142,6 +142,7 @@ func (rh *roundHandler) StartRound(roundKey data.RoundKey) error {
 }
 
 func (rh *roundHandler) startMiniRoundOne(roundKey data.RoundKey) error {
+	rh.updateCurrentStep(data.StepSelectConsensusGroup)
 	leaderID, err := rh.miniRoundOneHandler.HandleConsensusSelection(roundKey)
 	if err != nil {
 		rh.logger.Error("consensus.StartRound consensus selection failed", "roundKey", roundKey, "error", err)
@@ -175,6 +176,7 @@ func (rh *roundHandler) startMiniRoundOne(roundKey data.RoundKey) error {
 }
 
 func (rh *roundHandler) startMiniRoundTwo(roundKey data.RoundKey) error {
+	rh.updateCurrentStep(data.StepSelectConsensusGroup)
 	leaderID, err := rh.miniRoundTwoHandler.HandleConsensusSelection(roundKey)
 	if err != nil {
 		rh.logger.Error("consensus.StartRound mini-round two consensus selection failed", "roundKey", roundKey, "error", err)
@@ -203,6 +205,7 @@ func (rh *roundHandler) startMiniRoundTwo(roundKey data.RoundKey) error {
 }
 
 func (rh *roundHandler) startMiniRoundThree(roundKey data.RoundKey) error {
+	rh.updateCurrentStep(data.StepSelectConsensusGroup)
 	leaderID, err := rh.miniRoundThreeHandler.HandleConsensusSelection(roundKey)
 	if err != nil {
 		rh.logger.Error("consensus.StartRound mini-round three consensus selection failed", "roundKey", roundKey, "error", err)
@@ -211,6 +214,7 @@ func (rh *roundHandler) startMiniRoundThree(roundKey data.RoundKey) error {
 	rh.logger.Info("consensus.StartRound mini-round three consensus selection completed", "roundKey", roundKey, "leaderID", leaderID)
 
 	if leaderID == rh.selfID {
+		rh.updateCurrentStep(data.StepSynthesizeAnswers)
 		if err = rh.miniRoundThreeHandler.HandleSynthesis(roundKey); err != nil {
 			rh.updateCurrentStep(data.StepFailed)
 			rh.logger.Error("consensus.StartRound mini-round three synthesis failed", "roundKey", roundKey, "error", err)
