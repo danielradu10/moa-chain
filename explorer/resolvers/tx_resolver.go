@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 
+	"moa-chain/data"
 	"moa-chain/explorer"
 	"moa-chain/tracker"
 )
@@ -141,13 +142,119 @@ func (r *txResolver) enrichFromChain(txHash []byte, resp *explorer.TransactionRe
 			resp.Prompt = string(tx.GetPrompt())
 			resp.Labels = tx.GetDomainLabels()
 			resp.BlockHash = hex.EncodeToString(block.Header.HeaderHash)
+
 			for _, fa := range block.FinalAnswers {
 				if bytes.Equal(fa.TxHash, txHash) {
 					resp.FinalAnswer = fa.Answer
 					resp.FinalStatus = string(fa.Status)
 				}
 			}
+
+			resp.ValidatorAnswers = buildValidatorAnswers(block, txHash)
+			resp.LabelVotes = buildLabelVotes(block, txHash)
 			return
 		}
 	}
+}
+
+// buildLabelVotes extracts each MR1 validator's label assignments for a specific transaction.
+func buildLabelVotes(block *data.BlockOnChain, txHash []byte) []explorer.ValidatorLabelVote {
+	if len(block.LabelVotes) == 0 {
+		return nil
+	}
+	txKey := string(txHash)
+	var result []explorer.ValidatorLabelVote
+	for _, lv := range block.LabelVotes {
+		labels, ok := lv.Labels[txKey]
+		if !ok || len(labels) == 0 {
+			continue
+		}
+		result = append(result, explorer.ValidatorLabelVote{
+			ValidatorID: lv.ValidatorID,
+			Labels:      labels,
+		})
+	}
+	return result
+}
+
+// buildValidatorAnswers extracts per-validator MR2 answers with the consensus category,
+// per-category judge vote counts, and the full per-judge verdict list.
+func buildValidatorAnswers(block *data.BlockOnChain, txHash []byte) []explorer.ValidatorAnswer {
+	if block.AnswerEvidence == nil {
+		return nil
+	}
+	evidence := block.AnswerEvidence
+	// AnswersTxMessage keys are raw tx-hash bytes cast to string (matches miniround2 handler).
+	txKey := string(txHash)
+
+	// Build producerID → consensus category from canonical answer groups.
+	categoryByProducer := make(map[string]string)
+	// Build producerID → vote counts from per-candidate counts.
+	type voteCounts struct{ correct, hallucination, malicious, wrong uint64 }
+	countsByProducer := make(map[string]voteCounts)
+	for _, cls := range block.AnswerClassifications {
+		if !bytes.Equal(cls.TxHash, txHash) {
+			continue
+		}
+		for _, id := range cls.Groups.Correct {
+			categoryByProducer[id.ProducerID] = "CORRECT"
+		}
+		for _, id := range cls.Groups.Hallucination {
+			categoryByProducer[id.ProducerID] = "HALLUCINATION"
+		}
+		for _, id := range cls.Groups.Malicious {
+			categoryByProducer[id.ProducerID] = "MALICIOUS"
+		}
+		for _, id := range cls.Groups.Wrong {
+			categoryByProducer[id.ProducerID] = "WRONG"
+		}
+		for _, c := range cls.Counts {
+			countsByProducer[c.CandidateID.ProducerID] = voteCounts{
+				correct:       c.Correct,
+				hallucination: c.Hallucination,
+				malicious:     c.Malicious,
+				wrong:         c.Wrong,
+			}
+		}
+		break
+	}
+
+	// Build producerID → per-judge verdicts from stored classification votes.
+	verdictsByProducer := make(map[string][]explorer.JudgeVerdict)
+	for _, vote := range block.ClassificationVotes {
+		for _, clf := range vote.AnswerClassifications {
+			if !bytes.Equal(clf.CandidateID.TxHash, txHash) {
+				continue
+			}
+			pid := clf.CandidateID.ProducerID
+			verdictsByProducer[pid] = append(verdictsByProducer[pid], explorer.JudgeVerdict{
+				JudgeID:  vote.JudgeID,
+				Category: string(clf.Category),
+			})
+		}
+	}
+
+	var answers []explorer.ValidatorAnswer
+	for i, signerID := range evidence.Signers {
+		if i >= len(evidence.Answers) {
+			break
+		}
+		result, ok := evidence.Answers[i][txKey]
+		if !ok {
+			continue
+		}
+		vc := countsByProducer[signerID]
+		answers = append(answers, explorer.ValidatorAnswer{
+			ValidatorID:        signerID,
+			Answer:             result.Answer,
+			Category:           categoryByProducer[signerID],
+			Consumption:        result.ActualConsumption,
+			CorrectVotes:       vc.correct,
+			HallucinationVotes: vc.hallucination,
+			MaliciousVotes:     vc.malicious,
+			WrongVotes:         vc.wrong,
+			JudgeVerdicts:      verdictsByProducer[signerID],
+		})
+	}
+	return answers
 }

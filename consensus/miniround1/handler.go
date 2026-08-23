@@ -390,6 +390,11 @@ func (handler *handler) aggregateAndFinalize(roundKey data.RoundKey, votes []*da
 	}
 	handler.logger.Debug("leader extracted aggregated votes", "roundKey", roundKey, "numSigners", len(signers), "numSubdomainMaps", len(subdomains))
 
+	signerIDs := make([]string, len(votes))
+	for i, v := range votes {
+		signerIDs[i] = v.ValidatorID
+	}
+
 	aggVotes := data.AggregatedVotes{
 		Epoch:     roundKey.Epoch,
 		Round:     roundKey.Round,
@@ -403,6 +408,8 @@ func (handler *handler) aggregateAndFinalize(roundKey data.RoundKey, votes []*da
 
 		Subdomains:           subdomains,
 		SubdomainsSignatures: subdomainsSignatures,
+
+		SignerIDs: signerIDs,
 	}
 
 	consensusMessage := &data.ConsensusMessage{
@@ -424,6 +431,8 @@ func (handler *handler) aggregateAndFinalize(roundKey data.RoundKey, votes []*da
 	}
 	handler.logger.Info("leader aggregated subdomain frequencies", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
 
+	labelVotes := buildLabelVotes(signerIDs, votes)
+
 	// Clone transactions before setting labels so the shared proposed-block pointer
 	// (sent to all validators via the broadcaster) is never mutated concurrently.
 	labeledTxs := make([]data.Transaction, len(currentProposedBlock.Body.Transactions))
@@ -444,6 +453,7 @@ func (handler *handler) aggregateAndFinalize(roundKey data.RoundKey, votes []*da
 		Body:                        labeledBlock.Body,
 		SubdomainsFrequencies:       subdomainsFrequencies,
 		NonRelatedTransactionHashes: nonRelatedTxHashes,
+		LabelVotes:                  labelVotes,
 	})
 	if err != nil {
 		handler.logger.Error("leader failed to finalize block", "roundKey", roundKey, "error", err)
@@ -455,6 +465,21 @@ func (handler *handler) aggregateAndFinalize(roundKey data.RoundKey, votes []*da
 	handler.logger.Info("leader broadcasting aggregated votes", "roundKey", roundKey, "numReceivers", len(validatorsIDs))
 
 	return handler.broadcaster.BroadcastAggregatedVotes(consensusMessage, handler.myID, validatorsIDs)
+}
+
+// buildLabelVotes pairs each validator ID with its per-transaction label assignments.
+func buildLabelVotes(signerIDs []string, votes []*data.ValidatorVote) []data.ValidatorLabelVote {
+	labelVotes := make([]data.ValidatorLabelVote, 0, len(votes))
+	for i, id := range signerIDs {
+		if i >= len(votes) {
+			break
+		}
+		labelVotes = append(labelVotes, data.ValidatorLabelVote{
+			ValidatorID: id,
+			Labels:      votes[i].Subdomains,
+		})
+	}
+	return labelVotes
 }
 
 func (handler *handler) verifyBlockVote(roundKey data.RoundKey, vote *data.BlockVote) error {
@@ -592,6 +617,17 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 	}
 	handler.logger.Info("miniround1.HandleAggregatedVotes aggregated subdomain frequencies from certificate", "roundKey", roundKey, "frequencies", subdomainsFrequencies, "numNonRelatedTxs", len(nonRelatedTxHashes))
 
+	labelVotes := make([]data.ValidatorLabelVote, 0, len(votes.SignerIDs))
+	for i, id := range votes.SignerIDs {
+		if i >= len(aggregatedSubdomains) {
+			break
+		}
+		labelVotes = append(labelVotes, data.ValidatorLabelVote{
+			ValidatorID: id,
+			Labels:      aggregatedSubdomains[i],
+		})
+	}
+
 	// Clone transactions before setting labels so that concurrent HandleAggregatedVotes
 	// calls on different nodes (sharing the same block pointer via the broadcaster)
 	// never race on the same transaction object.
@@ -613,6 +649,7 @@ func (handler *handler) HandleAggregatedVotes(roundKey data.RoundKey, votes *dat
 		Body:                        labeledBlock.Body,
 		SubdomainsFrequencies:       subdomainsFrequencies,
 		NonRelatedTransactionHashes: nonRelatedTxHashes,
+		LabelVotes:                  labelVotes,
 	})
 	if err != nil {
 		handler.logger.Error("failed to finalize block from aggregated votes", "roundKey", roundKey, "error", err)

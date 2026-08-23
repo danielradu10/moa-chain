@@ -24,6 +24,13 @@ type BlockOnChain struct {
 	// AnswerClassifications is finalized after certificate verification and is
 	// consumed by mini-round three when selecting canonical correct answers.
 	AnswerClassifications []TransactionAnswerClassification
+	// ClassificationVotes contains the individual signed judge votes from MR2.
+	// Retained for auditability: each vote records which judge assigned which
+	// category to each candidate answer. Empty for blocks with no transactions.
+	ClassificationVotes []AnswerClassificationVote
+	// LabelVotes contains each MR1 validator's individual per-transaction label
+	// assignments, retained for auditability. Aligned with SubdomainsFrequencies.
+	LabelVotes []ValidatorLabelVote
 
 	// FinalAnswers is populated by mini-round three. Each entry holds the
 	// synthesized answer for eligible transactions or a SKIPPED status for
@@ -89,6 +96,14 @@ type BlockBody struct {
 
 // Subdomains defines the label extracted by a validator for each transaction.
 type Subdomains map[string][]string
+
+// ValidatorLabelVote records the per-transaction domain labels assigned by one
+// validator during MR1. Labels is keyed by raw tx-hash bytes cast to string,
+// matching the Subdomains map convention used throughout MR1.
+type ValidatorLabelVote struct {
+	ValidatorID string
+	Labels      Subdomains
+}
 
 // SubdomainsFrequency defines the frequency of the labels extracted in a proposed block.
 type SubdomainsFrequency map[string]uint64

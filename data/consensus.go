@@ -99,6 +99,10 @@ type AggregatedVotes struct {
 	// Subdomains related information.
 	Subdomains           []Subdomains
 	SubdomainsSignatures [][]byte
+
+	// SignerIDs carries the string validator IDs aligned with Signers/Subdomains,
+	// retained for auditability so non-leaders can map label votes to validator IDs.
+	SignerIDs []string
 }
 
 // ##################################

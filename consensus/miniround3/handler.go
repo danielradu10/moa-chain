@@ -744,6 +744,8 @@ func (handler *miniRoundThreeHandler) finalizeBlockMRThree(key data.RoundKey, pr
 		AggregatedExecutionResults: mr2Block.AggregatedExecutionResults,
 		AnswerEvidence:             mr2Block.AnswerEvidence,
 		AnswerClassifications:      mr2Block.AnswerClassifications,
+		ClassificationVotes:        mr2Block.ClassificationVotes,
+		LabelVotes:                 mr2Block.LabelVotes,
 		FinalAnswers:               finalAnswers,
 	})
 }

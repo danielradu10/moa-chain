@@ -104,18 +104,49 @@ type SubmitTransactionResponse struct {
 	Timestamp uint64 `json:"timestamp"`
 }
 
+// ValidatorLabelVote records the domain labels one MR1 validator assigned to a
+// specific transaction.
+type ValidatorLabelVote struct {
+	ValidatorID string   `json:"validator_id"`
+	Labels      []string `json:"labels"`
+}
+
+// JudgeVerdict records one judge's category decision for a specific candidate answer.
+type JudgeVerdict struct {
+	JudgeID  string `json:"judge_id"`
+	Category string `json:"category"` // CORRECT | HALLUCINATION | MALICIOUS | WRONG
+}
+
+// ValidatorAnswer holds one MR2 validator's individual answer, the consensus
+// classification, the per-category judge vote counts, and the full per-judge verdicts.
+type ValidatorAnswer struct {
+	ValidatorID        string         `json:"validator_id"`
+	Answer             string         `json:"answer"`
+	Category           string         `json:"category"`              // consensus outcome
+	Consumption        uint64         `json:"consumption,omitempty"` // token consumption
+	CorrectVotes       uint64         `json:"correct_votes"`
+	HallucinationVotes uint64         `json:"hallucination_votes"`
+	MaliciousVotes     uint64         `json:"malicious_votes"`
+	WrongVotes         uint64         `json:"wrong_votes"`
+	JudgeVerdicts      []JudgeVerdict `json:"judge_verdicts,omitempty"`
+}
+
 // TransactionResponse is returned by GET /api/v1/transactions/{hash}.
 // Fields are populated progressively: basic status is always present;
 // sender/prompt/labels appear once preprocessing starts; block_hash,
 // final_answer, and final_status appear only when finalized.
+// ValidatorAnswers and Votes are populated only for finalized transactions
+// that passed through MR2.
 type TransactionResponse struct {
-	TxHash      string   `json:"tx_hash"`
-	Status      string   `json:"status"`
-	Sender      string   `json:"sender,omitempty"`
-	Prompt      string   `json:"prompt,omitempty"`
-	Labels      []string `json:"labels,omitempty"`
-	LocalAnswer string   `json:"local_answer,omitempty"`
-	BlockHash   string   `json:"block_hash,omitempty"`
-	FinalAnswer string   `json:"final_answer,omitempty"`
-	FinalStatus string   `json:"final_status,omitempty"`
+	TxHash           string             `json:"tx_hash"`
+	Status           string             `json:"status"`
+	Sender           string             `json:"sender,omitempty"`
+	Prompt           string             `json:"prompt,omitempty"`
+	Labels           []string           `json:"labels,omitempty"`
+	LocalAnswer      string             `json:"local_answer,omitempty"`
+	BlockHash        string             `json:"block_hash,omitempty"`
+	FinalAnswer      string             `json:"final_answer,omitempty"`
+	FinalStatus      string             `json:"final_status,omitempty"`
+	ValidatorAnswers []ValidatorAnswer  `json:"validator_answers,omitempty"`
+	LabelVotes       []ValidatorLabelVote `json:"label_votes,omitempty"`
 }

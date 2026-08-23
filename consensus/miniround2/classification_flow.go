@@ -42,7 +42,7 @@ func (handler *miniRoundTwoHandler) HandleAnswerEvidence(
 		// Empty block: finalize MR2 immediately on every node (committee members
 		// and observers alike) — no judging or certificate exchange is needed.
 		handler.logger.Info("miniround2.HandleAnswerEvidence empty block — finalizing MR2 with no classifications", "roundKey", roundKey)
-		return handler.finalizeClassifiedAnswers(roundKey, message, nil)
+		return handler.finalizeClassifiedAnswers(roundKey, message, nil, nil)
 	}
 
 	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.myID) {
@@ -620,7 +620,7 @@ func (handler *miniRoundTwoHandler) HandleAnswerClassificationCertificate(
 		return ErrClassificationCertificateResultMismatch
 	}
 
-	if err = handler.finalizeClassifiedAnswers(roundKey, evidence, expectedTransactions); err != nil {
+	if err = handler.finalizeClassifiedAnswers(roundKey, evidence, expectedTransactions, certificate.Votes); err != nil {
 		return err
 	}
 
@@ -718,10 +718,13 @@ func (handler *miniRoundTwoHandler) verifyCertificateVote(
 
 // finalizeClassifiedAnswers stores the complete answer evidence together with
 // the counts, groups, and transaction status consumed by mini-round three.
+// votes is the slice of individual judge votes from the certificate; it is nil
+// for empty-block rounds where no judging takes place.
 func (handler *miniRoundTwoHandler) finalizeClassifiedAnswers(
 	roundKey data.RoundKey,
 	evidence *data.AggregatedExecutionResultsMessage,
 	transactions []data.TransactionAnswerClassification,
+	votes []data.AnswerClassificationVote,
 ) error {
 	finalizedBlock, err := handler.blockFinalizer.GetFinalizedBlockInMROne(data.RoundKey{
 		Epoch: roundKey.Epoch, Round: roundKey.Round, MiniRound: roundKey.MiniRound - 1,
@@ -741,6 +744,8 @@ func (handler *miniRoundTwoHandler) finalizeClassifiedAnswers(
 		AggregatedExecutionResults: aggregatedResults,
 		AnswerEvidence:             evidence,
 		AnswerClassifications:      transactions,
+		ClassificationVotes:        votes,
+		LabelVotes:                 finalizedBlock.LabelVotes,
 	})
 }
 
