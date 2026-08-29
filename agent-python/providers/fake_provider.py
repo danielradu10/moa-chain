@@ -33,6 +33,7 @@ class FakeProvider:
         user_payload: dict,
         response_schema: type[T],
         timeout_seconds: float,
+        operation: str = "",
     ) -> T:
         if self._error is not None:
             raise self._error
@@ -46,6 +47,7 @@ class FakeProvider:
         user_message: str,
         timeout_seconds: float,
         json_format: bool = False,
+        operation: str = "",
     ) -> str:
         if self._error is not None:
             raise self._error

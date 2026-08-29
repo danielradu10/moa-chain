@@ -815,3 +815,47 @@ benchmark-judge-dataset-check:
 test-benchmark:
 	@cd agent-python && \
 	.venv/bin/python -m pytest benchmark/tests/ -v
+
+# ── Local multi-agent cluster (OpenAI) ────────────────────────────────────────
+#
+# Starts 10 agent-python processes on ports 8100-8109, each with an independent
+# OpenAI model from configs/cluster-local-openai.json. OPENAI_API_KEY must be
+# exported in the shell — it is never stored in any file.
+#
+# Workflow:
+#   export OPENAI_API_KEY=sk-...
+#   make start-local-agents
+#   make check-local-agents
+#   make test-distributed-mr1-local
+#   make stop-local-agents
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+LOCAL_CLUSTER_CONFIG ?= $(CURDIR)/configs/cluster-local-openai.json
+
+.PHONY: start-local-agents
+start-local-agents:
+	bash scripts/start-local-agents.sh
+
+.PHONY: stop-local-agents
+stop-local-agents:
+	bash scripts/stop-local-agents.sh
+
+.PHONY: check-local-agents
+check-local-agents:
+	bash scripts/check-local-agents.sh
+
+.PHONY: test-distributed-mr1-local
+test-distributed-mr1-local:
+	@mkdir -p testresults
+	@bash scripts/check-local-agents.sh 2>/dev/null || bash scripts/start-local-agents.sh
+	@set -o pipefail; \
+	MOA_CLUSTER_CONFIG=$(LOCAL_CLUSTER_CONFIG) \
+	MOA_TEST_RESULTS_DIR=$(CURDIR)/testresults \
+	go test -tags integration -timeout 30m -v \
+		-run TestDistributedMR1 \
+		./integrationtests/... \
+	2>&1 | tee testresults/distributed-mr1-local-$$(date +%Y%m%dT%H%M%S).log; \
+	exit_code=$$?; \
+	bash scripts/stop-local-agents.sh; \
+	exit $$exit_code

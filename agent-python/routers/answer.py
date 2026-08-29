@@ -37,6 +37,7 @@ async def answer(body: AnswerRequest, request: Request) -> AnswerResponse:
                 },
                 response_schema=AnswerResult,
                 timeout_seconds=state.config.llm_timeout_seconds,
+                operation="answer",
             )
             elapsed = time.perf_counter() - t0
             logger.info(

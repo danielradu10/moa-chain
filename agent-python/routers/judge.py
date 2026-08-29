@@ -59,6 +59,7 @@ async def judge(body: JudgeRequest, request: Request) -> JudgeResponse:
                 user_message=single_prompt,
                 timeout_seconds=state.config.llm_timeout_seconds,
                 json_format=True,
+                operation="judge",
             )
         elapsed = time.perf_counter() - t0
         logger.info(

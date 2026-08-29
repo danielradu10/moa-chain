@@ -36,6 +36,9 @@ __pycache__/
 .agent.pid
 .ollama.pid
 
+# Local multi-agent cluster logs and PID files
+logs/local-agents/
+
 # Generated integration-test validator logs
 integrationtests/logs/
 integrationtests/testData/**/results/*.jsonl

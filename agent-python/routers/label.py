@@ -45,6 +45,7 @@ async def label(body: LabelRequest, request: Request) -> LabelResponse:
                 },
                 response_schema=LabelResult,
                 timeout_seconds=state.config.llm_timeout_seconds,
+                operation="label",
             )
             logger.info("llm_label_done tx=%s elapsed_s=%.3f", tx.tx_hash[:8], time.perf_counter() - t0)
 

@@ -47,7 +47,7 @@ def test_answer_valid_single_transaction(answer_client) -> None:
 def test_answer_valid_multiple_transactions(answer_client) -> None:
     client, fake = answer_client
 
-    async def per_tx(system_prompt, user_payload, response_schema, timeout_seconds):
+    async def per_tx(system_prompt, user_payload, response_schema, timeout_seconds, operation=""):
         return _result(user_payload["tx_hash"], f"Answer for {user_payload['tx_hash']}")
 
     fake.structured_chat = per_tx
@@ -93,7 +93,7 @@ def test_answer_prompt_version_mismatch(answer_client) -> None:
 def test_answer_output_order_matches_input_order(answer_client) -> None:
     client, fake = answer_client
 
-    async def delayed_per_tx(system_prompt, user_payload, response_schema, timeout_seconds):
+    async def delayed_per_tx(system_prompt, user_payload, response_schema, timeout_seconds, operation=""):
         tx_hash = user_payload["tx_hash"]
         delays = {"0x000": 0.05, "0x001": 0.02, "0x002": 0.0}
         await asyncio.sleep(delays[tx_hash])

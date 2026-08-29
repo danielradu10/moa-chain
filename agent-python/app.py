@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from config import settings
 from errors import AgentServiceError, ErrorCode, ErrorResponse
 from prompts.loader import load_protocol_prompt
-from providers.ollama_provider import OllamaProvider
+from providers.factory import create_provider
 from routers import answer, health, judge, label
 
 
@@ -22,16 +22,9 @@ async def lifespan(app: FastAPI):
     app.state.config = settings
 
     # Single LLM provider instance shared across all requests.
-    # In production this points at the local Ollama server.
+    # Selected by LLM_PROVIDER env var; raises ValueError at startup for bad config.
     # Tests replace this with FakeProvider after startup.
-    app.state.provider = OllamaProvider(
-        base_url=settings.ollama_base_url,
-        model=settings.ollama_model,
-        temperature=settings.llm_temperature,
-        num_ctx=settings.llm_num_ctx,
-        num_predict=settings.llm_num_predict,
-        think=settings.llm_think,
-    )
+    app.state.provider = create_provider(settings)
     # One shared limit across every transaction-level judge request. Without a
     # global semaphore, three concurrent transactions can enqueue 30 CPU-bound
     # generations on a worker and leave Ollama busy after the Go client exits.
