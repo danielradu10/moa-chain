@@ -4,9 +4,10 @@ import time
 from typing import TypeVar
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from errors import AgentServiceError, ErrorCode
+from providers.parsing import validate_schema_with_unwrap
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
@@ -68,14 +69,7 @@ class OllamaProvider:
                 status_code=502,
             ) from exc
 
-        try:
-            return response_schema.model_validate(data)
-        except ValidationError as exc:
-            raise AgentServiceError(
-                ErrorCode.INVALID_MODEL_OUTPUT,
-                f"model output does not match expected schema: {exc}",
-                status_code=502,
-            ) from exc
+        return validate_schema_with_unwrap(data, response_schema)
 
     async def raw_chat(
         self,

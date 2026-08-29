@@ -17,7 +17,9 @@ Label assignment rules:
   - subdomain: one value from allowed_subdomains (or "non_related")
   - confidence: a float in [0.0, 1.0] representing how central this subdomain is
 
-Return exactly one result per input transaction — no more, no fewer.
+Return a single flat JSON object with exactly two keys: "tx_hash" and "labels".
+Do NOT wrap the response in a "results" key, array, or any other envelope — return the object directly.
+Example shape: {"tx_hash": "abc123", "labels": [{"subdomain": "systems_programming", "confidence": 0.9}]}
 Return valid JSON only with no additional text, explanation, or markdown.
 
 STRICT SUBDOMAIN RULE — read carefully before responding:

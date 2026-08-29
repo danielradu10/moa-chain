@@ -19,7 +19,7 @@ def test_health_response_has_required_fields(client: TestClient) -> None:
 def test_health_fields_match_config(client: TestClient) -> None:
     data = client.get("/health").json()
     assert data["provider"] == settings.llm_provider
-    assert data["model"] == settings.ollama_model
+    assert data["model"] == settings.model
     assert data["status"] == "ok"
     assert isinstance(data["reachable"], bool)  # value depends on Ollama availability
 
