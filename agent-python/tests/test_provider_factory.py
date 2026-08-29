@@ -13,6 +13,8 @@ def _settings(**overrides) -> Settings:
         ollama_model=overrides.pop("ollama_model", "test-model"),
         openai_api_key=overrides.pop("openai_api_key", ""),
         openai_model=overrides.pop("openai_model", "gpt-4o-mini"),
+        anthropic_api_key=overrides.pop("anthropic_api_key", ""),
+        anthropic_model=overrides.pop("anthropic_model", "claude-sonnet-4-6"),
         **overrides,
     )
 
@@ -46,6 +48,27 @@ def test_factory_openai_with_key_returns_provider():
 
     provider = create_provider(_settings(llm_provider="openai", openai_api_key="sk-test"))
     assert isinstance(provider, OpenAIProvider)
+
+
+# ── anthropic ─────────────────────────────────────────────────────────────────
+
+def test_factory_anthropic_missing_api_key_raises():
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+        create_provider(_settings(llm_provider="anthropic", anthropic_api_key=""))
+
+
+def test_factory_anthropic_with_key_returns_provider():
+    from providers.anthropic_provider import AnthropicProvider  # noqa: PLC0415
+
+    provider = create_provider(_settings(llm_provider="anthropic", anthropic_api_key="sk-ant-test"))
+    assert isinstance(provider, AnthropicProvider)
+
+
+def test_factory_anthropic_case_insensitive():
+    from providers.anthropic_provider import AnthropicProvider  # noqa: PLC0415
+
+    provider = create_provider(_settings(llm_provider="Anthropic", anthropic_api_key="sk-ant-test"))
+    assert isinstance(provider, AnthropicProvider)
 
 
 # ── unknown provider ──────────────────────────────────────────────────────────

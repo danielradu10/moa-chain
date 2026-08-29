@@ -39,7 +39,22 @@ def create_provider(settings: Settings) -> LLMProvider:
             timeout_seconds=settings.llm_timeout_seconds,
         )
 
+    if name == "anthropic":
+        if not settings.anthropic_api_key:
+            raise ValueError(
+                "LLM_PROVIDER=anthropic requires ANTHROPIC_API_KEY to be set"
+            )
+        from providers.anthropic_provider import AnthropicProvider  # noqa: PLC0415
+
+        return AnthropicProvider(
+            api_key=settings.anthropic_api_key,
+            model=settings.anthropic_model,
+            temperature=settings.llm_temperature,
+            max_tokens=settings.anthropic_max_tokens,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+
     raise ValueError(
         f"Unknown LLM_PROVIDER={settings.llm_provider!r}. "
-        "Supported values: 'ollama', 'openai'."
+        "Supported values: 'ollama', 'openai', 'anthropic'."
     )

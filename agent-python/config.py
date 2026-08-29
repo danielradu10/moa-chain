@@ -24,6 +24,18 @@ class Settings(BaseSettings):
     # Model to use when LLM_PROVIDER=openai.
     openai_model: str = "gpt-4o-mini"
 
+    # ── Anthropic settings ────────────────────────────────────────────────────
+    # Required when LLM_PROVIDER=anthropic.
+    anthropic_api_key: str = ""
+
+    # Model to use when LLM_PROVIDER=anthropic.
+    anthropic_model: str = "claude-sonnet-4-6"
+
+    # Maximum tokens Anthropic is allowed to generate per call.
+    # Anthropic requires this to be set explicitly; 4096 is a safe default
+    # that covers all five MoA operations without being wasteful.
+    anthropic_max_tokens: int = 4096
+
     # ── Shared LLM settings ──────────────────────────────────────────────────
     # Temperature controls the diversity of validator answers.
     # 0.0 = fully deterministic (all validators produce identical output — defeats MoA diversity).
@@ -50,6 +62,8 @@ class Settings(BaseSettings):
         """Active model name for the configured provider — used by health and logging."""
         if self.llm_provider == "openai":
             return self.openai_model
+        if self.llm_provider == "anthropic":
+            return self.anthropic_model
         return self.ollama_model
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
