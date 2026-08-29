@@ -19,13 +19,17 @@ type TxInterceptorArgs struct {
 	Broadcaster  broadcast.TxBroadcaster
 	SelfID       string
 	Logger       *slog.Logger
+	// OnTxSubmitted is an optional hook called when a transaction passes
+	// validation and deduplication. Wire TxTracker.OnSubmitted here.
+	OnTxSubmitted func(data.Transaction)
 }
 
 type txInterceptor struct {
-	inbox        chan data.Transaction
-	preprocessor TxPreprocessor
-	broadcaster  broadcast.TxBroadcaster
-	selfID       string
+	inbox         chan data.Transaction
+	preprocessor  TxPreprocessor
+	broadcaster   broadcast.TxBroadcaster
+	selfID        string
+	onTxSubmitted func(data.Transaction)
 
 	mu     sync.Mutex
 	seen   map[string]struct{}
@@ -37,13 +41,14 @@ type txInterceptor struct {
 // NewTxInterceptor creates a TxInterceptor. Call Start before transactions arrive.
 func NewTxInterceptor(args TxInterceptorArgs) TxInterceptor {
 	return &txInterceptor{
-		inbox:        args.Inbox,
-		preprocessor: args.Preprocessor,
-		broadcaster:  args.Broadcaster,
-		selfID:       args.SelfID,
-		seen:         make(map[string]struct{}),
-		stopCh:       make(chan struct{}),
-		logger:       logging.FromOptional(args.Logger),
+		inbox:         args.Inbox,
+		preprocessor:  args.Preprocessor,
+		broadcaster:   args.Broadcaster,
+		selfID:        args.SelfID,
+		onTxSubmitted: args.OnTxSubmitted,
+		seen:          make(map[string]struct{}),
+		stopCh:        make(chan struct{}),
+		logger:        logging.FromOptional(args.Logger),
 	}
 }
 
@@ -59,6 +64,9 @@ func (i *txInterceptor) Submit(tx data.Transaction) error {
 		return nil
 	}
 
+	if i.onTxSubmitted != nil {
+		i.onTxSubmitted(tx)
+	}
 	i.broadcaster.BroadcastTransaction(tx, i.selfID)
 	i.preprocessor.Enqueue(tx)
 	return nil
@@ -89,6 +97,9 @@ func (i *txInterceptor) run() {
 			}
 			if !i.markSeen(tx.GetTxHash()) {
 				continue
+			}
+			if i.onTxSubmitted != nil {
+				i.onTxSubmitted(tx)
 			}
 			i.preprocessor.Enqueue(tx)
 

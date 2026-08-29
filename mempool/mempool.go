@@ -180,7 +180,10 @@ func (mp *memPool) SelectTransactions(
 	accountsState state.AccountsState,
 ) []data.Transaction {
 	_, sendersMapSnapshot := mp.snapshot()
-	mp.logger.Info("mempool.SelectTransactions started", "numSenders", sendersMapSnapshot.numAddresses())
+	mp.logger.Info("mempool.SelectTransactions started", "numSenders", sendersMapSnapshot.numAddresses(),
+		"numTransactions", mp.transactionsCount,
+		"numTransactionsByHash", len(mp.transactionsByHash),
+	)
 
 	txHeap, err := newTransactionsHeap(sendersMapSnapshot.numAddresses(), isTransactionMoreValuable)
 	if err != nil {
@@ -224,7 +227,7 @@ func (mp *memPool) SelectTransactions(
 		}
 
 		if selSession.senderShouldBeSkipped(currentBestTransaction) {
-			mp.logger.Debug(
+			mp.logger.Info(
 				"mempool.SelectTransactions skipped sender",
 				"sender", string(currentBestTransaction.GetSender()),
 				"txHash", string(currentBestTransaction.GetTxHash()),
@@ -257,7 +260,7 @@ func (mp *memPool) SelectTransactions(
 				"accumulatedConsumption", accumulatedConsumption,
 			)
 		} else {
-			mp.logger.Debug(
+			mp.logger.Info(
 				"mempool.SelectTransactions skipped transaction",
 				"txHash", string(currentBestTransaction.GetTxHash()),
 				"sender", string(currentBestTransaction.GetSender()),
@@ -293,6 +296,19 @@ func (mp *memPool) NumAddresses() uint64 {
 	defer mp.mempoolMutex.RUnlock()
 
 	return mp.senders.numAddresses()
+}
+
+// GetPendingTransactions returns a snapshot of all transactions currently in
+// the pool. Order is not guaranteed.
+func (mp *memPool) GetPendingTransactions() []data.Transaction {
+	mp.mempoolMutex.RLock()
+	defer mp.mempoolMutex.RUnlock()
+
+	out := make([]data.Transaction, 0, len(mp.transactionsByHash))
+	for _, tx := range mp.transactionsByHash {
+		out = append(out, tx)
+	}
+	return out
 }
 
 // RemoveTransactions removes all transactions with the given hashes from the pool.

@@ -27,9 +27,18 @@ type BlockFinalizer interface {
 	ClearRound(roundKey data.RoundKey)
 }
 
+// BlockFinalizerHooks holds optional observer hooks called after each mini-round finalization.
+// Wire tracker.RoundTracker methods here at setup time. Nil fields are ignored.
+type BlockFinalizerHooks struct {
+	OnMR1Finalized func(data.RoundKey, *data.BlockOnChain)
+	OnMR2Finalized func(data.RoundKey, *data.BlockOnChain)
+	OnMR3Finalized func(data.RoundKey, *data.BlockOnChain)
+}
+
 // FinalizeBlockComponent stores finalized blocks per round key.
 type FinalizeBlockComponent struct {
 	mutex sync.RWMutex
+	hooks BlockFinalizerHooks
 
 	finalizedBlocksInMROne   map[data.RoundKey]*data.BlockOnChain
 	finalizedBlocksInMRTwo   map[data.RoundKey]*data.BlockOnChain
@@ -45,14 +54,50 @@ func NewFinalizeBlockComponent() *FinalizeBlockComponent {
 	}
 }
 
+// WithHooks sets optional observer hooks and returns the receiver for chaining.
+// Must be called once at wiring time before any mini-rounds begin.
+func (component *FinalizeBlockComponent) WithHooks(hooks BlockFinalizerHooks) *FinalizeBlockComponent {
+	component.hooks = hooks
+	return component
+}
+
 // FinalizeBlockMROne stores the block finalized in mini-round one for the provided round key.
 func (component *FinalizeBlockComponent) FinalizeBlockMROne(roundKey data.RoundKey, block *data.BlockOnChain) error {
-	return component.finalizeBlock(component.finalizedBlocksInMROne, roundKey, block)
+	if err := component.finalizeBlock(component.finalizedBlocksInMROne, roundKey, block); err != nil {
+		return err
+	}
+
+	if component.hooks.OnMR1Finalized != nil {
+		component.hooks.OnMR1Finalized(roundKey, block)
+	}
+
+	return nil
 }
 
 // FinalizeBlockMRTwo stores the block finalized in mini-round two for the provided round key.
 func (component *FinalizeBlockComponent) FinalizeBlockMRTwo(roundKey data.RoundKey, block *data.BlockOnChain) error {
-	return component.finalizeBlock(component.finalizedBlocksInMRTwo, roundKey, block)
+	if err := component.finalizeBlock(component.finalizedBlocksInMRTwo, roundKey, block); err != nil {
+		return err
+	}
+
+	if component.hooks.OnMR2Finalized != nil {
+		component.hooks.OnMR2Finalized(roundKey, block)
+	}
+
+	return nil
+}
+
+// FinalizeBlockMRThree stores the block finalized in mini-round three for the provided round key.
+func (component *FinalizeBlockComponent) FinalizeBlockMRThree(roundKey data.RoundKey, block *data.BlockOnChain) error {
+	if err := component.finalizeBlock(component.finalizedBlocksInMRThree, roundKey, block); err != nil {
+		return err
+	}
+
+	if component.hooks.OnMR3Finalized != nil {
+		component.hooks.OnMR3Finalized(roundKey, block)
+	}
+
+	return nil
 }
 
 // GetFinalizedBlockInMROne returns the block finalized in mini-round one for the provided round key.
@@ -63,11 +108,6 @@ func (component *FinalizeBlockComponent) GetFinalizedBlockInMROne(roundKey data.
 // GetFinalizedBlockInMRTwo returns the block finalized in mini-round two for the provided round key.
 func (component *FinalizeBlockComponent) GetFinalizedBlockInMRTwo(roundKey data.RoundKey) (*data.BlockOnChain, error) {
 	return component.getFinalizedBlock(component.finalizedBlocksInMRTwo, roundKey)
-}
-
-// FinalizeBlockMRThree stores the block finalized in mini-round three for the provided round key.
-func (component *FinalizeBlockComponent) FinalizeBlockMRThree(roundKey data.RoundKey, block *data.BlockOnChain) error {
-	return component.finalizeBlock(component.finalizedBlocksInMRThree, roundKey, block)
 }
 
 // GetFinalizedBlockInMRThree returns the block finalized in mini-round three for the provided round key.

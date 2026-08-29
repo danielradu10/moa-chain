@@ -1,8 +1,6 @@
 package integrationtests
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +30,7 @@ import (
 	"moa-chain/mempool"
 	"moa-chain/state"
 	"moa-chain/testscommon"
+	"moa-chain/tracker"
 	"moa-chain/txpipeline"
 	"moa-chain/validators"
 )
@@ -47,6 +46,9 @@ type integrationTestNode struct {
 	blockchainState state.BlockchainState
 	logger          *logging.NodeLogger
 	txInterceptor   txpipeline.TxInterceptor
+	store           txpipeline.PrecomputedStore
+	mempool         mempool.Mempool
+	txTracker       *tracker.TxTracker
 }
 
 func createValidators(pubKeys [][]byte) []*validators.Validator {
@@ -157,7 +159,7 @@ func createNodeWithCommitteeStrategyAndClassificationGrace(
 		t, validatorID, privateKey, registeredValidators, myInbox,
 		transactions, batchAgent, broadcast.NewBroadcaster(peersRegistry),
 		stopAfterMiniRoundOne, stopAfterMiniRoundTwo, voteCollectionDeadline, strategy, classificationGracePeriod,
-		nil,
+		nil, nil,
 	)
 }
 
@@ -178,6 +180,7 @@ func createNodeWithBroadcaster(
 	strategy validators.CommitteeStrategy,
 	classificationGracePeriod time.Duration,
 	txPeerRegistry broadcast.TxPeerRegistry, // nil = per-node isolated registry
+	onStepChanged func(data.RoundKey, data.Step), // nil = no step callback
 ) *integrationTestNode {
 	t.Helper()
 
@@ -192,11 +195,14 @@ func createNodeWithBroadcaster(
 	logger := nodeLogger.Logger()
 	txPool := mempool.NewMemPool(logger)
 	store := txpipeline.NewPrecomputedStore()
+	txTracker := tracker.NewTxTracker()
 	txPreprocessor := txpipeline.NewTxPreprocessor(txpipeline.TxPreprocessorArgs{
-		Agent:   integrationProtocolAgent{delegate: batchAgent},
-		Store:   store,
-		Mempool: txPool,
-		Logger:  logger,
+		Agent:             integrationProtocolAgent{delegate: batchAgent},
+		Store:             store,
+		Mempool:           txPool,
+		Logger:            logger,
+		OnTxPreprocessing: txTracker.OnPreprocessing,
+		OnTxPending:       txTracker.OnPending,
 	})
 	txInbox := make(chan data.Transaction, 128)
 	txReg := txPeerRegistry
@@ -207,11 +213,12 @@ func createNodeWithBroadcaster(
 		require.NoError(t, err)
 	}
 	txInterceptor := txpipeline.NewTxInterceptor(txpipeline.TxInterceptorArgs{
-		Inbox:        txInbox,
-		Preprocessor: txPreprocessor,
-		Broadcaster:  broadcast.NewTxBroadcaster(txReg),
-		SelfID:       validatorID,
-		Logger:       logger,
+		Inbox:         txInbox,
+		Preprocessor:  txPreprocessor,
+		Broadcaster:   broadcast.NewTxBroadcaster(txReg),
+		SelfID:        validatorID,
+		Logger:        logger,
+		OnTxSubmitted: txTracker.OnSubmitted,
 	})
 
 	txPreprocessor.Start()
@@ -265,6 +272,7 @@ func createNodeWithBroadcaster(
 		voteCollectionDeadline,
 		classificationGracePeriod,
 		logger,
+		onStepChanged,
 	)
 
 	require.NotNil(t, loop)
@@ -278,6 +286,9 @@ func createNodeWithBroadcaster(
 		blockchainState: blockchainState,
 		logger:          nodeLogger,
 		txInterceptor:   txInterceptor,
+		store:           store,
+		mempool:         txPool,
+		txTracker:       txTracker,
 	}
 }
 
@@ -310,6 +321,7 @@ func createRoundLoop(
 	voteCollectionDeadline time.Duration,
 	classificationGracePeriod time.Duration,
 	logger *slog.Logger,
+	onStepChanged func(data.RoundKey, data.Step),
 ) *consensus.RoundLoop {
 	protocolAgent := integrationProtocolAgent{delegate: batchAgent}
 	base := createBlockBase(txPool, blockchainState, store, logger)
@@ -379,6 +391,7 @@ func createRoundLoop(
 		Logger:                 logger,
 		Inbox:                  inbox,
 		VoteCollectionDeadline: voteCollectionDeadline,
+		OnStepChanged:          onStepChanged,
 	}
 
 	roundHandler := consensus.NewRoundHandler(roundHandlerArgs)
@@ -542,16 +555,7 @@ func computeTestTxHash(
 	tip uint64,
 	timestamp uint64,
 ) []byte {
-	hasher := sha256.New()
-
-	hasher.Write([]byte("integration-test-transaction-v1"))
-	writeTestString(hasher, sender)
-	writeTestUint64(hasher, nonce)
-	writeTestString(hasher, prompt)
-	writeTestUint64(hasher, tip)
-	writeTestUint64(hasher, timestamp)
-
-	return hasher.Sum(nil)
+	return txpipeline.ComputeTxHash(sender, nonce, prompt, tip, timestamp)
 }
 
 func copyBytes(input []byte) []byte {
@@ -574,23 +578,6 @@ func copyStringSlice(input []string) []string {
 	copy(output, input)
 
 	return output
-}
-
-func writeTestUint64(
-	hasher interface{ Write([]byte) (int, error) },
-	value uint64,
-) {
-	var buffer [8]byte
-	binary.BigEndian.PutUint64(buffer[:], value)
-	_, _ = hasher.Write(buffer[:])
-}
-
-func writeTestString(
-	hasher interface{ Write([]byte) (int, error) },
-	value string,
-) {
-	writeTestUint64(hasher, uint64(len(value)))
-	_, _ = hasher.Write([]byte(value))
 }
 
 var possibleSubDomains = map[string]struct{}{

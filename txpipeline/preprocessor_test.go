@@ -34,6 +34,7 @@ func (m *mempoolStub) AddTransaction(tx data.Transaction) error {
 
 func (m *mempoolStub) SelectTransactions(_ state.AccountsState) []data.Transaction { return nil }
 func (m *mempoolStub) RemoveTransactions(_ [][]byte)                               {}
+func (m *mempoolStub) GetPendingTransactions() []data.Transaction                  { return m.added() }
 
 func (m *mempoolStub) added() []data.Transaction {
 	m.mu.Lock()

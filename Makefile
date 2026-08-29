@@ -16,6 +16,19 @@ lint: lint-install run-lint
 test:
 	go test ./...
 
+# ── Local chain simulator ──────────────────────────────────────────────────────
+
+LOCALCHAIN_NODES       ?= 10
+LOCALCHAIN_START_ROUND ?= 2
+LOCALCHAIN_ADDR        ?= :8080
+
+.PHONY: localchain
+localchain:
+	go run ./cmd/localchain \
+		--nodes $(LOCALCHAIN_NODES) \
+		--start-round $(LOCALCHAIN_START_ROUND) \
+		--addr $(LOCALCHAIN_ADDR)
+
 # ── Real-agent integration tests ──────────────────────────────────────────────
 #
 # Each target starts the Python agent service, waits for it to be healthy,

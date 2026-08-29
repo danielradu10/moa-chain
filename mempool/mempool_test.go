@@ -518,6 +518,51 @@ func TestMemPool_RemoveTransactions(t *testing.T) {
 	})
 }
 
+func TestMemPool_GetPendingTransactions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns empty slice when pool is empty", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		require.Empty(t, mp.GetPendingTransactions())
+	})
+
+	t.Run("returns all added transactions", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		addTxDirect(mp, createTx(0, 10, []byte("txHash1")))
+		addTxDirect(mp, createTx(0, 10, []byte("txHash2")))
+		addTxDirect(mp, createTx(0, 10, []byte("txHash3")))
+
+		pending := mp.GetPendingTransactions()
+		require.Len(t, pending, 3)
+
+		hashes := make(map[string]struct{}, 3)
+		for _, tx := range pending {
+			hashes[string(tx.GetTxHash())] = struct{}{}
+		}
+		require.Contains(t, hashes, "txHash1")
+		require.Contains(t, hashes, "txHash2")
+		require.Contains(t, hashes, "txHash3")
+	})
+
+	t.Run("does not include removed transactions", func(t *testing.T) {
+		t.Parallel()
+
+		mp := newTestMemPool()
+		addTxDirect(mp, createTx(0, 10, []byte("txHash1")))
+		addTxDirect(mp, createTx(0, 10, []byte("txHash2")))
+
+		mp.RemoveTransactions([][]byte{[]byte("txHash1")})
+
+		pending := mp.GetPendingTransactions()
+		require.Len(t, pending, 1)
+		require.Equal(t, []byte("txHash2"), pending[0].GetTxHash())
+	})
+}
+
 func TestMemPool_calculateNumTokensFromPrompt(t *testing.T) {
 	t.Parallel()
 

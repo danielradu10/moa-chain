@@ -246,7 +246,7 @@ func createMiniRoundTwoScenarioNodes(
 			0,
 			validators.CommitteeStrategyHalf,
 			0,
-			nil,
+			nil, nil,
 		)
 		nodes = append(nodes, node)
 	}

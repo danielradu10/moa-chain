@@ -683,10 +683,10 @@ func TestMiniRoundThreeHandler_HandleProposedSynthesis(t *testing.T) {
 		proposal := signedProposal(t, leaderSigner, block, key, testSynthesizedAnswers())
 
 		handler := newHandler(mr3HandlerArgs{
-			myID:        "v1",
-			signer:      v1Signer,
-			roundState:  state.NewRoundState(),
-			broadcaster: broadcaster,
+			myID:           "v1",
+			signer:         v1Signer,
+			roundState:     state.NewRoundState(),
+			broadcaster:    broadcaster,
 			blockFinalizer: f,
 			synthesisAgent: &testscommon.LabelerStub{
 				EvaluateSynthesisBatchCalled: func(requests []agent.EvaluateSynthesisRequest) ([]agent.EvaluateSynthesisResult, error) {
@@ -783,7 +783,7 @@ func TestMiniRoundThreeHandler_HandleSynthesisVote(t *testing.T) {
 		t.Parallel()
 
 		handler := newHandler(mr3HandlerArgs{
-			myID: "v1",
+			myID:              "v1",
 			validatorRegistry: &testscommon.ValidatorRegistryStub{LeaderID: "leader"},
 		})
 
@@ -800,8 +800,8 @@ func TestMiniRoundThreeHandler_HandleSynthesisVote(t *testing.T) {
 		require.NoError(t, roundState.SetSynthesisCertificate(key, &data.AggregatedSynthesisVotes{}))
 
 		handler := newHandler(mr3HandlerArgs{
-			myID:       "leader",
-			roundState: roundState,
+			myID:              "leader",
+			roundState:        roundState,
 			validatorRegistry: &testscommon.ValidatorRegistryStub{LeaderID: "leader"},
 		})
 
@@ -814,8 +814,8 @@ func TestMiniRoundThreeHandler_HandleSynthesisVote(t *testing.T) {
 		t.Parallel()
 
 		handler := newHandler(mr3HandlerArgs{
-			myID:       "leader",
-			roundState: state.NewRoundState(),
+			myID:              "leader",
+			roundState:        state.NewRoundState(),
 			validatorRegistry: &testscommon.ValidatorRegistryStub{LeaderID: "leader"},
 		})
 
@@ -1075,7 +1075,7 @@ func TestMiniRoundThreeHandler_HandleAggregatedSynthesisVotes(t *testing.T) {
 		require.NoError(t, roundState.SetSynthesisCertificate(key, &data.AggregatedSynthesisVotes{}))
 
 		handler := newHandler(mr3HandlerArgs{
-			roundState: roundState,
+			roundState:        roundState,
 			validatorRegistry: &testscommon.ValidatorRegistryStub{LeaderID: "leader"},
 		})
 		msg := &data.AggregatedSynthesisVotes{
@@ -1093,7 +1093,7 @@ func TestMiniRoundThreeHandler_HandleAggregatedSynthesisVotes(t *testing.T) {
 
 		key := mr3RoundKey()
 		handler := newHandler(mr3HandlerArgs{
-			roundState: state.NewRoundState(),
+			roundState:        state.NewRoundState(),
 			validatorRegistry: &testscommon.ValidatorRegistryStub{LeaderID: "leader"},
 		})
 		msg := &data.AggregatedSynthesisVotes{
@@ -1372,7 +1372,7 @@ func TestMiniRoundThreeHandler_finalizeBlockMRThree(t *testing.T) {
 			blockFinalizer: f,
 		})
 
-		err := handler.finalizeBlockMRThree(key, proposal)
+		err := handler.finalizeBlockMRThree(key, proposal, nil)
 
 		require.NoError(t, err)
 
