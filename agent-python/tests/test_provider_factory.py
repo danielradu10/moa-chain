@@ -15,6 +15,9 @@ def _settings(**overrides) -> Settings:
         openai_model=overrides.pop("openai_model", "gpt-4o-mini"),
         anthropic_api_key=overrides.pop("anthropic_api_key", ""),
         anthropic_model=overrides.pop("anthropic_model", "claude-sonnet-4-6"),
+        anthropic_effort=overrides.pop("anthropic_effort", "medium"),
+        gemini_api_key=overrides.pop("gemini_api_key", ""),
+        gemini_model=overrides.pop("gemini_model", "gemini-2.0-flash"),
         **overrides,
     )
 
@@ -71,11 +74,32 @@ def test_factory_anthropic_case_insensitive():
     assert isinstance(provider, AnthropicProvider)
 
 
+# ── gemini ────────────────────────────────────────────────────────────────────
+
+def test_factory_gemini_missing_api_key_raises():
+    with pytest.raises(ValueError, match="GEMINI_API_KEY"):
+        create_provider(_settings(llm_provider="gemini", gemini_api_key=""))
+
+
+def test_factory_gemini_with_key_returns_provider():
+    from providers.gemini_provider import GeminiProvider  # noqa: PLC0415
+
+    provider = create_provider(_settings(llm_provider="gemini", gemini_api_key="ai-test"))
+    assert isinstance(provider, GeminiProvider)
+
+
+def test_factory_gemini_case_insensitive():
+    from providers.gemini_provider import GeminiProvider  # noqa: PLC0415
+
+    provider = create_provider(_settings(llm_provider="Gemini", gemini_api_key="ai-test"))
+    assert isinstance(provider, GeminiProvider)
+
+
 # ── unknown provider ──────────────────────────────────────────────────────────
 
 def test_factory_unknown_provider_raises():
     with pytest.raises(ValueError, match="Unknown LLM_PROVIDER"):
-        create_provider(_settings(llm_provider="gemini"))
+        create_provider(_settings(llm_provider="bedrock"))
 
 
 def test_factory_empty_provider_raises():

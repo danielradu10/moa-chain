@@ -50,6 +50,7 @@ testresults/*.log
 testresults/agent-logs/
 experiment-results/
 benchmark_results/
+agent-python/testresults/agent-qualification/*.json
 
 # Cluster infrastructure — contains internal IPs in machine table
 DISTRIBUTED_TESTING.md

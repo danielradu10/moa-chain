@@ -13,6 +13,10 @@ class _Schema(BaseModel):
     result: str
 
 
+class _NestedSchema(BaseModel):
+    item: _Schema
+
+
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _mock_message(
@@ -44,6 +48,7 @@ def _make_provider(response=None, error=None) -> tuple[AnthropicProvider, MagicM
     provider = AnthropicProvider(
         api_key="sk-ant-test",
         model="claude-sonnet-4-6",
+        effort="medium",
         client=mock_client,
     )
     return provider, mock_client
@@ -55,6 +60,35 @@ async def test_structured_chat_success():
     provider, _ = _make_provider(_mock_message('{"result": "ok"}'))
     result = await provider.structured_chat("sys", {"key": "val"}, _Schema, timeout_seconds=5.0)
     assert result.result == "ok"
+
+
+async def test_structured_chat_uses_anthropic_json_schema_output_format():
+    provider, mock_client = _make_provider(_mock_message('{"result": "ok"}'))
+    await provider.structured_chat("sys", {}, _Schema, timeout_seconds=5.0)
+
+    _, kwargs = mock_client.messages.create.call_args
+    assert kwargs["output_config"]["effort"] == "medium"
+    output_format = kwargs["output_config"]["format"]
+    assert output_format["type"] == "json_schema"
+    assert output_format["schema"]["additionalProperties"] is False
+
+
+async def test_structured_chat_accepts_markdown_fenced_json():
+    provider, _ = _make_provider(_mock_message('```json\n{"result": "ok"}\n```'))
+    result = await provider.structured_chat("sys", {}, _Schema, timeout_seconds=5.0)
+    assert result.result == "ok"
+
+
+async def test_structured_chat_makes_nested_object_schemas_strict():
+    provider, mock_client = _make_provider(
+        _mock_message('{"item": {"result": "ok"}}')
+    )
+    await provider.structured_chat("sys", {}, _NestedSchema, timeout_seconds=5.0)
+
+    _, kwargs = mock_client.messages.create.call_args
+    schema = kwargs["output_config"]["format"]["schema"]
+    assert schema["additionalProperties"] is False
+    assert schema["$defs"]["_Schema"]["additionalProperties"] is False
 
 
 async def test_structured_chat_sends_system_as_top_level_param():
@@ -119,6 +153,31 @@ async def test_raw_chat_json_format_flag_accepted_but_no_api_param():
     await provider.raw_chat("sys", "user", timeout_seconds=5.0, json_format=True)
     _, kwargs = mock_client.messages.create.call_args
     assert "response_format" not in kwargs
+
+
+async def test_raw_chat_json_format_removes_markdown_fence():
+    provider, _ = _make_provider(_mock_message('```json\n{"key": "value"}\n```'))
+    result = await provider.raw_chat(
+        "sys", "user", timeout_seconds=5.0, json_format=True
+    )
+    assert json.loads(result) == {"key": "value"}
+
+
+async def test_raw_chat_json_format_extracts_json_after_introductory_prose():
+    provider, _ = _make_provider(
+        _mock_message('Here is the requested classification:\n{"category": "WRONG"}')
+    )
+    result = await provider.raw_chat(
+        "sys", "user", timeout_seconds=5.0, json_format=True
+    )
+    assert json.loads(result) == {"category": "WRONG"}
+
+
+async def test_raw_chat_without_json_format_preserves_markdown_fence():
+    fenced = '```json\n{"key": "value"}\n```'
+    provider, _ = _make_provider(_mock_message(fenced))
+    result = await provider.raw_chat("sys", "user", timeout_seconds=5.0)
+    assert result == fenced
 
 
 async def test_raw_chat_sends_correct_message_structure():
@@ -208,7 +267,7 @@ async def test_provider_name_in_log(caplog):
 async def test_ping_returns_true_when_reachable():
     mock_client = MagicMock(spec=anthropic.AsyncAnthropic)
     mock_client.messages.create = AsyncMock(return_value=_mock_message("pong"))
-    provider = AnthropicProvider(api_key="sk-ant-test", model="claude-sonnet-4-6", client=mock_client)
+    provider = AnthropicProvider(api_key="sk-ant-test", model="claude-sonnet-4-6", effort="medium", client=mock_client)
     assert await provider.ping() is True
 
 
@@ -225,7 +284,7 @@ async def test_ping_returns_false_on_auth_error():
             body=None,
         )
     )
-    provider = AnthropicProvider(api_key="sk-ant-bad", model="claude-sonnet-4-6", client=mock_client)
+    provider = AnthropicProvider(api_key="sk-ant-bad", model="claude-sonnet-4-6", effort="medium", client=mock_client)
     assert await provider.ping() is False
 
 
@@ -234,5 +293,5 @@ async def test_ping_returns_false_on_connection_error():
     mock_client.messages.create = AsyncMock(
         side_effect=anthropic.APIConnectionError(message="refused", request=MagicMock())
     )
-    provider = AnthropicProvider(api_key="sk-ant-test", model="claude-sonnet-4-6", client=mock_client)
+    provider = AnthropicProvider(api_key="sk-ant-test", model="claude-sonnet-4-6", effort="medium", client=mock_client)
     assert await provider.ping() is False

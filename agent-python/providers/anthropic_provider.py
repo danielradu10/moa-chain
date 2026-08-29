@@ -23,8 +23,10 @@ class AnthropicProvider:
     Key differences from OpenAI handled transparently here:
       - system prompt is a top-level parameter, not a message;
       - max_tokens is required by the API;
-      - no native json_object mode — JSON output is enforced via prompt engineering,
-        which the existing MoA prompts already do;
+      - SDK v1.2+ removed the temperature parameter; output quality/diversity is
+        controlled via output_config.effort ("low"/"medium"/"high"/"xhigh"/"max");
+      - structured operations use Anthropic's native JSON-schema output format;
+        raw judge output is normalized because its schema is owned by Go;
       - token counts come from response.usage.{input_tokens, output_tokens}.
     """
 
@@ -32,13 +34,13 @@ class AnthropicProvider:
         self,
         api_key: str,
         model: str,
-        temperature: float = 0.5,
+        effort: str = "medium",
         max_tokens: int = 4096,
         timeout_seconds: float = 60.0,
         client: anthropic.AsyncAnthropic | None = None,
     ) -> None:
         self.model = model
-        self.temperature = temperature
+        self.effort = effort
         self.max_tokens = max_tokens
         self.timeout_seconds = timeout_seconds
 
@@ -57,8 +59,7 @@ class AnthropicProvider:
     ) -> T:
         """Call Anthropic and validate the response against response_schema.
 
-        JSON output is enforced via the existing MoA prompts which already
-        instruct the model to return only valid JSON. The shared
+        Anthropic's JSON-schema output format guarantees valid JSON. The shared
         validate_schema_with_unwrap() handles any results-wrapper normalization.
         """
         content = await self._chat(
@@ -66,10 +67,11 @@ class AnthropicProvider:
             user_message=json.dumps(user_payload),
             timeout_seconds=timeout_seconds,
             operation=operation,
+            output_schema=_anthropic_json_schema(response_schema),
         )
 
         try:
-            data = json.loads(content)
+            data = json.loads(_normalize_json_response(content))
         except json.JSONDecodeError as exc:
             raise AgentServiceError(
                 ErrorCode.INVALID_MODEL_OUTPUT,
@@ -93,12 +95,13 @@ class AnthropicProvider:
         the API call — Anthropic does not expose a json_object mode. The judge
         prompt already constrains the model to return JSON.
         """
-        return await self._chat(
+        content = await self._chat(
             system_prompt=system_prompt,
             user_message=user_message,
             timeout_seconds=timeout_seconds,
             operation=operation,
         )
+        return _normalize_json_response(content) if json_format else content
 
     async def ping(self) -> bool:
         """Check API reachability and model usability with a minimal call."""
@@ -118,26 +121,34 @@ class AnthropicProvider:
         user_message: str,
         timeout_seconds: float,
         operation: str = "",
+        output_schema: dict | None = None,
     ) -> str:
         logger.info(
-            "anthropic_chat_start model=%s operation=%s temperature=%.2f max_tokens=%d timeout_s=%.1f",
+            "anthropic_chat_start model=%s operation=%s effort=%s max_tokens=%d timeout_s=%.1f",
             self.model,
             operation or "-",
-            self.temperature,
+            self.effort,
             self.max_tokens,
             timeout_seconds,
         )
         t0 = time.perf_counter()
 
         try:
-            response = await self._client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}],
-                timeout=timeout_seconds,
-            )
+            call_kwargs: dict = {
+                "model": self.model,
+                "max_tokens": self.max_tokens,
+                "system": system_prompt,
+                "messages": [{"role": "user", "content": user_message}],
+                "timeout": timeout_seconds,
+            }
+            if self.effort:
+                call_kwargs["output_config"] = {"effort": self.effort}
+            if output_schema is not None:
+                call_kwargs.setdefault("output_config", {})["format"] = {
+                    "type": "json_schema",
+                    "schema": output_schema,
+                }
+            response = await self._client.messages.create(**call_kwargs)
 
         except anthropic.APITimeoutError as exc:
             elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -214,3 +225,45 @@ class AnthropicProvider:
         )
 
         return content
+
+
+def _normalize_json_response(content: str) -> str:
+    """Return the first complete JSON value from a JSON-mode Claude response.
+
+    Raw judge responses cannot use an API-level schema because that schema is
+    owned by Go. Claude 4.5 commonly follows the requested JSON shape but wraps
+    it in `````json`` fences, which makes the downstream strict parser reject
+    it. Claude may also prefix the fence/value with a short introduction. The
+    decoded value is serialized again so downstream consumers always receive
+    strict JSON. If no value can be decoded, the original text is returned and
+    downstream validation still fails visibly.
+    """
+    stripped = content.strip()
+    decoder = json.JSONDecoder()
+    for index, character in enumerate(stripped):
+        if character not in "[{":
+            continue
+        try:
+            value, _ = decoder.raw_decode(stripped[index:])
+        except json.JSONDecodeError:
+            continue
+        return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+    return stripped
+
+
+def _anthropic_json_schema(schema: type[BaseModel]) -> dict:
+    """Build the strict object schema required by Anthropic structured output."""
+    result = schema.model_json_schema()
+
+    def make_objects_strict(node: object) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "object":
+                node["additionalProperties"] = False
+            for value in node.values():
+                make_objects_strict(value)
+        elif isinstance(node, list):
+            for value in node:
+                make_objects_strict(value)
+
+    make_objects_strict(result)
+    return result

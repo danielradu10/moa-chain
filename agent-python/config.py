@@ -36,6 +36,19 @@ class Settings(BaseSettings):
     # that covers all five MoA operations without being wasteful.
     anthropic_max_tokens: int = 4096
 
+    # Output effort level for Anthropic SDK v1.2+ (optional, model-dependent).
+    # When set, passed as output_config.effort. Leave empty for models that
+    # do not support it (e.g. claude-haiku-4-5).
+    # Valid values: "low", "medium", "high", "xhigh", "max".
+    anthropic_effort: str = ""
+
+    # ── Google Gemini settings ────────────────────────────────────────────────
+    # Required when LLM_PROVIDER=gemini.
+    gemini_api_key: str = ""
+
+    # Model to use when LLM_PROVIDER=gemini.
+    gemini_model: str = "gemini-2.0-flash"
+
     # ── Shared LLM settings ──────────────────────────────────────────────────
     # Temperature controls the diversity of validator answers.
     # 0.0 = fully deterministic (all validators produce identical output — defeats MoA diversity).
@@ -64,6 +77,8 @@ class Settings(BaseSettings):
             return self.openai_model
         if self.llm_provider == "anthropic":
             return self.anthropic_model
+        if self.llm_provider == "gemini":
+            return self.gemini_model
         return self.ollama_model
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
