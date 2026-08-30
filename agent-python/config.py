@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Which LLM backend to use: "ollama" or "openai".
     llm_provider: str = "ollama"
+    mock_model: str = "mocked-agent"
 
     # ── Ollama settings ──────────────────────────────────────────────────────
     # Ollama server address. Each validator node runs its own local instance.
@@ -78,10 +79,32 @@ class Settings(BaseSettings):
     answer_max_concurrency: int = 4
     judge_max_concurrency: int = 4
 
+    # ── Experiment recording ──────────────────────────────────────────────────
+    # Set EXPERIMENT_DIR to the run directory to enable per-call JSONL recording.
+    # Leave empty to disable (default for normal operation and qualification tests).
+    experiment_dir: str = ""
+    # Stable identity of this validator process — recorded in every call record.
+    validator_id: str = ""
+    validator_name: str = ""
+    # Public experiment identity. It can differ from llm_provider/model when a
+    # deterministic mock owns preprocessing and a separately declared real
+    # provider is used only for judging/MR3.
+    agent_provider: str = ""
+    agent_model: str = ""
+    # The HTTP endpoint this agent is serving on — recorded in manifests.
+    agent_endpoint: str = ""
+
+    # Optional deterministic preprocessing override. These values bypass the
+    # provider only for /label and /answer; judging and MR3 remain real.
+    mock_preprocessing_label: str = ""
+    mock_preprocessing_answer: str = ""
+
     @property
     def model(self) -> str:
         """Active model name for the configured provider — used by health and logging."""
         provider = self.llm_provider.strip().lower()
+        if provider == "mock":
+            return self.mock_model
         if provider == "openai":
             return self.openai_model
         if provider == "anthropic":
@@ -91,6 +114,14 @@ class Settings(BaseSettings):
         if provider == "deepseek":
             return self.deepseek_model
         return self.ollama_model
+
+    @property
+    def reported_provider(self) -> str:
+        return self.agent_provider or self.llm_provider
+
+    @property
+    def reported_model(self) -> str:
+        return self.agent_model or self.model
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

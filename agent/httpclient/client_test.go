@@ -51,13 +51,13 @@ func TestClient_LabelBatch(t *testing.T) {
 				"prompt_hash":    "hash_abc",
 				"results": []map[string]any{
 					{
-						"tx_hash": "txHash1",
+						"tx_hash": "74784861736831", // hex of []byte("txHash1")
 						"labels": []map[string]any{
 							{"subdomain": "databases", "confidence": 0.95},
 						},
 					},
 					{
-						"tx_hash": "txHash2",
+						"tx_hash": "74784861736832", // hex of []byte("txHash2")
 						"labels": []map[string]any{
 							{"subdomain": "security", "confidence": 0.8},
 							{"subdomain": "back_end_with_apis", "confidence": 0.6},
@@ -224,8 +224,8 @@ func TestClient_AnswerBatch(t *testing.T) {
 				"prompt_version": "answerer_v1",
 				"prompt_hash":    "hash_def",
 				"results": []map[string]any{
-					{"tx_hash": "txHash1", "answer": "Use PostgreSQL with indexes."},
-					{"tx_hash": "txHash2", "answer": "Implement JWT validation."},
+					{"tx_hash": "74784861736831", "answer": "Use PostgreSQL with indexes."},   // hex of []byte("txHash1")
+					{"tx_hash": "74784861736832", "answer": "Implement JWT validation."},      // hex of []byte("txHash2")
 				},
 			})
 		}))

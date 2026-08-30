@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from errors import AgentServiceError, ErrorCode
+from experiment.recorder import CallRecorder
 from providers.fake_provider import FakeProvider
 
 
@@ -42,6 +43,56 @@ def test_judge_single_candidate_returns_classification(judge_client) -> None:
     assert resp.status_code == 200
     data = json.loads(resp.json()["response"])
     assert data["classifications"] == [{"candidateId": "candidate-1", "category": "CORRECT"}]
+
+
+def test_byzantine_mock_approves_self_and_rejects_others_without_provider(
+    judge_client, tmp_path
+) -> None:
+    client, fake = judge_client
+    fake.set_error(AssertionError("provider must not be called"))
+    wrong_answer = "configured Byzantine answer"
+    cfg = client.app.state.config
+    old_provider = cfg.llm_provider
+    old_recorder = client.app.state.recorder
+    cfg.llm_provider = "mock"
+    cfg.mock_preprocessing_answer = wrong_answer
+    client.app.state.recorder = CallRecorder(
+        validator_id="validator-7", validator_name="mocked-agent",
+        provider="mock", model="mocked-agent",
+        agent_endpoint="http://127.0.0.1:8106",
+        experiment_dir=str(tmp_path),
+    )
+    try:
+        prompt = json.dumps({
+            "transactionHash": "abc123",
+            "prompt": "Why is a mutex needed?",
+            "candidates": [
+                {"candidateId": "candidate-1", "answer": "honest answer one"},
+                {"candidateId": "candidate-2", "answer": wrong_answer},
+                {"candidateId": "candidate-3", "answer": "honest answer two"},
+            ],
+        })
+        resp = client.post("/judge", json={
+            "system_prompt": "protocol prompt",
+            "user_prompt": prompt,
+        })
+        assert resp.status_code == 200
+        assert json.loads(resp.json()["response"])["classifications"] == [
+            {"candidateId": "candidate-1", "category": "WRONG"},
+            {"candidateId": "candidate-2", "category": "CORRECT"},
+            {"candidateId": "candidate-3", "category": "WRONG"},
+        ]
+        records = [json.loads(line) for line in (
+            tmp_path / "agents" / "mocked-agent.jsonl"
+        ).read_text().splitlines()]
+        assert len(records) == 3
+        assert all(record["mocked"] is True for record in records)
+        assert all(record["provider_called"] is False for record in records)
+        assert all(record["total_tokens"] == 0 for record in records)
+    finally:
+        cfg.llm_provider = old_provider
+        cfg.mock_preprocessing_answer = ""
+        client.app.state.recorder = old_recorder
 
 
 def test_judge_two_candidates_merges_per_candidate_responses(judge_client) -> None:

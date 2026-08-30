@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"moa-chain/agent"
 	"moa-chain/agent/mock"
-	"moa-chain/logging"
 	"moa-chain/blockprocessing"
 	"moa-chain/blockprocessing/blockFinalizer"
 	"moa-chain/blockprocessing/proposing"
@@ -24,6 +24,7 @@ import (
 	"moa-chain/crypto/signing"
 	"moa-chain/data"
 	"moa-chain/explorer"
+	"moa-chain/logging"
 	"moa-chain/mempool"
 	"moa-chain/state"
 	"moa-chain/testscommon"
@@ -44,11 +45,31 @@ type Config struct {
 	// every mini-round takes at least this long regardless of whether there are
 	// transactions. 0 means advance immediately (suitable for tests).
 	MiniRoundDuration time.Duration
+	// VoteCollectionDeadline lets an MR1 leader finalize with Q+ votes when a
+	// full-committee member is missing. Zero retains the legacy all-G wait.
+	VoteCollectionDeadline time.Duration
+	// ClassificationGracePeriod keeps collecting valid MR2 classification
+	// votes after Q is reached. Zero preserves immediate first-Q certification.
+	ClassificationGracePeriod time.Duration
 	// LogDir, when non-empty, writes each node's log to <LogDir>/<validatorID>.log
 	// at INFO level while keeping the console at INFO. Leave empty to log all
 	// nodes to the parent Logger only (suitable for tests).
 	LogDir string
 	Logger *slog.Logger
+
+	// CommitteeStrategy controls how many validators are selected into consensus
+	// committees. Defaults to CommitteeStrategyHalf when zero value.
+	CommitteeStrategy validators.CommitteeStrategy
+	// StopAfterMR2 prevents advancing to MR3 after MR2 finalization.
+	StopAfterMR2 bool
+	// Agents, when non-nil, provides one BatchAgent per validator (index matches
+	// validator index). Indices beyond len(Agents), or nil entries, fall back to
+	// a shared mock.BatchAgent with AgentDelay. Nil means all nodes use mock.
+	Agents []agent.BatchAgent
+
+	// ExtraHooks, when set, are composed with the internal round-tracker hooks
+	// on node 0's block finalizer. Nil callbacks in ExtraHooks are ignored.
+	ExtraHooks blockFinalizer.BlockFinalizerHooks
 }
 
 // Chain is a self-contained N-node simulator with a mocked LLM agent.
@@ -106,7 +127,18 @@ func New(cfg Config) (*Chain, error) {
 
 	roundHub := explorer.NewRoundHub()
 	txHub := explorer.NewTxHub()
-	agentImpl := &mock.BatchAgent{Delay: cfg.AgentDelay}
+
+	// Shared mock agent used as fallback when no per-validator agent is provided.
+	sharedMock := &mock.BatchAgent{Delay: cfg.AgentDelay}
+	agentFor := func(i int) agent.BatchAgent {
+		if i < len(cfg.Agents) && cfg.Agents[i] != nil {
+			return cfg.Agents[i]
+		}
+		return sharedMock
+	}
+
+	// CommitteeStrategyHalf is iota (0) — the zero value — so no defaulting needed.
+	committeeStrategy := cfg.CommitteeStrategy
 
 	nodes := make([]*localNode, cfg.NumNodes)
 	for i, v := range vs {
@@ -134,11 +166,15 @@ func New(cfg Config) (*Chain, error) {
 			privKeys[i],
 			vs,
 			inboxes[i],
-			agentImpl,
+			agentFor(i),
+			committeeStrategy,
+			cfg.StopAfterMR2,
 			broadcaster,
 			txPeerRegistry,
 			onStepChanged,
 			cfg.MiniRoundDuration,
+			cfg.VoteCollectionDeadline,
+			cfg.ClassificationGracePeriod,
 			nodeLog,
 		)
 		if err != nil {
@@ -152,13 +188,27 @@ func New(cfg Config) (*Chain, error) {
 
 	roundTracker := tracker.NewRoundTracker()
 	node0Tracker := nodes[0].txTracker
+	extraHooks := cfg.ExtraHooks
 	nodes[0].finalizer.WithHooks(blockFinalizer.BlockFinalizerHooks{
-		OnMR1Finalized: roundTracker.OnMR1Finalized,
-		OnMR2Finalized: roundTracker.OnMR2Finalized,
+		OnMR1Finalized: func(key data.RoundKey, block *data.BlockOnChain) {
+			roundTracker.OnMR1Finalized(key, block)
+			if extraHooks.OnMR1Finalized != nil {
+				extraHooks.OnMR1Finalized(key, block)
+			}
+		},
+		OnMR2Finalized: func(key data.RoundKey, block *data.BlockOnChain) {
+			roundTracker.OnMR2Finalized(key, block)
+			if extraHooks.OnMR2Finalized != nil {
+				extraHooks.OnMR2Finalized(key, block)
+			}
+		},
 		OnMR3Finalized: func(key data.RoundKey, block *data.BlockOnChain) {
 			roundTracker.OnMR3Finalized(key, block)
 			for _, tx := range block.Body.Transactions {
 				node0Tracker.OnFinalized(string(tx.GetTxHash()))
+			}
+			if extraHooks.OnMR3Finalized != nil {
+				extraHooks.OnMR3Finalized(key, block)
 			}
 		},
 	})
@@ -256,11 +306,15 @@ func createNode(
 	privateKey []byte,
 	allValidators []*validators.Validator,
 	inbox chan data.RoundEvent,
-	agentImpl *mock.BatchAgent,
+	agentImpl agent.BatchAgent,
+	committeeStrategy validators.CommitteeStrategy,
+	stopAfterMR2 bool,
 	broadcaster broadcast.Broadcaster,
 	txPeerRegistry broadcast.TxPeerRegistry,
 	onStepChanged func(data.RoundKey, data.Step),
 	miniRoundDuration time.Duration,
+	voteCollectionDeadline time.Duration,
+	classificationGracePeriod time.Duration,
 	logger *slog.Logger,
 ) (*localNode, error) {
 	finalizer := blockFinalizer.NewFinalizeBlockComponent()
@@ -294,7 +348,7 @@ func createNode(
 	txPreprocessor.Start()
 	txInt.Start()
 
-	selector := validators.NewConsensusSelectorWithStrategy(validators.CommitteeStrategyHalf, logger)
+	selector := validators.NewConsensusSelectorWithStrategy(committeeStrategy, logger)
 	registry := validators.NewValidatorRegistry(selector, logger)
 	for _, v := range allValidators {
 		if err := registry.Register(v.PublicID(), v); err != nil {
@@ -329,18 +383,19 @@ func createNode(
 	})
 
 	mr2Handler := miniround2.NewMiniRoundTwoHandler(miniround2.MiniRoundTwoHandlerArgs{
-		MyID:               id,
-		BlockProcessor:     validation.NewBlockProcessor(base),
-		RoundState:         roundState,
-		Broadcaster:        broadcaster,
-		Signer:             signing.NewSigner(id, privateKey),
-		ValidatorRegistry:  registry,
-		BlockchainState:    blockchainState,
-		BlockFinalizer:     finalizer,
-		AnswerJudge:        agentImpl,
-		JudgeModelMetadata: "mock-judge",
-		Logger:             logger,
-		SelfInbox:          inbox,
+		MyID:                      id,
+		BlockProcessor:            validation.NewBlockProcessor(base),
+		RoundState:                roundState,
+		Broadcaster:               broadcaster,
+		Signer:                    signing.NewSigner(id, privateKey),
+		ValidatorRegistry:         registry,
+		BlockchainState:           blockchainState,
+		BlockFinalizer:            finalizer,
+		AnswerJudge:               agentImpl,
+		JudgeModelMetadata:        "mock-judge",
+		ClassificationGracePeriod: classificationGracePeriod,
+		Logger:                    logger,
+		SelfInbox:                 inbox,
 	})
 
 	mr3Handler := miniround3.NewMiniRoundThreeHandler(miniround3.MiniRoundThreeHandlerArgs{
@@ -356,22 +411,24 @@ func createNode(
 	})
 
 	roundHandler := consensus.NewRoundHandler(consensus.RoundHandlerArgs{
-		SelfID:                id,
-		CurrentStep:           data.StepIdle,
-		CurrentRoundKey:       data.RoundKey{},
-		MiniRoundOneHandler:   mr1Handler,
-		MiniRoundTwoHandler:   mr2Handler,
-		MiniRoundThreeHandler: mr3Handler,
-		BlockFinalizer:        finalizer,
-		Chain:                 nodeChain,
-		Mempool:               txPool,
-		Store:                 store,
-		RoundState:            roundState,
-		BlockchainState:       blockchainState,
-		Logger:                logger,
-		Inbox:                 inbox,
-		MiniRoundDuration:     miniRoundDuration,
-		OnStepChanged:         onStepChanged,
+		SelfID:                 id,
+		CurrentStep:            data.StepIdle,
+		CurrentRoundKey:        data.RoundKey{},
+		MiniRoundOneHandler:    mr1Handler,
+		MiniRoundTwoHandler:    mr2Handler,
+		MiniRoundThreeHandler:  mr3Handler,
+		BlockFinalizer:         finalizer,
+		Chain:                  nodeChain,
+		Mempool:                txPool,
+		Store:                  store,
+		RoundState:             roundState,
+		BlockchainState:        blockchainState,
+		Logger:                 logger,
+		Inbox:                  inbox,
+		MiniRoundDuration:      miniRoundDuration,
+		VoteCollectionDeadline: voteCollectionDeadline,
+		OnStepChanged:          onStepChanged,
+		StopAfterMiniRoundTwo:  stopAfterMR2,
 	})
 
 	loop := consensus.NewRoundLoop(roundHandler, inbox, logger)

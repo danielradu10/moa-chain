@@ -59,6 +59,65 @@ class AnswerResponse(BaseModel):
     results: list[AnswerResult]
 
 
+# --- /synthesize schemas ---
+
+class SynthesizeTxInput(BaseModel):
+    tx_hash: str
+    prompt: str
+    correct_answers: list[str]
+
+
+class SynthesizeLLMResult(BaseModel):
+    tx_hash: str
+    synthesized_answer: str
+
+
+class SynthesizeResultItem(BaseModel):
+    tx_hash: str
+    answer: str
+
+
+class SynthesizeRequest(BaseModel):
+    prompt_version: str
+    transactions: list[SynthesizeTxInput]
+
+
+class SynthesizeResponse(BaseModel):
+    prompt_version: str
+    prompt_hash: str
+    synthesized_answers: list[SynthesizeResultItem]
+
+
+# --- /evaluate-synthesis schemas ---
+
+class EvaluateSynthesisTxInput(BaseModel):
+    tx_hash: str
+    prompt: str
+    correct_answers: list[str]
+    proposed_synthesis: str
+
+
+class EvaluateSynthesisLLMResult(BaseModel):
+    tx_hash: str
+    approved: bool
+
+
+class EvaluateSynthesisResultItem(BaseModel):
+    tx_hash: str
+    approved: bool
+
+
+class EvaluateSynthesisRequest(BaseModel):
+    prompt_version: str
+    transactions: list[EvaluateSynthesisTxInput]
+
+
+class EvaluateSynthesisResponse(BaseModel):
+    prompt_version: str
+    prompt_hash: str
+    evaluations: list[EvaluateSynthesisResultItem]
+
+
 # --- /judge schemas ---
 
 class JudgeRequest(BaseModel):

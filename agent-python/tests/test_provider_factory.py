@@ -2,6 +2,7 @@ import pytest
 
 from config import Settings
 from providers.factory import create_provider
+from providers.mock_provider import MockProvider
 from providers.ollama_provider import OllamaProvider
 
 
@@ -25,6 +26,11 @@ def _settings(**overrides) -> Settings:
         ),
         **overrides,
     )
+
+
+def test_factory_mock_is_local_and_needs_no_api_key():
+    provider = create_provider(_settings(llm_provider="mock"))
+    assert isinstance(provider, MockProvider)
 
 
 # ── ollama ────────────────────────────────────────────────────────────────────

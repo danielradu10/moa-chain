@@ -30,8 +30,8 @@ async def health(request: Request) -> HealthResponse:
 
     return HealthResponse(
         status="ok",
-        provider=cfg.llm_provider,
-        model=cfg.model,
+        provider=cfg.reported_provider,
+        model=cfg.reported_model,
         reachable=reachable,
         prompt_versions={name: p.version for name, p in prompts.items()},
         prompt_hashes={name: p.sha256_hash for name, p in prompts.items()},

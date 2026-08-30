@@ -1,0 +1,19 @@
+{
+  "committee_strategy": "full",
+  "quorum": 7,
+  "mini_round_duration": "30s",
+  "start_round": 2,
+  "question": "Why is a mutex needed when multiple goroutines access shared mutable state?",
+  "validators": [
+    {"validator_id": "validator-1",  "validator_name": "gpt-5.4-mini-1",    "provider": "openai",    "model": "gpt-5.4-mini",      "agent_endpoint": "http://127.0.0.1:8100"},
+    {"validator_id": "validator-2",  "validator_name": "gpt-5-mini",         "provider": "openai",    "model": "gpt-5-mini",        "agent_endpoint": "http://127.0.0.1:8101"},
+    {"validator_id": "validator-3",  "validator_name": "gpt-5.4-mini-2",    "provider": "openai",    "model": "gpt-5.4-mini",      "agent_endpoint": "http://127.0.0.1:8102"},
+    {"validator_id": "validator-4",  "validator_name": "claude-haiku-4-5-1", "provider": "anthropic", "model": "claude-haiku-4-5",  "agent_endpoint": "http://127.0.0.1:8103"},
+    {"validator_id": "validator-5",  "validator_name": "claude-sonnet-5",    "provider": "anthropic", "model": "claude-sonnet-5",   "agent_endpoint": "http://127.0.0.1:8104"},
+    {"validator_id": "validator-6",  "validator_name": "claude-haiku-4-5-2", "provider": "anthropic", "model": "claude-haiku-4-5",  "agent_endpoint": "http://127.0.0.1:8105"},
+    {"validator_id": "validator-7",  "validator_name": "gemini-3.6-flash-1", "provider": "gemini",    "model": "gemini-3.6-flash",  "agent_endpoint": "http://127.0.0.1:8106"},
+    {"validator_id": "validator-8",  "validator_name": "gemini-3.6-flash-2", "provider": "gemini",    "model": "gemini-3.6-flash",  "agent_endpoint": "http://127.0.0.1:8107"},
+    {"validator_id": "validator-9",  "validator_name": "deepseek-v4-flash",  "provider": "deepseek",  "model": "deepseek-v4-flash", "agent_endpoint": "http://127.0.0.1:8108"},
+    {"validator_id": "validator-10", "validator_name": "deepseek-v4-pro",    "provider": "deepseek",  "model": "deepseek-v4-pro",   "agent_endpoint": "http://127.0.0.1:8109"}
+  ]
+}

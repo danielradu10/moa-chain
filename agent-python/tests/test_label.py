@@ -43,6 +43,24 @@ def test_label_valid_single_transaction(label_client) -> None:
     assert data["results"][0]["labels"][0]["confidence"] == 0.9
 
 
+def test_mocked_label_bypasses_provider(label_client) -> None:
+    client, fake = label_client
+    fake.set_error(AssertionError("provider must not be called"))
+    client.app.state.config.mock_preprocessing_label = "systems_programming"
+    try:
+        request = {
+            **VALID_REQUEST,
+            "allowed_subdomains": ["systems_programming", "non_related"],
+        }
+        resp = client.post("/label", json=request)
+        assert resp.status_code == 200
+        assert resp.json()["results"][0]["labels"] == [
+            {"subdomain": "systems_programming", "confidence": 1.0}
+        ]
+    finally:
+        client.app.state.config.mock_preprocessing_label = ""
+
+
 def test_label_valid_multiple_transactions(label_client) -> None:
     client, fake = label_client
 

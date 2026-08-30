@@ -13,6 +13,11 @@ def create_provider(settings: Settings) -> LLMProvider:
     """
     name = settings.llm_provider.strip().lower()
 
+    if name == "mock":
+        from providers.mock_provider import MockProvider  # noqa: PLC0415
+
+        return MockProvider()
+
     if name == "ollama":
         return OllamaProvider(
             base_url=settings.ollama_base_url,
@@ -85,5 +90,5 @@ def create_provider(settings: Settings) -> LLMProvider:
 
     raise ValueError(
         f"Unknown LLM_PROVIDER={settings.llm_provider!r}. "
-        "Supported values: 'ollama', 'openai', 'anthropic', 'gemini', 'deepseek'."
+        "Supported values: 'mock', 'ollama', 'openai', 'anthropic', 'gemini', 'deepseek'."
     )

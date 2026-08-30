@@ -816,6 +816,123 @@ test-benchmark:
 	@cd agent-python && \
 	.venv/bin/python -m pytest benchmark/tests/ -v
 
+# ── Heterogeneous real-agent experiment ───────────────────────────────────────
+#
+# Starts 10 agent-python processes (one per validator), waits until all are
+# healthy, runs the Go experiment runner, then stops all agents — regardless
+# of outcome.
+#
+# Prerequisites (one-time):
+#   cd agent-python && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+#
+# Required env vars (export before running):
+#   export OPENAI_API_KEY=sk-...
+#   export ANTHROPIC_API_KEY=sk-...
+#   export GEMINI_API_KEY=...
+#   export DEEPSEEK_API_KEY=...
+#
+# Usage:
+#   make experiment
+#   make experiment EXPERIMENT_TIMEOUT=15m
+#   make experiment EXPERIMENT_CONFIG=configs/experiment-heterogeneous.json
+# ─────────────────────────────────────────────────────────────────────────────
+
+EXPERIMENT_CONFIG      ?= $(CURDIR)/configs/experiment-heterogeneous.json
+EXPERIMENT_TIMEOUT     ?= 10m
+EXPERIMENT_RESULTS_DIR ?= agent-python/testresults/real-agents
+EXPERIMENT_AGENT_WAIT  ?= 90
+
+EXPERIMENT_PORTS := 8100 8101 8102 8103 8104 8105 8106 8107 8108 8109
+
+.PHONY: experiment
+experiment:
+	@# Load agent-python/.env into the shell if the keys are not already exported.
+	@# pydantic-settings reads .env automatically for the agents; this only affects
+	@# the key-presence check and the Go experiment runner invocation.
+	@ENV_FILE=$(CURDIR)/agent-python/.env; \
+	if [ -f "$$ENV_FILE" ]; then \
+		set -a; . "$$ENV_FILE"; set +a; \
+	fi; \
+	for var in OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY DEEPSEEK_API_KEY; do \
+		eval "val=\$$$$var"; \
+		if [ -z "$$val" ]; then \
+			echo ""; \
+			echo "Error: $$var is not set."; \
+			echo "Set it in agent-python/.env or export it before running: make experiment"; \
+			echo ""; \
+			exit 1; \
+		fi; \
+	done
+	@ENV_FILE=$(CURDIR)/agent-python/.env; \
+	if [ -f "$$ENV_FILE" ]; then set -a; . "$$ENV_FILE"; set +a; fi; \
+	RUN_DIR=$(CURDIR)/$(EXPERIMENT_RESULTS_DIR)/$$(date +%Y%m%dT%H%M%SZ); \
+	mkdir -p $$RUN_DIR/logs; \
+	echo ""; \
+	echo "=== MoA Heterogeneous Experiment ==="; \
+	echo "Results : $$RUN_DIR"; \
+	echo "Config  : $(EXPERIMENT_CONFIG)"; \
+	echo "Timeout : $(EXPERIMENT_TIMEOUT)"; \
+	echo ""; \
+	echo "--- Clearing ports $(EXPERIMENT_PORTS) ---"; \
+	for port in $(EXPERIMENT_PORTS); do \
+		lsof -ti tcp:$$port | xargs kill -9 2>/dev/null || true; \
+	done; \
+	sleep 1; \
+	echo "--- Starting 10 agent servers ---"; \
+	cd $(CURDIR)/agent-python && \
+		UVICORN_BIN=$(CURDIR)/agent-python/.venv/bin/uvicorn \
+		EXPERIMENT_CONFIG=$(EXPERIMENT_CONFIG) \
+		EXPERIMENT_DIR=$$RUN_DIR \
+		LOG_DIR=$$RUN_DIR/logs \
+		bash scripts/start-agents.sh \
+		>> $$RUN_DIR/logs/start-agents.log 2>&1 & \
+	echo $$! > $(CURDIR)/.experiment-agents.pid; \
+	echo "--- Waiting for all agents to be healthy (up to $(EXPERIMENT_AGENT_WAIT)s) ---"; \
+	elapsed=0; \
+	all_healthy=0; \
+	while [ $$elapsed -lt $(EXPERIMENT_AGENT_WAIT) ]; do \
+		all_healthy=1; \
+		for port in $(EXPERIMENT_PORTS); do \
+			result=$$(curl -sf --max-time 2 http://127.0.0.1:$$port/health 2>/dev/null | grep -o '"reachable":true' || true); \
+			if [ -z "$$result" ]; then \
+				all_healthy=0; \
+				break; \
+			fi; \
+		done; \
+		if [ $$all_healthy -eq 1 ]; then break; fi; \
+		elapsed=$$((elapsed + 2)); \
+		sleep 2; \
+	done; \
+	if [ $$all_healthy -ne 1 ]; then \
+		echo ""; \
+		echo "ERROR: Agents did not become healthy within $(EXPERIMENT_AGENT_WAIT)s."; \
+		echo "Check logs in $$RUN_DIR/logs/"; \
+		for port in $(EXPERIMENT_PORTS); do \
+			echo "  port $$port: $$(curl -sf --max-time 2 http://127.0.0.1:$$port/health 2>/dev/null || echo 'unreachable')"; \
+		done; \
+		PID=$$(cat $(CURDIR)/.experiment-agents.pid 2>/dev/null); \
+		[ -n "$$PID" ] && kill -- -$$(ps -o pgid= -p $$PID 2>/dev/null | tr -d ' ') 2>/dev/null || true; \
+		for port in $(EXPERIMENT_PORTS); do lsof -ti tcp:$$port | xargs kill -9 2>/dev/null || true; done; \
+		rm -f $(CURDIR)/.experiment-agents.pid; \
+		exit 1; \
+	fi; \
+	echo "All 10 agents healthy."; \
+	echo ""; \
+	echo "--- Running experiment ---"; \
+	go run $(CURDIR)/cmd/experiment \
+		--config $(EXPERIMENT_CONFIG) \
+		--out $$RUN_DIR \
+		--timeout $(EXPERIMENT_TIMEOUT); \
+	EXIT=$$?; \
+	echo ""; \
+	echo "--- Stopping agents ---"; \
+	PID=$$(cat $(CURDIR)/.experiment-agents.pid 2>/dev/null); \
+	[ -n "$$PID" ] && kill -- -$$(ps -o pgid= -p $$PID 2>/dev/null | tr -d ' ') 2>/dev/null || true; \
+	for port in $(EXPERIMENT_PORTS); do lsof -ti tcp:$$port | xargs kill -9 2>/dev/null || true; done; \
+	rm -f $(CURDIR)/.experiment-agents.pid; \
+	echo "Done. Results in $$RUN_DIR"; \
+	exit $$EXIT
+
 # ── Local multi-agent cluster (OpenAI) ────────────────────────────────────────
 #
 # Starts 10 agent-python processes on ports 8100-8109, each with an independent

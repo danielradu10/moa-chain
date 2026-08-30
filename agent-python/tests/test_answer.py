@@ -44,6 +44,19 @@ def test_answer_valid_single_transaction(answer_client) -> None:
     assert data["results"][0]["answer"] == "Here is the solution."
 
 
+def test_mocked_answer_bypasses_provider(answer_client) -> None:
+    client, fake = answer_client
+    fake.set_error(AssertionError("provider must not be called"))
+    wrong = "Deterministic wrong answer."
+    client.app.state.config.mock_preprocessing_answer = wrong
+    try:
+        resp = client.post("/answer", json=VALID_REQUEST)
+        assert resp.status_code == 200
+        assert resp.json()["results"][0]["answer"] == wrong
+    finally:
+        client.app.state.config.mock_preprocessing_answer = ""
+
+
 def test_answer_valid_multiple_transactions(answer_client) -> None:
     client, fake = answer_client
 
