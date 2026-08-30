@@ -68,7 +68,22 @@ def create_provider(settings: Settings) -> LLMProvider:
             timeout_seconds=settings.llm_timeout_seconds,
         )
 
+    if name == "deepseek":
+        if not settings.deepseek_api_key:
+            raise ValueError(
+                "LLM_PROVIDER=deepseek requires DEEPSEEK_API_KEY to be set"
+            )
+        from providers.deepseek_provider import DeepSeekProvider  # noqa: PLC0415
+
+        return DeepSeekProvider(
+            api_key=settings.deepseek_api_key,
+            model=settings.deepseek_model,
+            base_url=settings.deepseek_base_url,
+            temperature=settings.llm_temperature,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+
     raise ValueError(
         f"Unknown LLM_PROVIDER={settings.llm_provider!r}. "
-        "Supported values: 'ollama', 'openai', 'anthropic', 'gemini'."
+        "Supported values: 'ollama', 'openai', 'anthropic', 'gemini', 'deepseek'."
     )

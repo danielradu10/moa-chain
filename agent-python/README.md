@@ -33,6 +33,7 @@ providers/
   factory.py             Selects and instantiates the configured provider
   ollama_provider.py     Ollama backend
   openai_provider.py     OpenAI backend
+  deepseek_provider.py   DeepSeek backend (OpenAI-compatible transport)
   fake_provider.py       In-process stub used by tests
 prompts/                 Versioned protocol prompt files and loader
 tests/                   Endpoint, provider, factory, validation, prompt-hash tests
@@ -100,6 +101,35 @@ make install
 LLM_PROVIDER=openai OPENAI_API_KEY=sk-... .venv/bin/uvicorn app:app --host 127.0.0.1 --port 8081
 ```
 
+### DeepSeek
+
+DeepSeek uses its official OpenAI-compatible Chat Completions endpoint. The
+existing `openai` package is reused; no additional SDK is required.
+
+| Variable | Default | Description |
+|---|---|---|
+| `LLM_PROVIDER` | — | Must be set to `deepseek` |
+| `DEEPSEEK_API_KEY` | — | **Required.** Your DeepSeek API key |
+| `DEEPSEEK_MODEL` | `deepseek-v4-flash` | DeepSeek chat model |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | Official API endpoint |
+| `LLM_TEMPERATURE` | `0.5` | Sampling temperature |
+| `LLM_TIMEOUT_SECONDS` | `60.0` | Per-request timeout |
+
+**Start:**
+
+```sh
+make install
+LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=... DEEPSEEK_MODEL=deepseek-v4-flash \
+  .venv/bin/uvicorn app:app --host 127.0.0.1 --port 8081
+```
+
+**Qualification:**
+
+```sh
+LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=... DEEPSEEK_MODEL=deepseek-v4-flash \
+  QUALIFICATION_REPETITIONS=3 make qualify-agent
+```
+
 Or copy `.env.example` to `.env`, fill in your values, then just run:
 
 ```sh
@@ -125,11 +155,12 @@ response is received:
 ```
 llm_call provider=ollama model=qwen2.5-coder:7b operation=label latency_ms=1243 input_tokens=312 output_tokens=48 total_tokens=360
 llm_call provider=openai model=gpt-4o-mini operation=judge latency_ms=876 input_tokens=450 output_tokens=91 total_tokens=541
+llm_call provider=deepseek model=deepseek-v4-flash operation=answer latency_ms=932 input_tokens=310 output_tokens=144 total_tokens=454
 ```
 
 | Field | Description |
 |---|---|
-| `provider` | `ollama` or `openai` |
+| `provider` | Configured provider (`ollama`, `openai`, `anthropic`, `gemini`, or `deepseek`) |
 | `model` | Model name as configured |
 | `operation` | `label`, `answer`, or `judge` |
 | `latency_ms` | Wall-clock time from request sent to response parsed |

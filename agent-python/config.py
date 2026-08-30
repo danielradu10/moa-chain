@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     # Model to use when LLM_PROVIDER=gemini.
     gemini_model: str = "gemini-2.0-flash"
 
+    # ── DeepSeek settings ────────────────────────────────────────────────────
+    # Required when LLM_PROVIDER=deepseek.
+    deepseek_api_key: str = ""
+
+    # Model and official OpenAI-compatible API endpoint.
+    deepseek_model: str = "deepseek-v4-flash"
+    deepseek_base_url: str = "https://api.deepseek.com"
+
     # ── Shared LLM settings ──────────────────────────────────────────────────
     # Temperature controls the diversity of validator answers.
     # 0.0 = fully deterministic (all validators produce identical output — defeats MoA diversity).
@@ -73,12 +81,15 @@ class Settings(BaseSettings):
     @property
     def model(self) -> str:
         """Active model name for the configured provider — used by health and logging."""
-        if self.llm_provider == "openai":
+        provider = self.llm_provider.strip().lower()
+        if provider == "openai":
             return self.openai_model
-        if self.llm_provider == "anthropic":
+        if provider == "anthropic":
             return self.anthropic_model
-        if self.llm_provider == "gemini":
+        if provider == "gemini":
             return self.gemini_model
+        if provider == "deepseek":
+            return self.deepseek_model
         return self.ollama_model
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

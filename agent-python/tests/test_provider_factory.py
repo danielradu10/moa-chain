@@ -18,6 +18,11 @@ def _settings(**overrides) -> Settings:
         anthropic_effort=overrides.pop("anthropic_effort", "medium"),
         gemini_api_key=overrides.pop("gemini_api_key", ""),
         gemini_model=overrides.pop("gemini_model", "gemini-2.0-flash"),
+        deepseek_api_key=overrides.pop("deepseek_api_key", ""),
+        deepseek_model=overrides.pop("deepseek_model", "deepseek-v4-flash"),
+        deepseek_base_url=overrides.pop(
+            "deepseek_base_url", "https://api.deepseek.com"
+        ),
         **overrides,
     )
 
@@ -93,6 +98,35 @@ def test_factory_gemini_case_insensitive():
 
     provider = create_provider(_settings(llm_provider="Gemini", gemini_api_key="ai-test"))
     assert isinstance(provider, GeminiProvider)
+
+
+# ── deepseek ──────────────────────────────────────────────────────────────────
+
+def test_factory_deepseek_missing_api_key_raises():
+    with pytest.raises(ValueError, match="DEEPSEEK_API_KEY"):
+        create_provider(_settings(llm_provider="deepseek", deepseek_api_key=""))
+
+
+def test_factory_deepseek_with_key_returns_provider():
+    from providers.deepseek_provider import DeepSeekProvider  # noqa: PLC0415
+
+    provider = create_provider(
+        _settings(llm_provider="deepseek", deepseek_api_key="ds-test")
+    )
+    assert isinstance(provider, DeepSeekProvider)
+    assert provider.base_url == "https://api.deepseek.com"
+
+
+def test_factory_deepseek_case_insensitive_and_model_for_health():
+    from providers.deepseek_provider import DeepSeekProvider  # noqa: PLC0415
+
+    cfg = _settings(
+        llm_provider="DeepSeek",
+        deepseek_api_key="ds-test",
+        deepseek_model="deepseek-v4-pro",
+    )
+    assert isinstance(create_provider(cfg), DeepSeekProvider)
+    assert cfg.model == "deepseek-v4-pro"
 
 
 # ── unknown provider ──────────────────────────────────────────────────────────
