@@ -27,22 +27,22 @@ type roundStateSnapshot struct {
 type roundHandler struct {
 	selfID string
 
-	currentStep             data.Step
-	currentRoundKey         data.RoundKey
-	snapshot                atomic.Pointer[roundStateSnapshot]
-	onStepChanged           func(data.RoundKey, data.Step)
-	miniRoundOneHandler     miniround1.MiniRoundOneHandler
-	miniRoundTwoHandler     miniround2.MiniRoundTwoHandler
-	miniRoundThreeHandler   miniround3.MiniRoundThreeHandler
-	blockFinalizer          blockFinalizer.BlockFinalizer
-	chain                   chain.Chain
-	mempool                 mempool.Mempool
-	store                   txpipeline.PrecomputedStore
-	roundState              state.RoundState
-	blockchainState         state.BlockchainState
-	stopAfterMiniRoundOne   bool
-	stopAfterMiniRoundTwo   bool
-	logger                  *slog.Logger
+	currentStep           data.Step
+	currentRoundKey       data.RoundKey
+	snapshot              atomic.Pointer[roundStateSnapshot]
+	onStepChanged         func(data.RoundKey, data.Step)
+	miniRoundOneHandler   miniround1.MiniRoundOneHandler
+	miniRoundTwoHandler   miniround2.MiniRoundTwoHandler
+	miniRoundThreeHandler miniround3.MiniRoundThreeHandler
+	blockFinalizer        blockFinalizer.BlockFinalizer
+	chain                 chain.Chain
+	mempool               mempool.Mempool
+	store                 txpipeline.PrecomputedStore
+	roundState            state.RoundState
+	blockchainState       state.BlockchainState
+	stopAfterMiniRoundOne bool
+	stopAfterMiniRoundTwo bool
+	logger                *slog.Logger
 
 	// inbox is the write end of this node's event queue, used to self-inject
 	// TimeoutEvents from background timer goroutines.
@@ -778,7 +778,32 @@ func (rh *roundHandler) HandleClassificationGracePeriodElapsed(roundKey data.Rou
 		rh.logger.Info("ignoring stale classification grace event", "roundKey", roundKey, "currentRoundKey", rh.currentRoundKey, "currentStep", rh.currentStep)
 		return nil
 	}
-	return rh.miniRoundTwoHandler.HandleClassificationGracePeriodElapsed(roundKey)
+	if err := rh.miniRoundTwoHandler.HandleClassificationGracePeriodElapsed(roundKey); err != nil {
+		return err
+	}
+	if rh.isFinalizedRoundKey(roundKey) {
+		return rh.onMiniRoundTwoFinalized(roundKey)
+	}
+	return nil
+}
+
+// HandleSynthesisApprovalGracePeriodElapsed routes the MR3 proposer's bounded
+// post-quorum approval collection expiry.
+func (rh *roundHandler) HandleSynthesisApprovalGracePeriodElapsed(roundKey data.RoundKey) error {
+	if rh.miniRoundThreeHandler == nil {
+		return nil
+	}
+	if roundKey != rh.currentRoundKey || rh.currentStep != data.StepCollectSynthesisVotes {
+		rh.logger.Info("ignoring stale synthesis approval grace event", "roundKey", roundKey, "currentRoundKey", rh.currentRoundKey, "currentStep", rh.currentStep)
+		return nil
+	}
+	if err := rh.miniRoundThreeHandler.HandleSynthesisApprovalGracePeriodElapsed(roundKey); err != nil {
+		return err
+	}
+	if rh.isFinalizedRoundKey(roundKey) {
+		return rh.onMiniRoundThreeFinalized(roundKey)
+	}
+	return nil
 }
 
 func (rh *roundHandler) handleProposedSynthesis(message data.ConsensusMessage) error {
@@ -841,12 +866,7 @@ func (rh *roundHandler) handleSynthesisVote(message data.ConsensusMessage) error
 	}
 
 	if rh.isFinalizedRoundKey(roundKey) {
-		rh.updateCurrentStep(data.StepFinished)
-		rh.logger.Info("mini-round three finalized", "roundKey", roundKey)
-		if err := rh.finalizeRound(roundKey); err != nil {
-			rh.logger.Error("finalizeRound failed", "roundKey", roundKey, "error", err)
-			return err
-		}
+		return rh.onMiniRoundThreeFinalized(roundKey)
 	}
 
 	return nil
@@ -877,6 +897,10 @@ func (rh *roundHandler) handleAggregatedSynthesisVotes(message data.ConsensusMes
 		return err
 	}
 
+	return rh.onMiniRoundThreeFinalized(roundKey)
+}
+
+func (rh *roundHandler) onMiniRoundThreeFinalized(roundKey data.RoundKey) error {
 	rh.updateCurrentStep(data.StepFinished)
 	rh.logger.Info("mini-round three finalized", "roundKey", roundKey)
 	if err := rh.finalizeRound(roundKey); err != nil {

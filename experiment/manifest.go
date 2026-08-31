@@ -20,6 +20,7 @@ type Manifest struct {
 	MiniRoundDuration         string          `json:"mini_round_duration"`
 	VoteCollectionDeadline    string          `json:"vote_collection_deadline"`
 	ClassificationGracePeriod string          `json:"classification_grace_period"`
+	ForcedMR3Proposer         string          `json:"forced_mr3_proposer,omitempty"`
 	CanonicalQuestion         string          `json:"canonical_question"`
 	Validators                []ValidatorSpec `json:"validators"`
 }
@@ -48,6 +49,7 @@ func BuildManifest(runID string, cfg Config, startTime time.Time) Manifest {
 		MiniRoundDuration:         dur,
 		VoteCollectionDeadline:    cfg.VoteCollectionDeadlineStr,
 		ClassificationGracePeriod: cfg.ClassificationGracePeriodStr,
+		ForcedMR3Proposer:         cfg.ForcedMR3Proposer,
 		CanonicalQuestion:         cfg.Question,
 		Validators:                cfg.Validators,
 	}

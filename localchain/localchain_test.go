@@ -141,3 +141,22 @@ func TestLocalChainIntegration(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	}
 }
+
+func TestLocalChainValidatorIDsValidation(t *testing.T) {
+	t.Parallel()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	_, err := localchain.New(localchain.Config{
+		NumNodes:     2,
+		ValidatorIDs: []string{"model-a"},
+		Logger:       logger,
+	})
+	require.ErrorContains(t, err, "validator ID count")
+
+	_, err = localchain.New(localchain.Config{
+		NumNodes:     2,
+		ValidatorIDs: []string{"model-a", "model-a"},
+		Logger:       logger,
+	})
+	require.ErrorContains(t, err, "duplicate validator ID")
+}

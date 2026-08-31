@@ -8,6 +8,7 @@ const (
 	ConsensusMessageEvent
 	TimeoutEvent
 	ClassificationGracePeriodElapsedEvent
+	SynthesisApprovalGracePeriodElapsedEvent
 	StopEvent
 )
 

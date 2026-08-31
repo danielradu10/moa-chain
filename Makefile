@@ -21,13 +21,45 @@ test:
 LOCALCHAIN_NODES       ?= 10
 LOCALCHAIN_START_ROUND ?= 2
 LOCALCHAIN_ADDR        ?= :8080
+LOCALCHAIN_MINI_ROUND_DURATION       ?= 15s
+LOCALCHAIN_MR1_VOTE_DEADLINE         ?= 10s
+LOCALCHAIN_MR2_EXECUTION_DEADLINE    ?= 10s
+LOCALCHAIN_MR2_CLASSIFICATION_GRACE  ?= 10s
+LOCALCHAIN_MR3_APPROVAL_GRACE        ?= 10s
+NUM_BYZANTINE                        ?= 0
+ifeq ($(NUM_BYZANTINE),0)
+LOCALCHAIN_DEFAULT_AGENT_CONFIG      := $(CURDIR)/configs/experiment-heterogeneous-brief-answer.json
+else ifeq ($(NUM_BYZANTINE),1)
+LOCALCHAIN_DEFAULT_AGENT_CONFIG      := $(CURDIR)/configs/localchain-byzantine-1-wrong.json
+else
+$(error NUM_BYZANTINE must be 0 or 1)
+endif
+LOCALCHAIN_AGENT_CONFIG              ?= $(LOCALCHAIN_DEFAULT_AGENT_CONFIG)
+LOCALCHAIN_AGENT_LOG_DIR             ?= $(CURDIR)/logs/localchain-agents
 
 .PHONY: localchain
 localchain:
 	go run ./cmd/localchain \
 		--nodes $(LOCALCHAIN_NODES) \
 		--start-round $(LOCALCHAIN_START_ROUND) \
-		--addr $(LOCALCHAIN_ADDR)
+		--addr $(LOCALCHAIN_ADDR) \
+		--agent-config $(LOCALCHAIN_AGENT_CONFIG) \
+		--mini-round-duration $(LOCALCHAIN_MINI_ROUND_DURATION) \
+		--mr1-vote-collection-deadline $(LOCALCHAIN_MR1_VOTE_DEADLINE) \
+		--mr2-execution-results-deadline $(LOCALCHAIN_MR2_EXECUTION_DEADLINE) \
+		--mr2-classification-grace-period $(LOCALCHAIN_MR2_CLASSIFICATION_GRACE) \
+		--mr3-approval-grace-period $(LOCALCHAIN_MR3_APPROVAL_GRACE)
+
+.PHONY: localchain-agents
+localchain-agents:
+	@mkdir -p $(LOCALCHAIN_AGENT_LOG_DIR)
+	@cd $(CURDIR)/agent-python && \
+		UVICORN_BIN=$(CURDIR)/agent-python/.venv/bin/uvicorn \
+		EXPERIMENT_CONFIG=$(LOCALCHAIN_AGENT_CONFIG) \
+		EXPERIMENT_DIR=$(LOCALCHAIN_AGENT_LOG_DIR) \
+		LOG_DIR=$(LOCALCHAIN_AGENT_LOG_DIR) \
+		USE_VALIDATOR_NAME_AS_ID=true \
+		bash scripts/start-agents.sh
 
 # ── Real-agent integration tests ──────────────────────────────────────────────
 #

@@ -17,6 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 EXPERIMENT_DIR="${EXPERIMENT_DIR:-}"
 LOG_DIR="${LOG_DIR:-${EXPERIMENT_DIR}/logs}"
 EXPERIMENT_CONFIG="${EXPERIMENT_CONFIG:-}"
+USE_VALIDATOR_NAME_AS_ID="${USE_VALIDATOR_NAME_AS_ID:-false}"
 
 PIDS=()
 
@@ -43,6 +44,11 @@ start_agent() {
     local agent_provider="${9:-$provider}"
     local agent_model="${10:-$model_value}"
     local mock_judge_correct_answers="${11:-}"
+    local byzantine_mr3_synthesis="${12:-false}"
+
+	if [ "$USE_VALIDATOR_NAME_AS_ID" = "true" ]; then
+		validator_id="$validator_name"
+	fi
 
     if [ -n "$LOG_DIR" ]; then
         mkdir -p "$LOG_DIR"
@@ -63,6 +69,7 @@ start_agent() {
             MOCK_PREPROCESSING_LABEL="${mock_label}" \
             MOCK_PREPROCESSING_ANSWER="${mock_answer}" \
             MOCK_JUDGE_CORRECT_ANSWERS="${mock_judge_correct_answers}" \
+            BYZANTINE_MR3_SYNTHESIS="${byzantine_mr3_synthesis}" \
             "${uvicorn_bin}" app:app \
                 --host 127.0.0.1 \
                 --port "${port}" \
@@ -81,6 +88,7 @@ start_agent() {
             MOCK_PREPROCESSING_LABEL="${mock_label}" \
             MOCK_PREPROCESSING_ANSWER="${mock_answer}" \
             MOCK_JUDGE_CORRECT_ANSWERS="${mock_judge_correct_answers}" \
+            BYZANTINE_MR3_SYNTHESIS="${byzantine_mr3_synthesis}" \
             "${uvicorn_bin}" app:app \
                 --host 127.0.0.1 \
                 --port "${port}" \
@@ -137,7 +145,11 @@ if [ -n "$EXPERIMENT_CONFIG" ]; then
     validator_7_provider="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); print(next(v for v in c["validators"] if v["validator_id"] == "validator-7")["provider"])' "$EXPERIMENT_CONFIG")"
     validator_7_model="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); print(next(v for v in c["validators"] if v["validator_id"] == "validator-7")["model"])' "$EXPERIMENT_CONFIG")"
 fi
-start_agent 8106 mock      MOCK_MODEL      mocked-agent       validator-7  "$validator_7_name" "$validator_7_mock_label" "$validator_7_mock_answer" "$validator_7_provider" "$validator_7_model" "$validator_7_mock_judge_correct_answers"
+if [ "$validator_7_provider" = "mock" ]; then
+    start_agent 8106 mock MOCK_MODEL mocked-agent validator-7 "$validator_7_name" "$validator_7_mock_label" "$validator_7_mock_answer" "$validator_7_provider" "$validator_7_model" "$validator_7_mock_judge_correct_answers"
+else
+    start_agent 8106 gemini GEMINI_MODEL gemini-3.6-flash validator-7 "$validator_7_name" "$validator_7_mock_label" "$validator_7_mock_answer" "$validator_7_provider" "$validator_7_model"
+fi
 validator_8_name="gemini-3.6-flash-2"
 validator_8_mock_label=""
 validator_8_mock_answer=""
@@ -162,6 +174,7 @@ validator_10_name="deepseek-v4-pro"
 validator_10_mock_label=""
 validator_10_mock_answer=""
 validator_10_mock_judge_correct_answers=""
+validator_10_byzantine_mr3_synthesis="false"
 validator_10_provider="deepseek"
 validator_10_model="deepseek-v4-pro"
 if [ -n "$EXPERIMENT_CONFIG" ]; then
@@ -169,13 +182,14 @@ if [ -n "$EXPERIMENT_CONFIG" ]; then
     validator_10_mock_label="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); print(next(v for v in c["validators"] if v["validator_id"] == "validator-10").get("mock_preprocessing", {}).get("label", ""))' "$EXPERIMENT_CONFIG")"
     validator_10_mock_answer="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); print(next(v for v in c["validators"] if v["validator_id"] == "validator-10").get("mock_preprocessing", {}).get("answer", ""))' "$EXPERIMENT_CONFIG")"
     validator_10_mock_judge_correct_answers="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); print(json.dumps(next(v for v in c["validators"] if v["validator_id"] == "validator-10").get("mock_judge_correct_answers", [])))' "$EXPERIMENT_CONFIG")"
+    validator_10_byzantine_mr3_synthesis="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); print(str(next(v for v in c["validators"] if v["validator_id"] == "validator-10").get("byzantine_mr3_synthesis", False)).lower())' "$EXPERIMENT_CONFIG")"
     validator_10_provider="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); print(next(v for v in c["validators"] if v["validator_id"] == "validator-10")["provider"])' "$EXPERIMENT_CONFIG")"
     validator_10_model="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); print(next(v for v in c["validators"] if v["validator_id"] == "validator-10")["model"])' "$EXPERIMENT_CONFIG")"
 fi
 if [ "$validator_10_provider" = "mock" ]; then
-    start_agent 8109 mock MOCK_MODEL mocked-agent validator-10 "$validator_10_name" "$validator_10_mock_label" "$validator_10_mock_answer" "$validator_10_provider" "$validator_10_model" "$validator_10_mock_judge_correct_answers"
+    start_agent 8109 mock MOCK_MODEL mocked-agent validator-10 "$validator_10_name" "$validator_10_mock_label" "$validator_10_mock_answer" "$validator_10_provider" "$validator_10_model" "$validator_10_mock_judge_correct_answers" "$validator_10_byzantine_mr3_synthesis"
 else
-    start_agent 8109 deepseek DEEPSEEK_MODEL deepseek-v4-pro validator-10 "$validator_10_name" "$validator_10_mock_label" "$validator_10_mock_answer" "$validator_10_provider" "$validator_10_model"
+    start_agent 8109 deepseek DEEPSEEK_MODEL deepseek-v4-pro validator-10 "$validator_10_name" "$validator_10_mock_label" "$validator_10_mock_answer" "$validator_10_provider" "$validator_10_model" "$validator_10_mock_judge_correct_answers" "$validator_10_byzantine_mr3_synthesis"
 fi
 
 echo ""

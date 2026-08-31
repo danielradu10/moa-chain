@@ -4,6 +4,7 @@ import pytest
 
 from experiment.recorder import CallRecorder
 from providers.fake_provider import FakeProvider
+from schemas import EvaluateSynthesisLLMResult
 
 
 @pytest.mark.parametrize(
@@ -54,3 +55,37 @@ def test_three_byzantine_mocks_reject_synthesis_without_provider(
     finally:
         cfg.llm_provider = old_provider
         client.app.state.recorder = old_recorder
+
+
+def test_byzantine_synthesis_setting_does_not_change_evaluator_prompt(client):
+    fake = FakeProvider()
+    captured = {}
+
+    async def structured_chat(system_prompt, user_payload, response_schema, timeout_seconds, operation=""):
+        captured.update(system_prompt=system_prompt, user_payload=user_payload, operation=operation)
+        return EvaluateSynthesisLLMResult(tx_hash=user_payload["tx_hash"], approved=False)
+
+    fake.structured_chat = structured_chat
+    cfg = client.app.state.config
+    old_provider = cfg.llm_provider
+    old_byzantine = cfg.byzantine_mr3_synthesis
+    client.app.state.provider = fake
+    cfg.llm_provider = "deepseek"
+    cfg.byzantine_mr3_synthesis = True
+    try:
+        response = client.post("/evaluate-synthesis", json={
+            "prompt_version": "synthesis_evaluator_v1",
+            "transactions": [{
+                "tx_hash": "abc123",
+                "prompt": "Why is a mutex needed?",
+                "correct_answers": ["A mutex prevents races."],
+                "proposed_synthesis": "A mutex prevents races but has one subtle error.",
+            }],
+        })
+        assert response.status_code == 200
+        assert captured["system_prompt"] == client.app.state.prompts["synthesis_evaluator_v1"].content
+        assert "adversarial synthesis proposer" not in captured["system_prompt"]
+        assert captured["operation"] == "evaluate_synthesis"
+    finally:
+        cfg.llm_provider = old_provider
+        cfg.byzantine_mr3_synthesis = old_byzantine

@@ -91,6 +91,10 @@ func main() {
 
 	agents := make([]agent.BatchAgent, len(cfg.Validators))
 	for i, v := range cfg.Validators {
+		synthesizePromptVersion := "synthesizer_v1"
+		if v.ByzantineMR3Synthesis {
+			synthesizePromptVersion = "byzantine_synthesizer_v1"
+		}
 		agents[i] = httpclient.New(httpclient.Config{
 			BaseURL:                        v.AgentEndpoint,
 			TimeoutSeconds:                 120,
@@ -98,7 +102,7 @@ func main() {
 			ValidatorName:                  v.ValidatorName,
 			LabelPromptVersion:             "labeler_v3",
 			AnswerPromptVersion:            "answerer_v1",
-			SynthesizePromptVersion:        "synthesizer_v1",
+			SynthesizePromptVersion:        synthesizePromptVersion,
 			EvaluateSynthesisPromptVersion: "synthesis_evaluator_v1",
 		})
 	}
@@ -136,6 +140,7 @@ func main() {
 		MiniRoundDuration:         cfg.MiniRoundDuration,
 		VoteCollectionDeadline:    cfg.VoteCollectionDeadline,
 		ClassificationGracePeriod: cfg.ClassificationGracePeriod,
+		ForcedMR3ProposerID:       cfg.ForcedMR3Proposer,
 		CommitteeStrategy:         committeeStrategy,
 		Agents:                    agents,
 		Logger:                    logger,
@@ -312,6 +317,13 @@ loop:
 		EventType: "experiment_done",
 		Details:   map[string]any{"outcome": outcome, "final_tx_status": finalTxStatus},
 	})
+	if cfg.ForcedMR3Proposer != "" {
+		if err := experiment.WriteMR3AttackReport(
+			dir, cfg, submitResp.TxHash, finalTxStatus, finalBlock != nil,
+		); err != nil {
+			slog.Error("write MR3 attack report", "err", err)
+		}
+	}
 
 	writeSummary(dir, runID, outcome, startTime, submittedAt, pendingAt,
 		selRound, selEpoch, empty, finalTxStatus, submitResp.TxHash, finalKey)

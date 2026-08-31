@@ -104,6 +104,8 @@ class Settings(BaseSettings):
     # Empty preserves the original one-Byzantine behavior by matching only the
     # local preprocessing answer.
     mock_judge_correct_answers: str = ""
+    # Selects the real-provider adversarial prompt only for /synthesize.
+    byzantine_mr3_synthesis: bool = False
 
     @property
     def mocked_judge_correct_answer_set(self) -> set[str]:

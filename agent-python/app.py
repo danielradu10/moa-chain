@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
         "labeler_v3": load_protocol_prompt("labeler_v3"),
         "answerer_v1": load_protocol_prompt("answerer_v1"),
         "synthesizer_v1": load_protocol_prompt("synthesizer_v1"),
+        "byzantine_synthesizer_v1": load_protocol_prompt("byzantine_synthesizer_v1"),
         "synthesis_evaluator_v1": load_protocol_prompt("synthesis_evaluator_v1"),
     }
 

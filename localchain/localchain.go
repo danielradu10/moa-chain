@@ -48,9 +48,18 @@ type Config struct {
 	// VoteCollectionDeadline lets an MR1 leader finalize with Q+ votes when a
 	// full-committee member is missing. Zero retains the legacy all-G wait.
 	VoteCollectionDeadline time.Duration
+	// ExecutionResultsCollectionDeadline lets an MR2 leader continue with the
+	// execution results available by the deadline. Zero waits for all G results.
+	ExecutionResultsCollectionDeadline time.Duration
 	// ClassificationGracePeriod keeps collecting valid MR2 classification
 	// votes after Q is reached. Zero preserves immediate first-Q certification.
 	ClassificationGracePeriod time.Duration
+	// SynthesisApprovalGracePeriod keeps collecting valid MR3 approval votes
+	// after approval quorum is reached. Zero preserves immediate certification.
+	SynthesisApprovalGracePeriod time.Duration
+	// ForcedMR3ProposerID is an experiment-only override for MR3 leader choice.
+	// Empty preserves normal deterministic selection in every mini-round.
+	ForcedMR3ProposerID string
 	// LogDir, when non-empty, writes each node's log to <LogDir>/<validatorID>.log
 	// at INFO level while keeping the console at INFO. Leave empty to log all
 	// nodes to the parent Logger only (suitable for tests).
@@ -66,13 +75,16 @@ type Config struct {
 	// validator index). Indices beyond len(Agents), or nil entries, fall back to
 	// a shared mock.BatchAgent with AgentDelay. Nil means all nodes use mock.
 	Agents []agent.BatchAgent
+	// ValidatorIDs, when non-nil, supplies the public validator identity at each
+	// index. It must match NumNodes. Nil preserves validator-1..validator-N.
+	ValidatorIDs []string
 
 	// ExtraHooks, when set, are composed with the internal round-tracker hooks
 	// on node 0's block finalizer. Nil callbacks in ExtraHooks are ignored.
 	ExtraHooks blockFinalizer.BlockFinalizerHooks
 }
 
-// Chain is a self-contained N-node simulator with a mocked LLM agent.
+// Chain is a self-contained N-node simulator with configured or mocked agents.
 // Call Start to begin consensus and Stop to shut everything down.
 type Chain struct {
 	// NodeView is wired to node 0. Pass it to service.NewExplorerService to
@@ -91,6 +103,9 @@ func New(cfg Config) (*Chain, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
+	if len(cfg.ValidatorIDs) != 0 && len(cfg.ValidatorIDs) != cfg.NumNodes {
+		return nil, fmt.Errorf("validator ID count %d does not match NumNodes %d", len(cfg.ValidatorIDs), cfg.NumNodes)
+	}
 
 	pubKeys := make([][]byte, cfg.NumNodes)
 	privKeys := make([][]byte, cfg.NumNodes)
@@ -104,8 +119,19 @@ func New(cfg Config) (*Chain, error) {
 	}
 
 	vs := make([]*validators.Validator, cfg.NumNodes)
+	seenValidatorIDs := make(map[string]struct{}, cfg.NumNodes)
 	for i, pub := range pubKeys {
 		id := fmt.Sprintf("validator-%d", i+1)
+		if len(cfg.ValidatorIDs) != 0 {
+			id = cfg.ValidatorIDs[i]
+		}
+		if id == "" {
+			return nil, fmt.Errorf("validator ID at index %d is empty", i)
+		}
+		if _, exists := seenValidatorIDs[id]; exists {
+			return nil, fmt.Errorf("duplicate validator ID %q", id)
+		}
+		seenValidatorIDs[id] = struct{}{}
 		v := validators.NewValidator(id, pub, 1)
 		v.SetSubdomainScores(allSubdomainScores())
 		vs[i] = v
@@ -174,7 +200,10 @@ func New(cfg Config) (*Chain, error) {
 			onStepChanged,
 			cfg.MiniRoundDuration,
 			cfg.VoteCollectionDeadline,
+			cfg.ExecutionResultsCollectionDeadline,
 			cfg.ClassificationGracePeriod,
+			cfg.SynthesisApprovalGracePeriod,
+			cfg.ForcedMR3ProposerID,
 			nodeLog,
 		)
 		if err != nil {
@@ -314,7 +343,10 @@ func createNode(
 	onStepChanged func(data.RoundKey, data.Step),
 	miniRoundDuration time.Duration,
 	voteCollectionDeadline time.Duration,
+	executionResultsCollectionDeadline time.Duration,
 	classificationGracePeriod time.Duration,
+	synthesisApprovalGracePeriod time.Duration,
+	forcedMR3ProposerID string,
 	logger *slog.Logger,
 ) (*localNode, error) {
 	finalizer := blockFinalizer.NewFinalizeBlockComponent()
@@ -399,36 +431,40 @@ func createNode(
 	})
 
 	mr3Handler := miniround3.NewMiniRoundThreeHandler(miniround3.MiniRoundThreeHandlerArgs{
-		MyID:              id,
-		RoundState:        roundState,
-		Broadcaster:       broadcaster,
-		Signer:            signing.NewSigner(id, privateKey),
-		ValidatorRegistry: registry,
-		BlockchainState:   blockchainState,
-		BlockFinalizer:    finalizer,
-		SynthesisAgent:    agentImpl,
-		Logger:            logger,
+		MyID:                id,
+		RoundState:          roundState,
+		Broadcaster:         broadcaster,
+		Signer:              signing.NewSigner(id, privateKey),
+		ValidatorRegistry:   registry,
+		BlockchainState:     blockchainState,
+		BlockFinalizer:      finalizer,
+		SynthesisAgent:      agentImpl,
+		ForcedProposerID:    forcedMR3ProposerID,
+		ApprovalGracePeriod: synthesisApprovalGracePeriod,
+		SelfInbox:           inbox,
+		Logger:              logger,
 	})
 
 	roundHandler := consensus.NewRoundHandler(consensus.RoundHandlerArgs{
-		SelfID:                 id,
-		CurrentStep:            data.StepIdle,
-		CurrentRoundKey:        data.RoundKey{},
-		MiniRoundOneHandler:    mr1Handler,
-		MiniRoundTwoHandler:    mr2Handler,
-		MiniRoundThreeHandler:  mr3Handler,
-		BlockFinalizer:         finalizer,
-		Chain:                  nodeChain,
-		Mempool:                txPool,
-		Store:                  store,
-		RoundState:             roundState,
-		BlockchainState:        blockchainState,
-		Logger:                 logger,
-		Inbox:                  inbox,
-		MiniRoundDuration:      miniRoundDuration,
-		VoteCollectionDeadline: voteCollectionDeadline,
-		OnStepChanged:          onStepChanged,
-		StopAfterMiniRoundTwo:  stopAfterMR2,
+		SelfID:                             id,
+		CurrentStep:                        data.StepIdle,
+		CurrentRoundKey:                    data.RoundKey{},
+		MiniRoundOneHandler:                mr1Handler,
+		MiniRoundTwoHandler:                mr2Handler,
+		MiniRoundThreeHandler:              mr3Handler,
+		BlockFinalizer:                     finalizer,
+		Chain:                              nodeChain,
+		Mempool:                            txPool,
+		Store:                              store,
+		RoundState:                         roundState,
+		BlockchainState:                    blockchainState,
+		Logger:                             logger,
+		Inbox:                              inbox,
+		MiniRoundDuration:                  miniRoundDuration,
+		VoteCollectionDeadline:             voteCollectionDeadline,
+		ExecutionResultsCollectionDeadline: executionResultsCollectionDeadline,
+		OnStepChanged:                      onStepChanged,
+		StopAfterMiniRoundTwo:              stopAfterMR2,
 	})
 
 	loop := consensus.NewRoundLoop(roundHandler, inbox, logger)

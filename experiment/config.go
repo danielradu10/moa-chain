@@ -16,6 +16,7 @@ type ValidatorSpec struct {
 	AgentEndpoint           string                 `json:"agent_endpoint"`
 	MockPreprocessing       *MockPreprocessingSpec `json:"mock_preprocessing,omitempty"`
 	MockJudgeCorrectAnswers []string               `json:"mock_judge_correct_answers,omitempty"`
+	ByzantineMR3Synthesis   bool                   `json:"byzantine_mr3_synthesis,omitempty"`
 }
 
 // MockPreprocessingSpec configures deterministic label and answer responses for
@@ -36,6 +37,7 @@ type Config struct {
 	ClassificationGracePeriodStr string          `json:"classification_grace_period"` // e.g. "10s"
 	StartRound                   uint64          `json:"start_round"`
 	Question                     string          `json:"question"`
+	ForcedMR3Proposer            string          `json:"forced_mr3_proposer,omitempty"`
 
 	// Parsed from MiniRoundDurationStr; populated by LoadConfig.
 	MiniRoundDuration         time.Duration `json:"-"`
@@ -82,6 +84,25 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if len(cfg.Validators) == 0 {
 		return Config{}, fmt.Errorf("config has no validators")
+	}
+	validatorFound := cfg.ForcedMR3Proposer == ""
+	attackProposers := 0
+	for _, validator := range cfg.Validators {
+		if validator.ValidatorID == cfg.ForcedMR3Proposer {
+			validatorFound = true
+		}
+		if validator.ByzantineMR3Synthesis {
+			attackProposers++
+			if validator.ValidatorID != cfg.ForcedMR3Proposer {
+				return Config{}, fmt.Errorf("byzantine_mr3_synthesis validator %q must match forced_mr3_proposer", validator.ValidatorID)
+			}
+		}
+	}
+	if !validatorFound {
+		return Config{}, fmt.Errorf("forced_mr3_proposer %q is not a configured validator", cfg.ForcedMR3Proposer)
+	}
+	if attackProposers > 1 {
+		return Config{}, fmt.Errorf("config has multiple Byzantine MR3 synthesis proposers")
 	}
 	return cfg, nil
 }

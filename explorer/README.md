@@ -98,13 +98,19 @@ directly. This lets internal types evolve without breaking the API contract.
 
 ## Running a local chain
 
-`cmd/localchain` starts N validators with a mocked LLM agent, wires an
-explorer server to node 0, and runs rounds continuously until you press
-Ctrl+C. Transactions submitted to the HTTP endpoint are broadcast to all
-validators automatically.
+`cmd/localchain` starts N validators, wires an explorer server to node 0, and
+runs rounds continuously until you press Ctrl+C. It uses local mocked agents
+when no agent config is supplied. Transactions submitted to the HTTP endpoint
+are broadcast to all validators automatically.
+
+When `--agent-config` is supplied, the local chain uses the real HTTP agents
+from that experiment config and registers each validator under its
+`validator_name`. The Make targets use the all-real heterogeneous brief-answer
+config by default: run `make localchain-agents` first, then `make localchain` in
+a second terminal.
 
 ```
-go run ./cmd/localchain [--nodes N] [--start-round R] [--addr :PORT]
+go run ./cmd/localchain [--nodes N] [--start-round R] [--addr :PORT] [--agent-delay DURATION] [--mini-round-duration DURATION] [--mr1-vote-collection-deadline DURATION] [--mr2-classification-grace-period DURATION] [--mr3-approval-grace-period DURATION]
 ```
 
 | Flag | Default | Description |
@@ -112,6 +118,12 @@ go run ./cmd/localchain [--nodes N] [--start-round R] [--addr :PORT]
 | `--nodes` | `10` | Number of validator nodes |
 | `--start-round` | `2` | First round (genesis is round 1) |
 | `--addr` | `:8080` | Explorer HTTP server address |
+| `--agent-delay` | `5s` | Simulated LLM latency per agent call |
+| `--mini-round-duration` | `15s` | Fixed slot per mini-round; `0` advances immediately |
+| `--mr1-vote-collection-deadline` | `10s` | MR1 fallback deadline for collecting label votes; `0` waits for all committee members |
+| `--mr2-classification-grace-period` | `10s` | MR2 post-quorum grace for collecting additional complete classification votes; `0` certifies immediately at quorum |
+| `--mr3-approval-grace-period` | `10s` | MR3 post-quorum grace for collecting additional approval votes; `0` certifies immediately at quorum |
+| `--agent-config` | empty | Experiment config supplying real agent endpoints and validator names; empty uses local mocks |
 
 Example:
 

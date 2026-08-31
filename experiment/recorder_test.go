@@ -198,6 +198,51 @@ func TestLoadConfig_PreservesThreeDistinctMockValidators(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_PreservesForcedByzantineMR3Proposer(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "cfg.json")
+	content := `{
+		"forced_mr3_proposer":"validator-10",
+		"validators":[
+			{"validator_id":"validator-1","provider":"openai","model":"gpt-5.4-mini"},
+			{"validator_id":"validator-10","provider":"deepseek","model":"deepseek-v4-pro","byzantine_mr3_synthesis":true}
+		]
+	}`
+	require.NoError(t, os.WriteFile(cfgPath, []byte(content), 0o644))
+
+	cfg, err := LoadConfig(cfgPath)
+	require.NoError(t, err)
+	assert.Equal(t, "validator-10", cfg.ForcedMR3Proposer)
+	assert.False(t, cfg.Validators[0].ByzantineMR3Synthesis)
+	assert.True(t, cfg.Validators[1].ByzantineMR3Synthesis)
+
+	manifest := BuildManifest("run", cfg, time.Unix(0, 0))
+	assert.Equal(t, "validator-10", manifest.ForcedMR3Proposer)
+}
+
+func TestLoadConfig_DefaultDoesNotForceMR3Proposer(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "cfg.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"validators":[{"validator_id":"validator-1"}]}`), 0o644))
+
+	cfg, err := LoadConfig(cfgPath)
+	require.NoError(t, err)
+	assert.Empty(t, cfg.ForcedMR3Proposer)
+	assert.False(t, cfg.Validators[0].ByzantineMR3Synthesis)
+}
+
+func TestLoadConfig_RejectsMismatchedByzantineMR3Proposer(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "cfg.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{
+		"forced_mr3_proposer":"validator-1",
+		"validators":[{"validator_id":"validator-1"},{"validator_id":"validator-2","byzantine_mr3_synthesis":true}]
+	}`), 0o644))
+
+	_, err := LoadConfig(cfgPath)
+	assert.ErrorContains(t, err, "must match forced_mr3_proposer")
+}
+
 func TestLoadConfig_EmptyValidatorsError(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "cfg.json")
