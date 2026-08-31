@@ -174,6 +174,30 @@ func TestLoadConfig_PreservesMockPreprocessing(t *testing.T) {
 	assert.Equal(t, "wrong answer", cfg.Validators[0].MockPreprocessing.Answer)
 }
 
+func TestLoadConfig_PreservesThreeDistinctMockValidators(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "cfg.json")
+	content := `{"validators":[
+		{"validator_id":"validator-4","provider":"mock","model":"mocked-agent","mock_preprocessing":{"label":"systems_programming","answer":"wrong four"},"mock_judge_correct_answers":["wrong four","wrong seven","wrong eight"]},
+		{"validator_id":"validator-7","provider":"mock","model":"mocked-agent","mock_preprocessing":{"label":"systems_programming","answer":"wrong seven"},"mock_judge_correct_answers":["wrong four","wrong seven","wrong eight"]},
+		{"validator_id":"validator-8","provider":"mock","model":"mocked-agent","mock_preprocessing":{"label":"systems_programming","answer":"wrong eight"},"mock_judge_correct_answers":["wrong four","wrong seven","wrong eight"]}
+	]}`
+	require.NoError(t, os.WriteFile(cfgPath, []byte(content), 0o644))
+
+	cfg, err := LoadConfig(cfgPath)
+	require.NoError(t, err)
+	require.Len(t, cfg.Validators, 3)
+	for i, want := range []struct{ id, answer string }{
+		{"validator-4", "wrong four"},
+		{"validator-7", "wrong seven"},
+		{"validator-8", "wrong eight"},
+	} {
+		assert.Equal(t, want.id, cfg.Validators[i].ValidatorID)
+		assert.Equal(t, want.answer, cfg.Validators[i].MockPreprocessing.Answer)
+		assert.Equal(t, []string{"wrong four", "wrong seven", "wrong eight"}, cfg.Validators[i].MockJudgeCorrectAnswers)
+	}
+}
+
 func TestLoadConfig_EmptyValidatorsError(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "cfg.json")

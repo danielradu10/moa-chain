@@ -70,7 +70,7 @@ async def judge(body: JudgeRequest, request: Request) -> JudgeResponse:
         if state.config.llm_provider.strip().lower() == "mock":
             category = (
                 "CORRECT"
-                if candidate.get("answer") == state.config.mock_preprocessing_answer
+                if candidate.get("answer") in state.config.mocked_judge_correct_answer_set
                 else "WRONG"
             )
             classifications = [{"candidateId": candidate_id, "category": category}]

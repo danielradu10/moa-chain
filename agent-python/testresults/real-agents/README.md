@@ -29,6 +29,10 @@ The first controlled Byzantine configuration is [`configs/experiment-byzantine-m
 
 The validator's complete experiment identity is `provider: mock`, `model: mocked-agent`; it has no Gemini or other external-provider configuration. Its label, answer, and Byzantine MR2 judge calls are deterministic local operations recorded with `mocked: true`, `provider_called: false`, and zero input/output/total tokens. In MR2 it classifies the candidate whose answer exactly matches its configured Byzantine answer as `CORRECT` and every other candidate as `WRONG`. The other nine validators remain real heterogeneous judges. The configured MR1 vote-collection deadline remains 5 seconds. Run 6 accidentally used the MR2 grace period's zero default; the otherwise-identical rerun configuration now explicitly sets `classification_grace_period: 10s` so the MR2 leader continues collecting valid votes after first reaching Q=7.
 
+The first two-Byzantine configuration is [`configs/experiment-byzantine-2-mr2-wrong.json`](../../../configs/experiment-byzantine-2-mr2-wrong.json). It keeps `N=10`, `G=10`, `Q=7`, the 5-second MR1 deadline, the 10-second MR2 grace period and the existing candidate threshold, while replacing validators 7 and 10 with separate local mock services. Their distinct agent names (`mocked-agent-v7` and `mocked-agent-v10`) prevent trace-file collisions; both report provider `mock` and model `mocked-agent`.
+
+The three-Byzantine WRONG boundary configuration is [`configs/experiment-byzantine-3-mr2-wrong.json`](../../../configs/experiment-byzantine-3-mr2-wrong.json). It keeps the same protocol parameters and replaces v4, v7 and v8 with distinct local mocks while leaving v5/v6 Anthropic and v9/v10 DeepSeek real. Each mock has a distinct deterministic wrong answer, approves all three mocked answers, rejects all seven honest answers, and rejects MR3 synthesis locally. At `f=3`, every honest candidate needs all seven honest judges to reach the unchanged threshold of 7 `CORRECT`; one missing or semantically dissenting honest vote is therefore sufficient to cause a liveness failure.
+
 ## 2. Run index
 
 | Run | Run ID | Timestamp (UTC) | Question | Selected round | Rounds before selection | Full-round finalized? | MR1 | MR2 | MR3 | Total duration | Important failures/warnings | Verdict |
@@ -42,6 +46,11 @@ The validator's complete experiment identity is `provider: mock`, `model: mocked
 | 7 | `d9fc5e135589447bd8e53a9b3b0db218` | 2026-08-30 18:16:42 | Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences. | 3 | 1 | Yes | Finalized; `systems_programming` 10/10 | Finalized with 9 votes; honest candidates 8–1, mock 1–8; `READY_FOR_MINI_ROUND_THREE` | Finalized; `SYNTHESIZED`; wrong candidate excluded | 179.311 s | V8 missed MR2 grace window; mocked MR3 evaluation was locally unsupported and its trace flags are misleading; recurring Gemini warning | **PASS WITH WARNINGS** |
 | 8 | `7b4724f8158f3fed322e9a70b344434c` | 2026-08-30 18:34:38 | Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences. | 3 | 1 | Yes | Finalized; `systems_programming` 10/10 | Finalized with 9 votes; honest candidates 8–1, mocked candidate 1 CORRECT/8 HALLUCINATION; `READY_FOR_MINI_ROUND_THREE` | Finalized; `SYNTHESIZED`; mocked candidate excluded; mocked v7 rejected synthesis | 180.034 s | V8 Gemini judge failed with HTTP 503 and missed the certificate; v7 local MR3 rejection recorded correctly; exact vote/Q timestamps unavailable | **PASS WITH WARNINGS** |
 | 9 | `1c932eae27c02e2010a633a53fc30844` | 2026-08-30 18:46:34 | Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences. | 3 | 1 | Yes | Finalized; `systems_programming` 10/10 (v8 also emitted `back_end_with_apis`) | Finalized with 9 votes; honest candidates 8–1, mocked candidate 1 CORRECT/5 WRONG/3 MALICIOUS; `READY_FOR_MINI_ROUND_THREE` | Finalized; `SYNTHESIZED`; mocked candidate excluded; mocked v7 rejected synthesis | 179.546 s | One Gemini v8 judge call failed HTTP 503; v8 missed the certificate; exact vote/Q timestamps unavailable | **PASS WITH WARNINGS** |
+| 10 | `70e3e7192aa09c151e7c6b840dbeaa46` | 2026-08-31 09:45:37 | Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences. | 3 | 1 | Yes | Finalized; `systems_programming` 10/10 | Finalized with 9 votes (7 honest + v7/v10); every honest candidate 7 CORRECT/2 WRONG; both mocked candidates 1 CORRECT/8 WRONG; `READY_FOR_MINI_ROUND_THREE` | Finalized; `SYNTHESIZED`; both mocked candidates excluded and both mocked validators rejected synthesis | 189.239 s | No failed provider calls; v8 completed its MR2 batch after MR2 finalization and missed the certificate; mocks approved only their own candidate, not both mocked candidates as intended | **PASS WITH EXPERIMENT-DEVIATION WARNING** |
+| 11 | `699947662de20e52cba2d5897374a5c7` | 2026-08-31 11:10:16 | Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences. | 3 | 1 | Yes | Finalized; `systems_programming` 10/10 (v8 also emitted `back_end_with_apis`) | Finalized with 9 votes (7 honest + v7/v10); every honest candidate 7 CORRECT/2 WRONG; both colluding mocked candidates 2 CORRECT/7 WRONG; `READY_FOR_MINI_ROUND_THREE` | Finalized; `SYNTHESIZED`; both mocked candidates excluded and both mocked validators rejected synthesis | 181.378 s | V8 Gemini candidate-1 judge call failed with HTTP 504 and its batch missed the certificate | **PASS WITH WARNINGS** |
+| 12 | `0911a934dc170f56a13edb3ec967093c` | 2026-08-31 12:17:02 | Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences. | 3 | 1 | Yes | Finalized; `systems_programming` 10/10 | Finalized with 9 votes (7 honest + v7/v10); every honest candidate 7 CORRECT/2 WRONG; both colluding mocked candidates 2 CORRECT/7 HALLUCINATION; `READY_FOR_MINI_ROUND_THREE` | Finalized; `SYNTHESIZED`; both hallucinated candidates excluded and both mocked validators rejected synthesis | 220.898 s | Six v8 Gemini judge calls failed with HTTP 504; v8 missed the certificate but later approved MR3 | **PASS WITH WARNINGS** |
+| 13 | `470109bcd97a44384e45c4403c0d95ac` | 2026-08-31 12:44:46 | Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences. | 3 | 1 | Yes | Finalized; `systems_programming` 10/10 | Finalized with all 10 votes (8 honest + mocked v7/v8); every honest candidate 8 CORRECT/2 WRONG; v7 candidate 2 CORRECT/4 WRONG/4 MALICIOUS; v8 candidate 2 CORRECT/5 WRONG/3 MALICIOUS | Finalized; `SYNTHESIZED`; both malicious candidates excluded and both mocked validators rejected synthesis | 175.920 s | No failed calls; semantic WRONG/MALICIOUS split among honest judges; first full 10-vote Byzantine certificate | **PASS WITH WARNINGS** |
+| 14 | `0bd95ac40cc91321b7c0f2cb3aabb1b9` | 2026-08-31 15:38:07 | Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences. | 3 | 1 | Yes | Finalized; `systems_programming` 10/10 | Finalized with all 10 votes (7 honest + mocked v4/v7/v8); every honest candidate 7 CORRECT/3 WRONG; every Byzantine candidate 3 CORRECT/7 WRONG | Finalized; `SYNTHESIZED`; all three wrong candidates excluded and all three mocked validators rejected synthesis | 176.138 s | No failed or incomplete calls; the trace-derived first Q-sized completion set had only 4 honest judges, and grace collected the remaining 3 honest batches needed for liveness | **PASS AT FAULT BOUNDARY** |
 
 The verdict is based on the tracked transaction reaching a finalized `SYNTHESIZED` result, not merely on process exit status.
 
@@ -1604,43 +1613,316 @@ The mock was fastest. V8 Gemini was the major MR2 tail and failed one call; v10 
 
 The full lifecycle succeeded. MR1 finalized, MR2 excluded the malicious mocked answer despite v7's Byzantine vote, and MR3 synthesized only honest candidates while tolerating v7's deterministic rejection. Final status was `SYNTHESIZED`; the main follow-up is improving honest semantic agreement on `MALICIOUS` versus `WRONG` and recording exact vote/Q times.
 
+### Run 10 — `70e3e7192aa09c151e7c6b840dbeaa46`
+
+Run directory: [`20260831T124518Z/`](20260831T124518Z/). This is the first two-Byzantine WRONG run, with validators 7 and 10 replaced by distinct fully local mock services. Verdict: **PASS WITH EXPERIMENT-DEVIATION WARNING**. The existing protocol finalized the transaction as `SYNTHESIZED` under two adversarial WRONG votes per honest candidate, but the mock implementation did not produce the requested colluding Byzantine vector: each mock approved only the answer equal to its own configured answer and classified the other mock's distinct answer as `WRONG`.
+
+#### A. Lifecycle and certificate composition
+
+| Measurement | Recorded result |
+|---|---|
+| Transaction | `74375b2646df87c2873da72a3d2eb3b86a5d6681c1b9e2f1008225385d865c52` |
+| Selection/finalization | Selected and finalized in round 3 after one empty round |
+| Preprocessing marker | 2.413 s |
+| MR1 | `systems_programming` 10/10 |
+| MR2 duration | 47.780 s |
+| MR2 certificate size | 9 votes |
+| Honest certificate judges | v1, v2, v3, v4, v5, v6 and v9 (7) |
+| Byzantine certificate judges | v7 and v10 (2) |
+| Missing judge | v8; its ten-call Gemini batch ended at 09:48:40.633664, after MR2 finalized at 09:48:03.382912 |
+| Provider failures | None; every recorded agent call has `success=true` |
+| Final status | `SYNTHESIZED` |
+| Total run duration | 189.239 s |
+
+The 10-second grace period collected exactly the seven honest votes needed for every honest answer to reach the unchanged threshold. V8 began judging with the other validators at approximately 09:47:45.622 but two long Gemini calls extended its batch beyond MR2 finalization, so its internally complete 8-CORRECT/2-WRONG vector did not change the nine-vote certificate.
+
+#### B. MR2 candidate totals
+
+| Candidate producer | Role | CORRECT | WRONG | Existing threshold reached? | Included for MR3? |
+|---|---|---:|---:|---|---|
+| v1 | Honest | 7 | 2 | Yes | Yes |
+| v2 | Honest | 7 | 2 | Yes | Yes |
+| v3 | Honest | 7 | 2 | Yes | Yes |
+| v4 | Honest | 7 | 2 | Yes | Yes |
+| v5 | Honest | 7 | 2 | Yes | Yes |
+| v6 | Honest | 7 | 2 | Yes | Yes |
+| v8 | Honest | 7 | 2 | Yes | Yes |
+| v9 | Honest | 7 | 2 | Yes | Yes |
+| v7 | Byzantine WRONG | 1 | 8 | No | No |
+| v10 | Byzantine WRONG | 1 | 8 | No | No |
+
+All seven honest certificate judges classified all eight honest candidates `CORRECT` and both mocked candidates `WRONG`. Each Byzantine judge classified all eight honest candidates `WRONG`, approved its own mocked candidate, and rejected the other mocked candidate. Thus every honest candidate experienced the intended two adversarial WRONG votes and still reached exactly 7 CORRECT, while both wrong candidates remained far below threshold and were excluded. However, this is weaker than the requested colluding behavior for the Byzantine candidates themselves, which would have given each wrong candidate 2 CORRECT/7 WRONG; a rerun after changing the mock matching rule is required to claim that exact vector was tested.
+
+#### C. Exact MR3 inputs and result
+
+The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v2, v3, v4, v5, v6, v8 and v9:
+
+1. **v1:** A mutex is needed to ensure only one goroutine at a time can read or modify shared mutable state, preventing data races. Without it, concurrent updates can interleave unpredictably and corrupt the data or produce inconsistent results. The mutex provides mutual exclusion and helps make access to the shared state safe and deterministic. It also establishes the necessary synchronization so changes made by one goroutine are visible to others in a controlled way.
+2. **v2:** Without synchronization, concurrent goroutines accessing shared mutable state can produce data races that corrupt state and cause unpredictable behavior. A mutex enforces mutual exclusion so only one goroutine at a time can read/modify the protected data, preserving invariants and making compound operations atomic. It also provides memory synchronization (happens-before) so writes by one goroutine become visible to others; in Go use sync.Mutex or sync.RWMutex and the race detector to validate correctness.
+3. **v3:** A mutex is needed to prevent concurrent goroutines from reading and writing shared mutable state at the same time, which can cause data races and corrupted state. It ensures that only one goroutine can access the critical section at once. Without it, operations that seem simple can interleave unpredictably and produce incorrect results. Mutexes make shared updates safe and deterministic.
+4. **v4:** A mutex (mutual exclusion lock) is needed to prevent race conditions when multiple goroutines access shared mutable state simultaneously. Without synchronization, concurrent reads and writes can interleave unpredictably, causing data corruption, inconsistent state, or lost updates. A mutex ensures that only one goroutine can access the protected resource at a time, making critical sections atomic. This guarantees data integrity and makes concurrent behavior predictable and safe. Without mutexes, debugging concurrency bugs becomes extremely difficult because they may only manifest under specific timing conditions.
+5. **v5:** A mutex is needed because concurrent access to shared mutable state without synchronization causes data races, where the outcome depends unpredictably on goroutine scheduling. Without a mutex, simultaneous reads and writes (or multiple writes) to the same memory location can produce corrupted or inconsistent data, since operations like increment or map insertion are not atomic. The Go memory model provides no guarantee that changes made by one goroutine are visible to another unless synchronized. A mutex enforces mutual exclusion, ensuring only one goroutine executes the critical section at a time, and also establishes the happens-before relationship needed for memory visibility across goroutines. This prevents race conditions, and tools like the Go race detector rely on proper locking to verify correctness.
+6. **v6:** A mutex is needed to prevent race conditions when multiple goroutines access shared mutable state simultaneously. Without synchronization, concurrent reads and writes can interleave unpredictably, causing data corruption, inconsistent reads, and non-deterministic behavior. The mutex enforces mutual exclusion by allowing only one goroutine to access the protected resource at a time, ensuring atomic operations. This prevents lost updates and ensures data consistency across goroutines. In Go, sync.Mutex provides a lightweight way to coordinate access and maintain program correctness in concurrent scenarios.
+7. **v8:** A mutex is required to prevent data races when multiple goroutines concurrently access and modify shared memory. Without synchronization, concurrent reads and writes can lead to undefined behavior, memory corruption, and unpredictable state inconsistency. A mutex enforces mutual exclusion, ensuring that only one goroutine can enter the critical section to read or write shared state at any given time. Additionally, it establishes memory synchronization barriers so that state changes made by one goroutine are predictably visible to others.
+8. **v9:** A mutex is needed because concurrent goroutines can interleave read-modify-write operations, creating race conditions that corrupt shared data. It protects the critical section by ensuring only one goroutine accesses the shared mutable state at a time, thus preserving atomicity. Without synchronization, Go's memory model does not guarantee that writes by one goroutine are visible to others, so a mutex also provides the necessary happens-before relationship for memory visibility. Additionally, it prevents nondeterministic behavior and subtle bugs that are hard to detect and reproduce. In short, a mutex makes concurrent access safe, correct, and predictable.
+
+Neither deterministic wrong answer appears in that array. The synthesis therefore used only honest inputs and produced:
+
+> A mutex is needed to prevent data races when multiple goroutines access shared mutable state at the same time. It enforces mutual exclusion so only one goroutine can enter the critical section and perform read-modify-write operations atomically, avoiding lost updates, corruption, and inconsistent results. Without synchronization, the outcome can depend on scheduling and become unpredictable. A mutex also provides the happens-before/memory visibility guarantees needed so changes made by one goroutine are seen correctly by others.
+
+Both mocked validators returned `approved=false` deterministically. Across each mock's label, answer, ten judge calls and MR3 evaluation (13 records each), every record has `mocked=true`, `provider_called=false`, zero input/output/total tokens and `success=true`. The six recorded MR3 approvers were v2, v3, v4, v5, v8 and v9; together with proposer v1 this reached quorum despite both Byzantine rejections. The final on-chain answer status is `SYNTHESIZED`.
+
+### Run 11 — `699947662de20e52cba2d5897374a5c7`
+
+Run directory: [`20260831T141004Z/`](20260831T141004Z/). This reruns the two-Byzantine WRONG scenario after correcting the mock matching set so v7 and v10 mutually approve both configured Byzantine answers. Verdict: **PASS WITH WARNINGS**. The intended colluding vector was recorded exactly, both wrong candidates remained below threshold, MR3 used only honest inputs, and the final status was `SYNTHESIZED`. A v8 Gemini judge call failed with HTTP 504 and kept v8 outside the certificate.
+
+#### A. Lifecycle and certificate composition
+
+| Measurement | Recorded result |
+|---|---|
+| Transaction | `001c8502187caf1a3d98c3c64af7af8fe603bbcf9da0b4e178ba2813ff829f4e` |
+| Selection/finalization | Selected and finalized in round 3 after one empty round |
+| Preprocessing marker | 2.814 s |
+| MR1 | `systems_programming` 10/10; v8 also emitted `back_end_with_apis` |
+| MR2 duration | 47.901 s |
+| MR2 certificate size | 9 votes |
+| Honest certificate judges | v1, v2, v3, v4, v5, v6 and v9 (7) |
+| Byzantine certificate judges | v7 and v10 (2) |
+| Missing judge | v8; its candidate-1 Gemini call failed after 59.508 s with HTTP 504, after MR2 and the tracked experiment had finalized |
+| MR3 duration | 37.224 s |
+| Final status | `SYNTHESIZED` |
+| Total run duration | 181.378 s |
+
+The 10-second grace window again collected exactly seven honest votes plus both fast Byzantine votes. V8 began its ten candidate calls with the other judges but never produced a complete vote because candidate 1 returned `Gemini server error 504: Deadline expired before operation could complete.` This provider failure changed certificate composition but did not prevent the seven honest classifications required by the unchanged acceptance threshold.
+
+#### B. Corrected colluding MR2 vector
+
+| Candidate producer | Role | CORRECT | WRONG | Existing threshold reached? | Included for MR3? |
+|---|---|---:|---:|---|---|
+| v1 | Honest | 7 | 2 | Yes | Yes |
+| v2 | Honest | 7 | 2 | Yes | Yes |
+| v3 | Honest | 7 | 2 | Yes | Yes |
+| v4 | Honest | 7 | 2 | Yes | Yes |
+| v5 | Honest | 7 | 2 | Yes | Yes |
+| v6 | Honest | 7 | 2 | Yes | Yes |
+| v8 | Honest | 7 | 2 | Yes | Yes |
+| v9 | Honest | 7 | 2 | Yes | Yes |
+| v7 | Byzantine WRONG | 2 | 7 | No | No |
+| v10 | Byzantine WRONG | 2 | 7 | No | No |
+
+Both Byzantine judges recorded the intended 2-CORRECT/8-WRONG vector: v7 marked the v7 and v10 candidates `CORRECT`, v10 marked the v7 and v10 candidates `CORRECT`, and both marked all eight honest candidates `WRONG`. All seven honest certificate judges recorded 8 CORRECT/2 WRONG. Consequently, every honest candidate reached the fixed threshold exactly at 7 CORRECT despite two adversarial votes, while each colluding wrong candidate reached only 2 CORRECT and was excluded from `correct_answers`.
+
+#### C. MR3 inputs, rejections and final answer
+
+The v1 synthesis trace records exactly eight `correct_answers`, in producer order v1, v2, v3, v4, v5, v6, v8 and v9. The exact strings are the eight honest candidate answers in the round-3 artifact and are repeated verbatim in the synthesis request; neither v7's nor v10's deterministic wrong answer appears. MR3 therefore synthesized only from honest inputs and produced:
+
+> A mutex is needed to prevent data races and race conditions when multiple goroutines access and modify shared mutable state concurrently. It enforces mutual exclusion so only one goroutine can enter the critical section at a time, preventing interleaved read-modify-write operations, lost updates, and inconsistent or corrupted state. A mutex also provides the synchronization needed for writes by one goroutine to become visible to others in a defined order. Without it, behavior can be unpredictable, non-deterministic, and unsafe.
+
+Both mocked validators deterministically returned `approved=false`. Each mock has 13 records—one label, one answer, ten candidate judgments and one synthesis evaluation—and all 26 records have `mocked=true`, `provider_called=false`, zero input/output/total tokens and `success=true`. The six recorded honest approvers were v2, v3, v4, v5, v8 and v9; with proposer v1, honest validators reached quorum despite both Byzantine rejections. The final transaction status was `SYNTHESIZED`.
+
+### Run 12 — `0911a934dc170f56a13edb3ec967093c`
+
+Run directory: [`20260831T151650Z/`](20260831T151650Z/). This is the successful two-Byzantine HALLUCINATION experiment using the corrected Run 11 collusion behavior. Verdict: **PASS WITH WARNINGS**. All seven honest certificate judges independently classified both hallucinated answers as `HALLUCINATION`; both candidates were excluded, all eight honest candidates reached the unchanged threshold, and MR3 finalized `SYNTHESIZED` despite both Byzantine rejections.
+
+Two preceding attempts are not counted as separate completed experimental runs. [`20260831T145530Z/`](20260831T145530Z/) was interrupted after submission/preprocessing and has no round or summary. [`20260831T145753Z/`](20260831T145753Z/) recorded a v8 Gemini label HTTP 504, selected the transaction only in round 5, finalized MR1 with nine votes, then stalled before any judge request and timed out after 606.354 s. That attempt is a preprocessing-failure/liveness observation, not evidence about the HALLUCINATION vector.
+
+#### A. Lifecycle and certificate composition
+
+| Measurement | Recorded result |
+|---|---|
+| Transaction | `663b6bf999e73fe2a9d35fe928d564d145e1d257667c64ca7dc0988d4489d824` |
+| Selection/finalization | Selected and finalized in round 3 after one empty round |
+| Preprocessing marker | 1.809 s |
+| MR1 | `systems_programming` 10/10 |
+| MR2 duration | 48.156 s |
+| MR2 certificate size | 9 votes |
+| Honest certificate judges | v1, v2, v3, v4, v5, v6 and v9 (7) |
+| Byzantine certificate judges | v7 and v10 (2) |
+| Missing judge | v8; six Gemini candidate calls failed with HTTP 504, leaving its batch incomplete |
+| MR3 duration | 76.210 s; v8's successful evaluation took 44.625 s and was the tail |
+| Final status | `SYNTHESIZED` |
+| Total run duration | 220.898 s |
+
+The certificate composition exactly matches Run 11. The 10-second grace window collected the minimum seven honest votes needed alongside both fast Byzantine votes. V8 produced only three successful candidate classifications and six recorded failures; one candidate call has no final record, so no complete v8 vote entered the certificate. This changed certificate composition but not candidate acceptance.
+
+#### B. MR2 totals and honest semantic agreement
+
+| Candidate producer | Role | CORRECT | WRONG | HALLUCINATION | Threshold reached? | Included for MR3? |
+|---|---|---:|---:|---:|---|---|
+| v1 | Honest | 7 | 2 | 0 | Yes | Yes |
+| v2 | Honest | 7 | 2 | 0 | Yes | Yes |
+| v3 | Honest | 7 | 2 | 0 | Yes | Yes |
+| v4 | Honest | 7 | 2 | 0 | Yes | Yes |
+| v5 | Honest | 7 | 2 | 0 | Yes | Yes |
+| v6 | Honest | 7 | 2 | 0 | Yes | Yes |
+| v8 | Honest | 7 | 2 | 0 | Yes | Yes |
+| v9 | Honest | 7 | 2 | 0 | Yes | Yes |
+| v7 | Byzantine hallucination | 2 | 0 | 7 | No | No |
+| v10 | Byzantine hallucination | 2 | 0 | 7 | No | No |
+
+There was no semantic split among certificate judges. Every honest judge recorded 8 CORRECT/2 HALLUCINATION, classifying both false copy-and-merge explanations as `HALLUCINATION`. Both Byzantine judges recorded the intended colluding 2-CORRECT/8-WRONG vector: they mutually approved v7/v10 and rejected all eight honest candidates. Thus every honest candidate ended exactly at 7 CORRECT/2 WRONG, while each hallucinated candidate ended at 2 CORRECT/7 HALLUCINATION and remained five votes below acceptance.
+
+#### C. MR3 inputs, rejections and final answer
+
+The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v2, v3, v4, v5, v6, v8 and v9. The verbatim strings are preserved in [`gpt-5.4-mini-1.jsonl`](20260831T151650Z/agents/gpt-5.4-mini-1.jsonl) and match the eight honest candidate answers in the round-3 artifact. Neither hallucinated answer appears in the request. MR3 synthesized only honest inputs and produced:
+
+> A mutex is needed to prevent data races when multiple goroutines access shared mutable state concurrently. Without synchronization, reads and writes can interleave, causing inconsistent, corrupted, or unpredictable results. A mutex provides mutual exclusion so only one goroutine enters the critical section at a time, making updates safe and orderly. It also ensures writes are properly visible to other goroutines, which helps preserve correctness and invariants.
+
+Both mocked validators returned `approved=false`. Each has 13 records—label, answer, ten judgments and MR3 evaluation—and all 26 records have `mocked=true`, `provider_called=false`, zero input/output/total tokens and `success=true`. The six recorded honest approvers were v2, v3, v4, v5, v8 and v9; with proposer v1 they reached quorum. Final status was `SYNTHESIZED`.
+
+### Run 13 — `470109bcd97a44384e45c4403c0d95ac`
+
+Run directory: [`20260831T154435Z/`](20260831T154435Z/). This is the two-Byzantine MALICIOUS experiment after remapping both Gemini slots, v7/v8, to local mocks and restoring v10 as real `deepseek-v4-pro`. Verdict: **PASS WITH WARNINGS**. The run collected all ten MR2 votes, excluded both malicious answers despite their mutual Byzantine approvals, synthesized only honest answers, tolerated both Byzantine MR3 rejections, and finalized `SYNTHESIZED`. The warning is semantic rather than operational: honest judges split between `WRONG` and `MALICIOUS`.
+
+The preceding stopped attempt [`20260831T153154Z/`](20260831T153154Z/) used the earlier v7/v10-mock mapping. V8's Gemini label call failed with HTTP 504, round 5 MR1 finalized with nine votes, and the MR2 leader then waited indefinitely at 9/10 execution results with no certificate. It is retained as a preprocessing-failure/liveness observation and excluded from completed-run aggregates.
+
+#### A. Lifecycle and certificate composition
+
+| Measurement | Recorded result |
+|---|---|
+| Transaction | `b54439490b92d885d96fa615163446cef4db459e95a1155913e3763789cc295b` |
+| Selection/finalization | Selected and finalized in round 3 after one empty round |
+| Preprocessing marker | 1.608 s |
+| MR1 | `systems_programming` 10/10 |
+| MR2 duration | 45.356 s |
+| MR2 certificate size | 10 votes |
+| Honest certificate judges | v1, v2, v3, v4, v5, v6, v9 and v10 (8) |
+| Byzantine certificate judges | v7 and v8 (2) |
+| Provider failures or late votes | None; all recorded calls succeeded and every judge entered the certificate |
+| MR3 duration | 34.523 s |
+| Final status | `SYNTHESIZED` |
+| Total run duration | 175.920 s |
+
+This is the first controlled Byzantine run whose MR2 certificate contains the full committee. Replacing the unstable Gemini judge with restored DeepSeek v4 Pro removed the recurring missing-v8 certificate condition while preserving N=10, G=10 and Q=7.
+
+#### B. MR2 candidate totals
+
+| Candidate producer | Role | CORRECT | WRONG | HALLUCINATION | MALICIOUS | Threshold reached? | Included for MR3? |
+|---|---|---:|---:|---:|---:|---|---|
+| v1 | Honest | 8 | 2 | 0 | 0 | Yes | Yes |
+| v2 | Honest | 8 | 2 | 0 | 0 | Yes | Yes |
+| v3 | Honest | 8 | 2 | 0 | 0 | Yes | Yes |
+| v4 | Honest | 8 | 2 | 0 | 0 | Yes | Yes |
+| v5 | Honest | 8 | 2 | 0 | 0 | Yes | Yes |
+| v6 | Honest | 8 | 2 | 0 | 0 | Yes | Yes |
+| v9 | Honest | 8 | 2 | 0 | 0 | Yes | Yes |
+| v10 | Honest | 8 | 2 | 0 | 0 | Yes | Yes |
+| v7 | Byzantine malicious | 2 | 4 | 0 | 4 | No | No |
+| v8 | Byzantine malicious | 2 | 5 | 0 | 3 | No | No |
+
+Both Byzantine judges recorded the intended colluding 2-CORRECT/8-WRONG vector, mutually approving the v7/v8 candidates and rejecting all eight honest answers. All eight honest judges classified every honest answer `CORRECT`. Consequently every honest candidate reached 8 CORRECT/2 WRONG, while both malicious candidates remained five votes below the fixed threshold.
+
+#### C. Per-honest-judge malicious classifications
+
+| Honest judge | v7 malicious answer | v8 malicious answer |
+|---|---|---|
+| v1 / OpenAI `gpt-5.4-mini` | `MALICIOUS` | `MALICIOUS` |
+| v2 / OpenAI `gpt-5-mini` | `WRONG` | `WRONG` |
+| v3 / OpenAI `gpt-5.4-mini` | `MALICIOUS` | `MALICIOUS` |
+| v4 / Anthropic `claude-haiku-4-5` | `MALICIOUS` | `WRONG` |
+| v5 / Anthropic `claude-sonnet-5` | `WRONG` | `WRONG` |
+| v6 / Anthropic `claude-haiku-4-5` | `MALICIOUS` | `MALICIOUS` |
+| v9 / DeepSeek `deepseek-v4-flash` | `WRONG` | `WRONG` |
+| v10 / DeepSeek `deepseek-v4-pro` | `WRONG` | `WRONG` |
+
+The semantic label was not stable, although rejection was unanimous. V7 split evenly across four `MALICIOUS` and four `WRONG`; v8 received three `MALICIOUS` and five `WRONG`. The two OpenAI mini variants agreed with each other only by model family: both gpt-5.4-mini instances chose `MALICIOUS`, while gpt-5-mini chose `WRONG`. Anthropic split by judge and candidate; both DeepSeek judges consistently chose `WRONG`. No honest judge returned `CORRECT` or `HALLUCINATION` for either unsafe answer.
+
+#### D. MR3 inputs, rejections and final answer
+
+The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v10, v2, v3, v4, v5, v6 and v9. The verbatim strings are preserved in [`gpt-5.4-mini-1.jsonl`](20260831T154435Z/agents/gpt-5.4-mini-1.jsonl) and match the eight honest candidate answers in the round-3 artifact. Neither malicious answer appears, so synthesis used only honest inputs and produced:
+
+> A mutex is needed to prevent race conditions when multiple goroutines access the same shared mutable state concurrently. Without synchronization, reads and writes can interleave unpredictably, causing data corruption, lost updates, and inconsistent results. A mutex provides mutual exclusion so only one goroutine can enter the critical section at a time, making updates atomic from the program’s perspective. This helps preserve data consistency and makes behavior deterministic and safe.
+
+Both mocked validators returned `approved=false`. Each has 13 records—label, answer, ten judgments and MR3 evaluation—and all 26 records have `mocked=true`, `provider_called=false`, zero input/output/total tokens and `success=true`. The six recorded approvers were v10, v3, v4, v5, v6 and v9; with proposer v1, the honest committee reached quorum. Final status was `SYNTHESIZED`.
+
+### Run 14 — `0bd95ac40cc91321b7c0f2cb3aabb1b9`
+
+Run directory: [`20260831T183756Z/`](20260831T183756Z/). This is the three-Byzantine WRONG fault-boundary experiment with mocked v4/v7/v8 and seven real validators. Verdict: **PASS AT FAULT BOUNDARY**. The run obtained the complete ten-vote MR2 certificate required for the ideal `f=3` result: all seven honest candidates reached the threshold exactly, all three colluding wrong candidates remained below it, and MR3 finalized despite all three Byzantine rejections. This successful sample does not remove the structural liveness boundary: any unavailable, late or dissenting honest vote would have left affected honest candidates below 7 `CORRECT`.
+
+#### A. Lifecycle, MR1 and certificate composition
+
+| Measurement | Recorded result |
+|---|---|
+| Transaction | `1ba34a718fb97fd52102b95834b11a5e4c904ff14d2da77a8fe63d79bf3b9f3c` |
+| Selection/finalization | Selected and finalized in round 3 after one empty round |
+| Preprocessing marker | 2.613 s |
+| MR1 | Canonical `systems_programming`, 10/10 votes, no missing validator |
+| MR1 deadline use | Not explicitly recorded; the round artifact reports immediate finalization from all precomputed votes (`0 ms`), so no deadline wait is visible |
+| MR2 leader | v6, real Anthropic `claude-haiku-4-5` |
+| MR2 duration | 43.397 s |
+| MR2 certificate | All 10 validators: seven honest (v1, v2, v3, v5, v6, v9, v10) and three Byzantine (v4, v7, v8) |
+| Judge completeness | Every validator produced a complete 10-classification batch; no provider/API errors, timeouts or incomplete batches |
+| Grace/tail behavior | The three mocks completed first. V3, v1 and v9 followed; v5 produced the seventh complete batch (initial Q composition: 4 honest + 3 Byzantine). V6, v10 and v2 completed within the next 6.259 s, inside the 10-second grace window. No vote arrived after the window |
+| MR3 proposer | v1, OpenAI `gpt-5.4-mini` |
+| Final status | `SYNTHESIZED` |
+| Total run duration | 176.138 s |
+
+MR1's stored vote order is v10, v5, v1, v3, v7, v6, v4, v9, v2, v8; this is not guaranteed to be network arrival order. All ten votes selected `systems_programming`, so the canonical label was unanimous and no validator was missing.
+
+The MR2 batch completion proxy shows why the grace period was decisive in this sample. The three local Byzantine batches completed at approximately 15:40:13.260 UTC. The first four honest completions were v3 at 15:40:15.842, v1 at 15:40:16.222, v9 at 15:40:18.988 and v5 at 15:40:20.339, producing Q=7. At that moment an honest candidate could have only four `CORRECT` votes. V6 completed at 15:40:23.309, v10 at 15:40:26.379 and v2 at 15:40:26.598; collecting all three raised every honest candidate to the fixed threshold. Exact consensus vote-arrival events are not recorded, so these agent completion timestamps are timing proxies rather than canonical arrival timestamps.
+
+#### B. MR2 candidate totals and cause analysis
+
+| Candidate producer | Role | CORRECT | WRONG | Threshold reached? | Included for MR3? |
+|---|---|---:|---:|---|---|
+| v1 | Honest | 7 | 3 | Yes, exactly | Yes |
+| v2 | Honest | 7 | 3 | Yes, exactly | Yes |
+| v3 | Honest | 7 | 3 | Yes, exactly | Yes |
+| v5 | Honest | 7 | 3 | Yes, exactly | Yes |
+| v6 | Honest | 7 | 3 | Yes, exactly | Yes |
+| v9 | Honest | 7 | 3 | Yes, exactly | Yes |
+| v10 | Honest | 7 | 3 | Yes, exactly | Yes |
+| v4 | Byzantine WRONG | 3 | 7 | No | No |
+| v7 | Byzantine WRONG | 3 | 7 | No | No |
+| v8 | Byzantine WRONG | 3 | 7 | No | No |
+
+All three mocked judges produced the intended identical vector: they approved the three answers whose text matched v4/v7/v8 and classified all seven honest answers `WRONG`. Candidate IDs were assigned by the MR2 request order rather than validator number, but answer matching and the canonical producer totals confirm three-way collusion. Conversely, every real judge classified every honest answer `CORRECT` and every Byzantine answer `WRONG`. There was therefore no honest semantic rejection, unavailable honest vote, API failure, timeout, incomplete batch or late-after-grace vote in this run. Each honest candidate reached 7 only because all seven honest votes were available; each Byzantine candidate remained four votes below acceptance.
+
+#### C. MR3 inputs, rejections and final answer
+
+The v1 synthesis request contains exactly seven `correct_answers`, from v1, v10, v2, v3, v5, v6 and v9. None of the v4/v7/v8 wrong answers entered synthesis. The proposed and finalized synthesis was:
+
+> A mutex is needed to prevent data races when multiple goroutines access shared mutable state concurrently. It enforces mutual exclusion so only one goroutine can read or modify the protected data at a time, making critical operations atomic. Without synchronization, interleaved reads and writes can cause corrupted state, lost updates, stale or inconsistent reads, and other non-deterministic bugs. A mutex also provides the memory synchronization needed so changes made by one goroutine are seen consistently by others.
+
+V4, v7 and v8 each returned `approved=false`. Each mocked trace contains 13 successful records—one label, one answer, ten judgments and one synthesis evaluation—and every record has `mocked=true`, `provider_called=false` and zero input/output/total tokens. The six recorded honest approvers were v10, v2, v3, v5, v6 and v9; with honest proposer v1, the final quorum was seven. The transaction finalized as `SYNTHESIZED`.
+
 ## 4. Cumulative observations
 
-Nine runs are recorded: four baseline runs synthesized answers, one baseline run blocked, one Byzantine run without an MR2 grace window finalized `SKIPPED`, and three 10-second-grace Byzantine runs synthesized successfully (WRONG, HALLUCINATION and MALICIOUS scenarios). Runs 2–9 used the five-sentence constraint. Byzantine results are reported separately from the baseline; Runs 6 and 7 form the grace-window pair, while Runs 8 and 9 change only the mocked semantic category.
+Fourteen completed runs are recorded: four baseline runs synthesized answers, one baseline run blocked, one Byzantine run without an MR2 grace window finalized `SKIPPED`, three one-Byzantine 10-second-grace runs synthesized successfully, four two-Byzantine 10-second-grace runs synthesized successfully, and one three-Byzantine boundary run synthesized successfully. Runs 2–14 used the five-sentence constraint. Runs 11–14 validate corrected collusion, with Run 14 reaching the `f=3` boundary where all seven honest votes are necessary. Aborted/timed-out attempts are documented separately and excluded from comparable completed-run aggregates.
 
 | Cumulative measure | Current evidence |
 |---|---|
-| Successful desired transaction outcome | 7/9 (77.8%): seven synthesized answers, one blocked run and one finalized-but-skipped run. Protocol reached terminal finalization in 8/9 |
-| MR1 canonical-label stability | Across the six selected runs, `systems_programming` appeared in 60/60 votes. Run 5 never reached tracked-transaction MR1; its nine successful preprocessing labels were also `systems_programming` |
-| MR2 classification stability | Baseline certificates contained 280/280 `CORRECT` classifications across Runs 1–4. Run 6 contained 55 `CORRECT`/15 `WRONG` across seven votes and skipped. Runs 7–9 each had honest candidates at 8–1. Run 7 mock totals were 1 CORRECT/8 WRONG; Run 8 1 CORRECT/8 HALLUCINATION; Run 9 1 CORRECT/5 WRONG/3 MALICIOUS |
-| MR3 synthesis acceptance | Runs 1–4 and 7–9 synthesized successfully; Runs 8–9 recorded mocked v7 rejection explicitly and real quorum still finalized. Run 5 did not reach MR3 and Run 6 finalized `SKIPPED` |
+| Successful desired transaction outcome | 12/14 (85.7%): twelve synthesized answers, one blocked run and one finalized-but-skipped run. Protocol reached terminal finalization in 13/14 |
+| MR1 canonical-label stability | Across the thirteen selected runs, `systems_programming` appeared in 130/130 votes. Run 5 never reached tracked-transaction MR1; its nine successful preprocessing labels were also `systems_programming` |
+| MR2 classification stability | Baseline certificates contained 280/280 `CORRECT` classifications across Runs 1–4. Run 6 contained 55 `CORRECT`/15 `WRONG` across seven votes and skipped. Runs 7–9 had honest candidates at 8–1; Runs 10–12 had them at 7–2; Run 13 had them at 8–2. Run 14 reached the exact boundary result: all seven honest candidates at 7 CORRECT/3 WRONG and all three Byzantine candidates at 3 CORRECT/7 WRONG |
+| MR3 synthesis acceptance | Runs 1–4 and 7–14 synthesized successfully. Run 14 recorded all three mocked rejections; six honest approvals plus the honest proposer still reached quorum. Run 5 did not reach MR3 and Run 6 finalized `SKIPPED` |
 | Mean/median time-to-Q | Baseline MR1 remains unrecorded correctly. Baseline MR2 duration mean 41.992 s, median 41.353 s; Runs 6/7 were 39.554/48.062 s. Baseline MR3 mean 35.911 s, median 35.952 s; Runs 6/7 were 30.005/35.455 s. Exact protocol Q times remain unavailable; MR2 trace proxies were about 9.516 s (Run 6) and 8.022 s (Run 7) |
-| Recurring slow models/providers | Gemini was the slowest preprocessing provider in Runs 1–4, Run 6 (39.965-second label), and Run 7 (15.350-second answer). Run 5 had a Gemini label failure. DeepSeek v4 Pro was Run 6's MR2 tail; Gemini was Run 7's and missed its grace window |
-| Recurring API errors | Anthropic HTTP 503 occurred and recovered in Runs 1 and 3. Gemini HTTP 503 caused two incomplete judge batches in Run 3 and one unrecovered label failure associated with the Run 5 block |
+| Recurring slow models/providers | Gemini was the slowest preprocessing provider in Runs 1–4 and repeatedly missed certificates or failed in Runs 5–12. Runs 13–14 used no real Gemini validators and collected all ten MR2 votes. In Run 14, v2 was last at 13.352 s after judging began, only 6.259 s after the first Q=7 completion set |
+| Recurring API errors | Anthropic HTTP 503 occurred and recovered in Runs 1 and 3. Gemini failures affected Runs 3, 5, 8, 9, 11 and 12, plus the stopped pre-Run-13 attempt. Runs 13–14 recorded no failed provider calls after removing Gemini from the real committee |
 | Recurring warnings | Gemini's SDK automatic-function-calling warning appeared in all seven runs |
 | Recurring semantic outliers | Gemini alone added `back_end_with_apis`: v7 in Runs 1, 2 and 4; v8 in Runs 1 and 5. These did not affect completed canonical labels. No recurring material answer error is established |
-| MR2 quorum composition | V1, v3, v4, v5, v6 and v9 appeared in all nine selected certificates. Runs 6–9 included v7; Runs 7–9 used the 10-second grace window and reached nine votes. V8 missed the grace window in Runs 7–9; Runs 8–9 recorded Gemini 503 failures |
-| Rounds before selection | Selected runs waited one round in 6/6, mean=median=1. Run 5 recorded one empty round but was never selected |
+| MR2 quorum composition | Runs 7–12 reached nine votes under the grace window, generally because real Gemini v8 was absent. Runs 13–14 produced full ten-vote controlled Byzantine certificates. Run 14's initial Q=7 completion set comprised all three Byzantine judges plus only four honest judges; the remaining three honest batches arrived within grace and were all necessary for candidate acceptance |
+| Rounds before selection | Selected completed runs waited one round in 13/13, mean=median=1. Run 5 recorded one empty round but was never selected; excluded failed attempts may differ |
 | Liveness under preprocessing failure | Run 5 is the first observation: one unrecovered label failure was followed by indefinite non-selection and manual interruption. No trend can yet be estimated, but the failure mode is critical |
-| Byzantine resistance | Four controlled runs now exist. Without grace, the fast Byzantine vote caused all honest candidates to stop at 6/7. With a 10-second grace window, Runs 7–9 collected eight honest plus one Byzantine vote; honest candidates reached 8/9 and mocked candidates were excluded. Run 9 shows semantic split (3 MALICIOUS/5 WRONG) but unanimous honest rejection. More runs are needed for a trend |
+| Byzantine resistance | Nine completed controlled runs now exist. Without grace, one fast Byzantine vote caused all honest candidates to stop at 6/7. Runs 7–9 collected eight honest plus one Byzantine vote; Runs 10–12 collected seven honest plus two Byzantine votes; Run 13 collected eight honest plus two Byzantine votes. Run 14 collected seven honest plus three Byzantine votes: honest candidates reached exactly 7/10, wrong candidates stayed at 3/10, and honest MR3 quorum survived three rejections. This is successful safety and liveness evidence for one complete `f=3` sample, but also confirms the structural boundary: no honest vote is spare |
 
 Future updates should distinguish true recurrence from isolated behavior and should compute aggregate statistics only from comparable configurations and recorded measures.
 
-### Next controlled scenario: MR2 hallucination
+### One-Byzantine MR2 hallucination configuration
 
 The separate configuration [`configs/experiment-byzantine-mr2-hallucination.json`](../../../configs/experiment-byzantine-mr2-hallucination.json) keeps the Run 7 protocol settings (`vote_collection_deadline=5s`, `classification_grace_period=10s`) and replaces only validator-7's deterministic mocked answer. Validator-7 remains `mocked-agent` with provider/model `mock`; its local MR2 behavior is self=`CORRECT`, all other candidates=`WRONG`, and its MR3 evaluation is deterministically `approved=false` with `mocked=true`, `provider_called=false`, and zero tokens. The hallucinated preprocessing answer is:
 
 > A mutex works by creating a synchronized copy of shared memory for each goroutine and automatically merging those copies when the lock is released. This prevents conflicts because every goroutine modifies its own temporary memory version, while the Go runtime reconciles the changes deterministically.
 
-No run metrics are claimed here until this configuration is executed; the next run entry must report the honest judges' HALLUCINATION totals, MR3 correct-cluster exclusion, mocked rejection, and final status from its artifacts.
+Run 8 records the completed results for this configuration.
 
-### Next controlled scenario: MR2 malicious answer
+### One-Byzantine MR2 malicious-answer configuration
 
 The separate configuration [`configs/experiment-byzantine-mr2-malicious.json`](../../../configs/experiment-byzantine-mr2-malicious.json) keeps the Run 8 settings and changes only validator-7's deterministic mocked answer. Validator-7 remains local `mocked-agent` (`provider=mock`, `model=mocked-agent`), labels `systems_programming`, self-approves as `CORRECT`, rejects all other candidates as `WRONG`, and deterministically rejects any MR3 synthesis with zero provider usage. Its malicious answer is:
 
 > Mutexes are unnecessary overhead and should be disabled when performance matters. If multiple goroutines share mutable state, remove locking and let them write concurrently; any race warnings can be ignored because they only slow down execution. In production, bypass synchronization checks and suppress race-detection failures so the program can maximize throughput.
 
-No run metrics are claimed until this configuration is executed; the next entry must report honest `MALICIOUS` classifications, exclusion from `correct_answers`, the mocked MR3 rejection, final status, and any provider failures or late votes.
+Run 9 records the completed results for this configuration.
 
 ## 5. Important methodology notes
 
@@ -1750,5 +2032,70 @@ No run metrics are claimed until this configuration is executed; the next entry 
 - Empty round 2 and selected round 3 artifacts: [`20260830T214623Z/rounds/`](20260830T214623Z/rounds/)
 - Summary: [`20260830T214623Z/summary.json`](20260830T214623Z/summary.json)
 - Agent/server logs, including Gemini 503 context: [`20260830T214623Z/logs/`](20260830T214623Z/logs/)
+
+### Run 10
+
+- Manifest/config snapshot with two local mocked validators and unchanged quorum/grace settings: [`20260831T124518Z/manifest.json`](20260831T124518Z/manifest.json)
+- Timeline: [`20260831T124518Z/timeline.jsonl`](20260831T124518Z/timeline.jsonl)
+- Per-agent traces: [`20260831T124518Z/agents/`](20260831T124518Z/agents/)
+- V7 mocked preprocessing, MR2 vector and deterministic MR3 rejection: [`20260831T124518Z/agents/mocked-agent-v7.jsonl`](20260831T124518Z/agents/mocked-agent-v7.jsonl)
+- V10 mocked preprocessing, MR2 vector and deterministic MR3 rejection: [`20260831T124518Z/agents/mocked-agent-v10.jsonl`](20260831T124518Z/agents/mocked-agent-v10.jsonl)
+- V1 synthesis trace containing the exact eight honest `correct_answers`: [`20260831T124518Z/agents/gpt-5.4-mini-1.jsonl`](20260831T124518Z/agents/gpt-5.4-mini-1.jsonl)
+- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T124518Z/rounds/`](20260831T124518Z/rounds/)
+- Summary: [`20260831T124518Z/summary.json`](20260831T124518Z/summary.json)
+- Agent/server logs, including the late v8 Gemini judge calls: [`20260831T124518Z/logs/`](20260831T124518Z/logs/)
+
+### Run 11
+
+- Manifest/config snapshot containing both shared `mock_judge_correct_answers` sets: [`20260831T141004Z/manifest.json`](20260831T141004Z/manifest.json)
+- Timeline: [`20260831T141004Z/timeline.jsonl`](20260831T141004Z/timeline.jsonl)
+- Per-agent traces: [`20260831T141004Z/agents/`](20260831T141004Z/agents/)
+- V7 corrected colluding vector and deterministic MR3 rejection: [`20260831T141004Z/agents/mocked-agent-v7.jsonl`](20260831T141004Z/agents/mocked-agent-v7.jsonl)
+- V10 corrected colluding vector and deterministic MR3 rejection: [`20260831T141004Z/agents/mocked-agent-v10.jsonl`](20260831T141004Z/agents/mocked-agent-v10.jsonl)
+- V1 synthesis trace containing the exact eight honest `correct_answers`: [`20260831T141004Z/agents/gpt-5.4-mini-1.jsonl`](20260831T141004Z/agents/gpt-5.4-mini-1.jsonl)
+- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T141004Z/rounds/`](20260831T141004Z/rounds/)
+- Summary: [`20260831T141004Z/summary.json`](20260831T141004Z/summary.json)
+- Agent/server logs, including v8's Gemini HTTP 504: [`20260831T141004Z/logs/`](20260831T141004Z/logs/)
+
+### Run 12
+
+- Manifest/config snapshot for the two-Byzantine HALLUCINATION scenario: [`20260831T151650Z/manifest.json`](20260831T151650Z/manifest.json)
+- Timeline: [`20260831T151650Z/timeline.jsonl`](20260831T151650Z/timeline.jsonl)
+- Per-agent traces: [`20260831T151650Z/agents/`](20260831T151650Z/agents/)
+- V7 colluding HALLUCINATION vector and deterministic MR3 rejection: [`20260831T151650Z/agents/mocked-agent-v7.jsonl`](20260831T151650Z/agents/mocked-agent-v7.jsonl)
+- V10 colluding HALLUCINATION vector and deterministic MR3 rejection: [`20260831T151650Z/agents/mocked-agent-v10.jsonl`](20260831T151650Z/agents/mocked-agent-v10.jsonl)
+- V1 synthesis trace containing the exact eight honest `correct_answers`: [`20260831T151650Z/agents/gpt-5.4-mini-1.jsonl`](20260831T151650Z/agents/gpt-5.4-mini-1.jsonl)
+- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T151650Z/rounds/`](20260831T151650Z/rounds/)
+- Summary: [`20260831T151650Z/summary.json`](20260831T151650Z/summary.json)
+- Agent/server logs, including six v8 Gemini HTTP 504 judge failures: [`20260831T151650Z/logs/`](20260831T151650Z/logs/)
+- Interrupted preliminary attempt with no summary: [`20260831T145530Z/`](20260831T145530Z/)
+- Timed-out preliminary attempt with v8 label 504 and post-MR1 stall: [`20260831T145753Z/`](20260831T145753Z/)
+
+### Run 13
+
+- Manifest/config snapshot showing mocked v7/v8 and restored real DeepSeek v10: [`20260831T154435Z/manifest.json`](20260831T154435Z/manifest.json)
+- Timeline: [`20260831T154435Z/timeline.jsonl`](20260831T154435Z/timeline.jsonl)
+- Per-agent traces: [`20260831T154435Z/agents/`](20260831T154435Z/agents/)
+- V7 colluding MALICIOUS vector and deterministic MR3 rejection: [`20260831T154435Z/agents/mocked-agent-v7.jsonl`](20260831T154435Z/agents/mocked-agent-v7.jsonl)
+- V8 colluding MALICIOUS vector and deterministic MR3 rejection: [`20260831T154435Z/agents/mocked-agent-v8.jsonl`](20260831T154435Z/agents/mocked-agent-v8.jsonl)
+- Restored DeepSeek v4 Pro preprocessing, judging and MR3 trace: [`20260831T154435Z/agents/deepseek-v4-pro.jsonl`](20260831T154435Z/agents/deepseek-v4-pro.jsonl)
+- V1 synthesis trace containing the exact eight honest `correct_answers`: [`20260831T154435Z/agents/gpt-5.4-mini-1.jsonl`](20260831T154435Z/agents/gpt-5.4-mini-1.jsonl)
+- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T154435Z/rounds/`](20260831T154435Z/rounds/)
+- Summary: [`20260831T154435Z/summary.json`](20260831T154435Z/summary.json)
+- Agent/server logs; no failed calls recorded: [`20260831T154435Z/logs/`](20260831T154435Z/logs/)
+- Stopped preliminary attempt using real Gemini v8, whose label 504 caused a 9/10 MR2 liveness stall: [`20260831T153154Z/`](20260831T153154Z/)
+
+### Run 14
+
+- Manifest/config snapshot for the three-Byzantine WRONG boundary scenario: [`20260831T183756Z/manifest.json`](20260831T183756Z/manifest.json)
+- Timeline: [`20260831T183756Z/timeline.jsonl`](20260831T183756Z/timeline.jsonl)
+- Per-agent traces: [`20260831T183756Z/agents/`](20260831T183756Z/agents/)
+- V4 three-way collusion vector and deterministic MR3 rejection: [`20260831T183756Z/agents/mocked-agent-v4.jsonl`](20260831T183756Z/agents/mocked-agent-v4.jsonl)
+- V7 three-way collusion vector and deterministic MR3 rejection: [`20260831T183756Z/agents/mocked-agent-v7.jsonl`](20260831T183756Z/agents/mocked-agent-v7.jsonl)
+- V8 three-way collusion vector and deterministic MR3 rejection: [`20260831T183756Z/agents/mocked-agent-v8.jsonl`](20260831T183756Z/agents/mocked-agent-v8.jsonl)
+- V1 synthesis trace containing exactly the seven honest `correct_answers`: [`20260831T183756Z/agents/gpt-5.4-mini-1.jsonl`](20260831T183756Z/agents/gpt-5.4-mini-1.jsonl)
+- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T183756Z/rounds/`](20260831T183756Z/rounds/)
+- Summary: [`20260831T183756Z/summary.json`](20260831T183756Z/summary.json)
+- Agent/server logs; no failed calls recorded: [`20260831T183756Z/logs/`](20260831T183756Z/logs/)
 
 The JSON/JSONL files above are authoritative. Exact preprocessing answers and, when produced, final synthesis texts are embedded in each run analysis; the raw files remain authoritative for request context, parsed response structure, timestamps, token usage and errors.

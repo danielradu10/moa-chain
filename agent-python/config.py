@@ -1,3 +1,5 @@
+import json
+
 from pydantic_settings import BaseSettings
 
 
@@ -98,6 +100,19 @@ class Settings(BaseSettings):
     # provider only for /label and /answer; judging and MR3 remain real.
     mock_preprocessing_label: str = ""
     mock_preprocessing_answer: str = ""
+    # JSON array of answers a deterministic Byzantine judge treats as CORRECT.
+    # Empty preserves the original one-Byzantine behavior by matching only the
+    # local preprocessing answer.
+    mock_judge_correct_answers: str = ""
+
+    @property
+    def mocked_judge_correct_answer_set(self) -> set[str]:
+        if not self.mock_judge_correct_answers:
+            return {self.mock_preprocessing_answer}
+        answers = json.loads(self.mock_judge_correct_answers)
+        if not isinstance(answers, list) or not all(isinstance(answer, str) for answer in answers):
+            raise ValueError("MOCK_JUDGE_CORRECT_ANSWERS must be a JSON array of strings")
+        return set(answers)
 
     @property
     def model(self) -> str:

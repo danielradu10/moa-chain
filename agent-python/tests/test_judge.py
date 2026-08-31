@@ -95,6 +95,81 @@ def test_byzantine_mock_approves_self_and_rejects_others_without_provider(
         client.app.state.recorder = old_recorder
 
 
+@pytest.mark.parametrize(
+    ("validator_id", "validator_name", "endpoint"),
+    [
+        ("validator-4", "mocked-agent-v4", "http://127.0.0.1:8103"),
+        ("validator-7", "mocked-agent-v7", "http://127.0.0.1:8106"),
+        ("validator-8", "mocked-agent-v8", "http://127.0.0.1:8107"),
+    ],
+)
+def test_three_colluding_byzantine_mocks_approve_all_mock_answers_and_reject_honest(
+    judge_client, tmp_path, validator_id, validator_name, endpoint
+) -> None:
+    client, fake = judge_client
+    fake.set_error(AssertionError("provider must not be called"))
+    mock_answers = {
+        "validator-4": "configured Byzantine answer four",
+        "validator-7": "configured Byzantine answer seven",
+        "validator-8": "configured Byzantine answer eight",
+    }
+    cfg = client.app.state.config
+    old_provider = cfg.llm_provider
+    old_answer = cfg.mock_preprocessing_answer
+    old_correct_answers = cfg.mock_judge_correct_answers
+    old_recorder = client.app.state.recorder
+    cfg.llm_provider = "mock"
+    cfg.mock_preprocessing_answer = mock_answers[validator_id]
+    cfg.mock_judge_correct_answers = json.dumps(list(mock_answers.values()))
+    client.app.state.recorder = CallRecorder(
+        validator_id=validator_id,
+        validator_name=validator_name,
+        provider="mock",
+        model="mocked-agent",
+        agent_endpoint=endpoint,
+        experiment_dir=str(tmp_path),
+    )
+    try:
+        prompt = json.dumps({
+            "transactionHash": "abc123",
+            "prompt": "Why is a mutex needed?",
+            "candidates": [
+                {
+                    "candidateId": f"candidate-{i}",
+                    "answer": mock_answers.get(f"validator-{i}", f"honest answer {i}"),
+                }
+                for i in range(1, 11)
+            ],
+        })
+        resp = client.post("/judge", json={
+            "system_prompt": "protocol prompt",
+            "user_prompt": prompt,
+        })
+        assert resp.status_code == 200
+        classifications = json.loads(resp.json()["response"])["classifications"]
+        assert classifications == [
+            {
+                "candidateId": f"candidate-{i}",
+                "category": "CORRECT" if i in (4, 7, 8) else "WRONG",
+            }
+            for i in range(1, 11)
+        ]
+        records = [json.loads(line) for line in (
+            tmp_path / "agents" / f"{validator_name}.jsonl"
+        ).read_text().splitlines()]
+        assert len(records) == 10
+        assert all(record["mocked"] is True for record in records)
+        assert all(record["provider_called"] is False for record in records)
+        assert all(record["input_tokens"] == 0 for record in records)
+        assert all(record["output_tokens"] == 0 for record in records)
+        assert all(record["total_tokens"] == 0 for record in records)
+    finally:
+        cfg.llm_provider = old_provider
+        cfg.mock_preprocessing_answer = old_answer
+        cfg.mock_judge_correct_answers = old_correct_answers
+        client.app.state.recorder = old_recorder
+
+
 def test_judge_two_candidates_merges_per_candidate_responses(judge_client) -> None:
     client, fake = judge_client
     # FakeProvider returns the same raw response for every call.

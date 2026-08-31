@@ -9,12 +9,13 @@ import (
 
 // ValidatorSpec is the fixed identity of one validator in a heterogeneous experiment.
 type ValidatorSpec struct {
-	ValidatorID       string                 `json:"validator_id"`
-	ValidatorName     string                 `json:"validator_name"`
-	Provider          string                 `json:"provider"`
-	Model             string                 `json:"model"`
-	AgentEndpoint     string                 `json:"agent_endpoint"`
-	MockPreprocessing *MockPreprocessingSpec `json:"mock_preprocessing,omitempty"`
+	ValidatorID             string                 `json:"validator_id"`
+	ValidatorName           string                 `json:"validator_name"`
+	Provider                string                 `json:"provider"`
+	Model                   string                 `json:"model"`
+	AgentEndpoint           string                 `json:"agent_endpoint"`
+	MockPreprocessing       *MockPreprocessingSpec `json:"mock_preprocessing,omitempty"`
+	MockJudgeCorrectAnswers []string               `json:"mock_judge_correct_answers,omitempty"`
 }
 
 // MockPreprocessingSpec configures deterministic label and answer responses for
