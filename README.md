@@ -6,6 +6,12 @@ Conventional MoA systems combine responses from multiple LLM agents but still de
 
 This repository contains the Go implementation of the protocol (consensus, mempool, transaction lifecycle, local chain simulator, and block explorer backend) together with `agent-python`, the FastAPI service each validator runs to label, answer, and judge prompts against a real LLM provider (OpenAI, Anthropic, Gemini, DeepSeek, or Ollama).
 
+## Demo
+
+[![Watch the MoA Chain demo](https://img.youtube.com/vi/BNIdC3Ji66U/hqdefault.jpg)](https://youtu.be/BNIdC3Ji66U)
+
+A walkthrough of the protocol and a live transaction moving through MR1 → MR2 → MR3 in [MoA Chain Explorer](https://github.com/danielradu10/moa-chain-explorer).
+
 ## Architecture
 
 ![MoA Chain infrastructure: transaction preprocessing and the three certificate-backed mini-rounds](docs/images/design.png)
