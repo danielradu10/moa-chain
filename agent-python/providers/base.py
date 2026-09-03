@@ -17,12 +17,14 @@ class LLMProvider(Protocol):
         user_payload: dict,
         response_schema: type[T],
         timeout_seconds: float,
+        operation: str = "",
     ) -> T:
         """Call the LLM and parse the response into response_schema.
 
         Used by /label and /answer where the Python side owns the output schema.
         Raises AgentServiceError on timeout, provider error, invalid JSON,
         or schema mismatch.
+        `operation` is included in the llm_call structured log line.
         """
         ...
 
@@ -32,11 +34,13 @@ class LLMProvider(Protocol):
         user_message: str,
         timeout_seconds: float,
         json_format: bool = False,
+        operation: str = "",
     ) -> str:
         """Call the LLM and return the raw response string.
 
         Used by /judge where Go owns the schema and parses the output itself.
         Raises AgentServiceError on timeout or provider error.
+        `operation` is included in the llm_call structured log line.
         """
         ...
 

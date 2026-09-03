@@ -1,0 +1,94 @@
+from config import Settings
+from providers.base import LLMProvider
+from providers.ollama_provider import OllamaProvider
+
+
+def create_provider(settings: Settings) -> LLMProvider:
+    """Instantiate and return the LLM provider selected by settings.llm_provider.
+
+    Raises ValueError for unknown providers or missing required configuration
+    (e.g. OPENAI_API_KEY not set when LLM_PROVIDER=openai).
+    This is called once at startup inside the FastAPI lifespan — a ValueError
+    here aborts startup immediately rather than failing at the first request.
+    """
+    name = settings.llm_provider.strip().lower()
+
+    if name == "mock":
+        from providers.mock_provider import MockProvider  # noqa: PLC0415
+
+        return MockProvider()
+
+    if name == "ollama":
+        return OllamaProvider(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_model,
+            temperature=settings.llm_temperature,
+            num_ctx=settings.llm_num_ctx,
+            num_predict=settings.llm_num_predict,
+            think=settings.llm_think,
+        )
+
+    if name == "openai":
+        # Validate before attempting to import so the error message is clear.
+        if not settings.openai_api_key:
+            raise ValueError(
+                "LLM_PROVIDER=openai requires OPENAI_API_KEY to be set"
+            )
+        # Imported here so that the openai package is only required when actually used.
+        from providers.openai_provider import OpenAIProvider  # noqa: PLC0415
+
+        return OpenAIProvider(
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
+            temperature=settings.llm_temperature,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+
+    if name == "anthropic":
+        if not settings.anthropic_api_key:
+            raise ValueError(
+                "LLM_PROVIDER=anthropic requires ANTHROPIC_API_KEY to be set"
+            )
+        from providers.anthropic_provider import AnthropicProvider  # noqa: PLC0415
+
+        return AnthropicProvider(
+            api_key=settings.anthropic_api_key,
+            model=settings.anthropic_model,
+            effort=settings.anthropic_effort,
+            max_tokens=settings.anthropic_max_tokens,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+
+    if name == "gemini":
+        if not settings.gemini_api_key:
+            raise ValueError(
+                "LLM_PROVIDER=gemini requires GEMINI_API_KEY to be set"
+            )
+        from providers.gemini_provider import GeminiProvider  # noqa: PLC0415
+
+        return GeminiProvider(
+            api_key=settings.gemini_api_key,
+            model=settings.gemini_model,
+            temperature=settings.llm_temperature,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+
+    if name == "deepseek":
+        if not settings.deepseek_api_key:
+            raise ValueError(
+                "LLM_PROVIDER=deepseek requires DEEPSEEK_API_KEY to be set"
+            )
+        from providers.deepseek_provider import DeepSeekProvider  # noqa: PLC0415
+
+        return DeepSeekProvider(
+            api_key=settings.deepseek_api_key,
+            model=settings.deepseek_model,
+            base_url=settings.deepseek_base_url,
+            temperature=settings.llm_temperature,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+
+    raise ValueError(
+        f"Unknown LLM_PROVIDER={settings.llm_provider!r}. "
+        "Supported values: 'mock', 'ollama', 'openai', 'anthropic', 'gemini', 'deepseek'."
+    )

@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,6 +45,13 @@ type Config struct {
 	SynthesizePromptHash           string
 	EvaluateSynthesisPromptVersion string
 	EvaluateSynthesisPromptHash    string
+
+	// RunID, when non-empty, is sent as X-Run-ID in every request for cross-layer
+	// experiment correlation between Go and Python.
+	RunID string
+	// ValidatorName, when non-empty, is sent as X-Validator-Name so the Python
+	// agent can emit it in logs even without a VALIDATOR_NAME env var.
+	ValidatorName string
 }
 
 // Client implements agent.BatchAgent by calling the Python service over HTTP.
@@ -92,7 +100,7 @@ func (c *Client) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error)
 	inputs := make([]labelTxInput, len(txs))
 	for i, tx := range txs {
 		inputs[i] = labelTxInput{
-			TxHash: string(tx.GetTxHash()),
+			TxHash: hex.EncodeToString(tx.GetTxHash()),
 			Prompt: string(tx.GetPrompt()),
 		}
 	}
@@ -115,12 +123,16 @@ func (c *Client) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error)
 
 	results := make([]agent.LabelResult, len(resp.Results))
 	for i, r := range resp.Results {
+		txHashBytes, err := hex.DecodeString(r.TxHash)
+		if err != nil {
+			return nil, fmt.Errorf("httpclient: invalid tx_hash hex in label response: %w", err)
+		}
 		labels := make([]string, len(r.Labels))
 		for j, e := range r.Labels {
 			labels[j] = e.Subdomain
 		}
 		results[i] = agent.LabelResult{
-			TxHash: []byte(r.TxHash),
+			TxHash: txHashBytes,
 			Labels: labels,
 		}
 	}
@@ -133,10 +145,14 @@ func (c *Client) LabelBatch(txs []data.Transaction) ([]agent.LabelResult, error)
 func (c *Client) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, error) {
 	inputs := make([]answerTxInput, len(txs))
 	for i, tx := range txs {
+		subdomains := tx.GetDomainLabels()
+		if subdomains == nil {
+			subdomains = []string{}
+		}
 		inputs[i] = answerTxInput{
-			TxHash:     string(tx.GetTxHash()),
+			TxHash:     hex.EncodeToString(tx.GetTxHash()),
 			Prompt:     string(tx.GetPrompt()),
-			Subdomains: tx.GetDomainLabels(),
+			Subdomains: subdomains,
 		}
 	}
 
@@ -157,8 +173,12 @@ func (c *Client) AnswerBatch(txs []data.Transaction) ([]agent.AnswerResult, erro
 
 	results := make([]agent.AnswerResult, len(resp.Results))
 	for i, r := range resp.Results {
+		txHashBytes, err := hex.DecodeString(r.TxHash)
+		if err != nil {
+			return nil, fmt.Errorf("httpclient: invalid tx_hash hex in answer response: %w", err)
+		}
 		results[i] = agent.AnswerResult{
-			TxHash: []byte(r.TxHash),
+			TxHash: txHashBytes,
 			Answer: r.Answer,
 		}
 	}
@@ -172,7 +192,7 @@ func (c *Client) SynthesizeBatch(requests []agent.SynthesisRequest) ([]agent.Syn
 	inputs := make([]synthesizeTxInput, len(requests))
 	for i, r := range requests {
 		inputs[i] = synthesizeTxInput{
-			TxHash:         string(r.Tx.GetTxHash()),
+			TxHash:         hex.EncodeToString(r.Tx.GetTxHash()),
 			Prompt:         string(r.Tx.GetPrompt()),
 			CorrectAnswers: r.CorrectAnswers,
 		}
@@ -195,8 +215,12 @@ func (c *Client) SynthesizeBatch(requests []agent.SynthesisRequest) ([]agent.Syn
 
 	results := make([]agent.SynthesisResult, len(resp.SynthesizedAnswers))
 	for i, r := range resp.SynthesizedAnswers {
+		txHashBytes, err := hex.DecodeString(r.TxHash)
+		if err != nil {
+			return nil, fmt.Errorf("httpclient: invalid tx_hash hex in synthesize response: %w", err)
+		}
 		results[i] = agent.SynthesisResult{
-			TxHash: []byte(r.TxHash),
+			TxHash: txHashBytes,
 			Answer: r.Answer,
 		}
 	}
@@ -209,7 +233,7 @@ func (c *Client) EvaluateSynthesisBatch(requests []agent.EvaluateSynthesisReques
 	inputs := make([]evaluateSynthesisTxInput, len(requests))
 	for i, r := range requests {
 		inputs[i] = evaluateSynthesisTxInput{
-			TxHash:            string(r.Tx.GetTxHash()),
+			TxHash:            hex.EncodeToString(r.Tx.GetTxHash()),
 			Prompt:            string(r.Tx.GetPrompt()),
 			CorrectAnswers:    r.CorrectAnswers,
 			ProposedSynthesis: r.ProposedSynthesis,
@@ -233,8 +257,12 @@ func (c *Client) EvaluateSynthesisBatch(requests []agent.EvaluateSynthesisReques
 
 	results := make([]agent.EvaluateSynthesisResult, len(resp.Evaluations))
 	for i, r := range resp.Evaluations {
+		txHashBytes, err := hex.DecodeString(r.TxHash)
+		if err != nil {
+			return nil, fmt.Errorf("httpclient: invalid tx_hash hex in evaluate-synthesis response: %w", err)
+		}
 		results[i] = agent.EvaluateSynthesisResult{
-			TxHash:   []byte(r.TxHash),
+			TxHash:   txHashBytes,
 			Approved: r.Approved,
 		}
 	}
@@ -263,7 +291,19 @@ func (c *Client) post(hc *http.Client, path string, body any, out any) error {
 		return fmt.Errorf("httpclient: marshal request: %w", err)
 	}
 
-	resp, err := hc.Post(c.config.BaseURL+path, "application/json", bytes.NewReader(encoded))
+	req, err := http.NewRequest(http.MethodPost, c.config.BaseURL+path, bytes.NewReader(encoded))
+	if err != nil {
+		return fmt.Errorf("httpclient: build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.config.RunID != "" {
+		req.Header.Set("X-Run-ID", c.config.RunID)
+	}
+	if c.config.ValidatorName != "" {
+		req.Header.Set("X-Validator-Name", c.config.ValidatorName)
+	}
+
+	resp, err := hc.Do(req)
 	if err != nil {
 		if isTimeout(err) {
 			return ErrProviderTimeout

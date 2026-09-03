@@ -11,9 +11,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import settings
 from errors import AgentServiceError, ErrorCode, ErrorResponse
+from experiment.recorder import CallRecorder
 from prompts.loader import load_protocol_prompt
-from providers.ollama_provider import OllamaProvider
-from routers import answer, health, judge, label
+from providers.factory import create_provider
+from routers import answer, evaluate_synthesis, health, judge, label, synthesize
 
 
 @asynccontextmanager
@@ -22,20 +23,25 @@ async def lifespan(app: FastAPI):
     app.state.config = settings
 
     # Single LLM provider instance shared across all requests.
-    # In production this points at the local Ollama server.
+    # Selected by LLM_PROVIDER env var; raises ValueError at startup for bad config.
     # Tests replace this with FakeProvider after startup.
-    app.state.provider = OllamaProvider(
-        base_url=settings.ollama_base_url,
-        model=settings.ollama_model,
-        temperature=settings.llm_temperature,
-        num_ctx=settings.llm_num_ctx,
-        num_predict=settings.llm_num_predict,
-        think=settings.llm_think,
-    )
+    app.state.provider = create_provider(settings)
     # One shared limit across every transaction-level judge request. Without a
     # global semaphore, three concurrent transactions can enqueue 30 CPU-bound
     # generations on a worker and leave Ollama busy after the Go client exits.
     app.state.judge_semaphore = asyncio.Semaphore(settings.judge_max_concurrency)
+
+    # Per-call recorder for experiment runs. No-op when EXPERIMENT_DIR is not set.
+    app.state.recorder = CallRecorder(
+        validator_id=settings.validator_id,
+        validator_name=settings.validator_name,
+        # Records for deterministic calls carry mocked/provider_called fields;
+        # real judge/MR3 calls use the separately configured backing provider.
+        provider=settings.llm_provider,
+        model=settings.model,
+        agent_endpoint=settings.agent_endpoint,
+        experiment_dir=settings.experiment_dir,
+    )
 
     # Load and hash versioned prompt files once at startup.
     # If a file is missing this raises immediately — fail fast rather than
@@ -43,6 +49,9 @@ async def lifespan(app: FastAPI):
     app.state.prompts = {
         "labeler_v3": load_protocol_prompt("labeler_v3"),
         "answerer_v1": load_protocol_prompt("answerer_v1"),
+        "synthesizer_v1": load_protocol_prompt("synthesizer_v1"),
+        "byzantine_synthesizer_v1": load_protocol_prompt("byzantine_synthesizer_v1"),
+        "synthesis_evaluator_v1": load_protocol_prompt("synthesis_evaluator_v1"),
     }
 
     yield
@@ -54,6 +63,8 @@ app.include_router(health.router)
 app.include_router(label.router)
 app.include_router(answer.router)
 app.include_router(judge.router)
+app.include_router(synthesize.router)
+app.include_router(evaluate_synthesis.router)
 
 
 # All AgentServiceError exceptions are caught here and returned as structured JSON.

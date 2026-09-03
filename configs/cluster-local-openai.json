@@ -1,0 +1,15 @@
+{
+  "committeeStrategy": "full",
+  "agents": [
+    { "machine": "validator-0", "url": "http://127.0.0.1:8100", "temperature": 0.0, "model": "gpt-4o-mini" },
+    { "machine": "validator-1", "url": "http://127.0.0.1:8101", "temperature": 0.0, "model": "gpt-4o" },
+    { "machine": "validator-2", "url": "http://127.0.0.1:8102", "temperature": 0.0, "model": "gpt-4o-mini" },
+    { "machine": "validator-3", "url": "http://127.0.0.1:8103", "temperature": 0.0, "model": "gpt-4o" },
+    { "machine": "validator-4", "url": "http://127.0.0.1:8104", "temperature": 0.0, "model": "gpt-4o-mini" },
+    { "machine": "validator-5", "url": "http://127.0.0.1:8105", "temperature": 0.0, "model": "gpt-4o" },
+    { "machine": "validator-6", "url": "http://127.0.0.1:8106", "temperature": 0.0, "model": "gpt-4o-mini" },
+    { "machine": "validator-7", "url": "http://127.0.0.1:8107", "temperature": 0.0, "model": "gpt-4o" },
+    { "machine": "validator-8", "url": "http://127.0.0.1:8108", "temperature": 0.0, "model": "gpt-4o-mini" },
+    { "machine": "validator-9", "url": "http://127.0.0.1:8109", "temperature": 0.0, "model": "gpt-4o" }
+  ]
+}

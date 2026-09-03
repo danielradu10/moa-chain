@@ -44,10 +44,23 @@ def test_answer_valid_single_transaction(answer_client) -> None:
     assert data["results"][0]["answer"] == "Here is the solution."
 
 
+def test_mocked_answer_bypasses_provider(answer_client) -> None:
+    client, fake = answer_client
+    fake.set_error(AssertionError("provider must not be called"))
+    wrong = "Deterministic wrong answer."
+    client.app.state.config.mock_preprocessing_answer = wrong
+    try:
+        resp = client.post("/answer", json=VALID_REQUEST)
+        assert resp.status_code == 200
+        assert resp.json()["results"][0]["answer"] == wrong
+    finally:
+        client.app.state.config.mock_preprocessing_answer = ""
+
+
 def test_answer_valid_multiple_transactions(answer_client) -> None:
     client, fake = answer_client
 
-    async def per_tx(system_prompt, user_payload, response_schema, timeout_seconds):
+    async def per_tx(system_prompt, user_payload, response_schema, timeout_seconds, operation=""):
         return _result(user_payload["tx_hash"], f"Answer for {user_payload['tx_hash']}")
 
     fake.structured_chat = per_tx
@@ -93,7 +106,7 @@ def test_answer_prompt_version_mismatch(answer_client) -> None:
 def test_answer_output_order_matches_input_order(answer_client) -> None:
     client, fake = answer_client
 
-    async def delayed_per_tx(system_prompt, user_payload, response_schema, timeout_seconds):
+    async def delayed_per_tx(system_prompt, user_payload, response_schema, timeout_seconds, operation=""):
         tx_hash = user_payload["tx_hash"]
         delays = {"0x000": 0.05, "0x001": 0.02, "0x002": 0.0}
         await asyncio.sleep(delays[tx_hash])

@@ -43,10 +43,28 @@ def test_label_valid_single_transaction(label_client) -> None:
     assert data["results"][0]["labels"][0]["confidence"] == 0.9
 
 
+def test_mocked_label_bypasses_provider(label_client) -> None:
+    client, fake = label_client
+    fake.set_error(AssertionError("provider must not be called"))
+    client.app.state.config.mock_preprocessing_label = "systems_programming"
+    try:
+        request = {
+            **VALID_REQUEST,
+            "allowed_subdomains": ["systems_programming", "non_related"],
+        }
+        resp = client.post("/label", json=request)
+        assert resp.status_code == 200
+        assert resp.json()["results"][0]["labels"] == [
+            {"subdomain": "systems_programming", "confidence": 1.0}
+        ]
+    finally:
+        client.app.state.config.mock_preprocessing_label = ""
+
+
 def test_label_valid_multiple_transactions(label_client) -> None:
     client, fake = label_client
 
-    async def per_tx(system_prompt, user_payload, response_schema, timeout_seconds):
+    async def per_tx(system_prompt, user_payload, response_schema, timeout_seconds, operation=""):
         return _result(user_payload["tx_hash"], "databases")
 
     fake.structured_chat = per_tx
@@ -104,7 +122,7 @@ def test_label_prompt_version_mismatch(label_client) -> None:
 def test_label_output_order_matches_input_order(label_client) -> None:
     client, fake = label_client
 
-    async def delayed_per_tx(system_prompt, user_payload, response_schema, timeout_seconds):
+    async def delayed_per_tx(system_prompt, user_payload, response_schema, timeout_seconds, operation=""):
         tx_hash = user_payload["tx_hash"]
         delays = {"0x000": 0.05, "0x001": 0.02, "0x002": 0.0}
         await asyncio.sleep(delays[tx_hash])

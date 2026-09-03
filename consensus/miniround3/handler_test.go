@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -204,25 +205,32 @@ func aggregatedVotes(
 }
 
 type mr3HandlerArgs struct {
-	myID              string
-	roundState        state.RoundState
-	broadcaster       *testscommon.BroadcasterStub
-	signer            signing.MessageSigner
-	validatorRegistry validators.ValidatorRegistry
-	blockFinalizer    blockFinalizer.BlockFinalizer
-	synthesisAgent    agent.BatchAgent
+	myID                string
+	roundState          state.RoundState
+	broadcaster         *testscommon.BroadcasterStub
+	signer              signing.MessageSigner
+	validatorRegistry   validators.ValidatorRegistry
+	blockFinalizer      blockFinalizer.BlockFinalizer
+	synthesisAgent      agent.BatchAgent
+	forcedProposerID    string
+	approvalGracePeriod time.Duration
+	selfInbox           chan data.RoundEvent
 }
 
 func newHandler(args mr3HandlerArgs) *miniRoundThreeHandler {
 	return &miniRoundThreeHandler{
-		myID:              args.myID,
-		roundState:        args.roundState,
-		broadcaster:       args.broadcaster,
-		signer:            args.signer,
-		validatorRegistry: args.validatorRegistry,
-		blockFinalizer:    args.blockFinalizer,
-		synthesisAgent:    args.synthesisAgent,
-		logger:            slog.Default(),
+		myID:                 args.myID,
+		roundState:           args.roundState,
+		broadcaster:          args.broadcaster,
+		signer:               args.signer,
+		validatorRegistry:    args.validatorRegistry,
+		blockFinalizer:       args.blockFinalizer,
+		synthesisAgent:       args.synthesisAgent,
+		forcedProposerID:     args.forcedProposerID,
+		approvalGracePeriod:  args.approvalGracePeriod,
+		selfInbox:            args.selfInbox,
+		approvalGraceStarted: make(map[data.RoundKey]time.Time),
+		logger:               slog.Default(),
 	}
 }
 
@@ -265,6 +273,45 @@ func TestMiniRoundThreeHandler_HandleConsensusSelection(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, "leader", leaderID)
+	})
+
+	t.Run("forced proposer overrides only MR3 selected leader", func(t *testing.T) {
+		t.Parallel()
+
+		f := blockFinalizer.NewFinalizeBlockComponent()
+		seedMR1(t, f)
+		registry := &testscommon.ValidatorRegistryStub{
+			LeaderID:            "normally-selected-leader",
+			ConsensusValidators: map[string]bool{"forced-proposer": true},
+		}
+		handler := newHandler(mr3HandlerArgs{
+			blockFinalizer:    f,
+			validatorRegistry: registry,
+			forcedProposerID:  "forced-proposer",
+		})
+
+		leaderID, err := handler.HandleConsensusSelection(mr3RoundKey())
+
+		require.NoError(t, err)
+		require.Equal(t, "forced-proposer", leaderID)
+		// The registry's normal leader remains unchanged for MR1/MR2 consumers.
+		require.Equal(t, "normally-selected-leader", registry.LeaderID)
+	})
+
+	t.Run("forced proposer must belong to MR3 committee", func(t *testing.T) {
+		t.Parallel()
+
+		f := blockFinalizer.NewFinalizeBlockComponent()
+		seedMR1(t, f)
+		handler := newHandler(mr3HandlerArgs{
+			blockFinalizer:    f,
+			validatorRegistry: &testscommon.ValidatorRegistryStub{},
+			forcedProposerID:  "not-in-committee",
+		})
+
+		_, err := handler.HandleConsensusSelection(mr3RoundKey())
+
+		require.ErrorContains(t, err, "not in consensus group")
 	})
 
 	t.Run("should return error when MR1 block is not found", func(t *testing.T) {
@@ -1017,6 +1064,49 @@ func TestMiniRoundThreeHandler_HandleSynthesisVote(t *testing.T) {
 		require.Len(t, finalizedBlock.FinalAnswers, 2)
 		require.Equal(t, data.FinalAnswerStatusSynthesized, finalizedBlock.FinalAnswers[0].Status)
 		require.Equal(t, data.FinalAnswerStatusSynthesized, finalizedBlock.FinalAnswers[1].Status)
+	})
+
+	t.Run("should wait for approval grace after quorum and certify on expiry", func(t *testing.T) {
+		t.Parallel()
+
+		key := mr3RoundKey()
+		roundState := state.NewRoundState()
+		_, leaderPriv := newKeyPair(t)
+		v1Pub, v1Priv := newKeyPair(t)
+		v2Pub, v2Priv := newKeyPair(t)
+		block := mr2Block()
+		f := blockFinalizer.NewFinalizeBlockComponent()
+		seedMR2(t, f, block)
+		proposal := signedProposal(t, signing.NewSigner("leader", leaderPriv), block, key, testSynthesizedAnswers())
+		require.NoError(t, roundState.SetProposedSynthesis(key, proposal))
+		broadcaster := &testscommon.BroadcasterStub{}
+
+		handler := newHandler(mr3HandlerArgs{
+			myID:                "leader",
+			signer:              signing.NewSigner("leader", leaderPriv),
+			roundState:          roundState,
+			broadcaster:         broadcaster,
+			blockFinalizer:      f,
+			approvalGracePeriod: time.Hour,
+			selfInbox:           make(chan data.RoundEvent, 1),
+			validatorRegistry: &testscommon.ValidatorRegistryStub{
+				LeaderID:                "leader",
+				ConsensusValidators:     map[string]bool{"v1": true, "v2": true},
+				ConsensusGroupSizeValue: 4,
+				PublicKeysByValidatorID: map[string][]byte{"v1": v1Pub, "v2": v2Pub},
+				ValidatorsIDs:           []string{"leader", "v1", "v2", "v3"},
+			},
+		})
+
+		require.NoError(t, handler.HandleSynthesisVote(key, signedVote(t, signing.NewSigner("v1", v1Priv), proposal, key)))
+		require.NoError(t, handler.HandleSynthesisVote(key, signedVote(t, signing.NewSigner("v2", v2Priv), proposal, key)))
+		require.Nil(t, broadcaster.BroadcastAggregatedSynthesisVotesMessage)
+		require.False(t, roundState.IsSynthesisCertificateSet(key))
+
+		require.NoError(t, handler.HandleSynthesisApprovalGracePeriodElapsed(key))
+		require.NotNil(t, broadcaster.BroadcastAggregatedSynthesisVotesMessage)
+		require.True(t, roundState.IsSynthesisCertificateSet(key))
+		require.Len(t, broadcaster.BroadcastAggregatedSynthesisVotesMessage.AggregatedSynthesisVotes.Signers, 2)
 	})
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"time"
 
 	"moa-chain/agent"
 	"moa-chain/blockprocessing/blockFinalizer"
@@ -20,14 +21,18 @@ import (
 type miniRoundThreeHandler struct {
 	myID string
 
-	roundState        state.RoundState
-	broadcaster       broadcast.Broadcaster
-	signer            signing.MessageSigner
-	validatorRegistry validators.ValidatorRegistry
-	blockchainState   state.BlockchainState
-	blockFinalizer    blockFinalizer.BlockFinalizer
-	synthesisAgent    agent.BatchAgent
-	logger            *slog.Logger
+	roundState           state.RoundState
+	broadcaster          broadcast.Broadcaster
+	signer               signing.MessageSigner
+	validatorRegistry    validators.ValidatorRegistry
+	blockchainState      state.BlockchainState
+	blockFinalizer       blockFinalizer.BlockFinalizer
+	synthesisAgent       agent.BatchAgent
+	forcedProposerID     string
+	approvalGracePeriod  time.Duration
+	selfInbox            chan data.RoundEvent
+	approvalGraceStarted map[data.RoundKey]time.Time
+	logger               *slog.Logger
 }
 
 // MiniRoundThreeHandlerArgs contains the dependencies for the MR3 handler.
@@ -41,21 +46,34 @@ type MiniRoundThreeHandlerArgs struct {
 	BlockchainState   state.BlockchainState
 	BlockFinalizer    blockFinalizer.BlockFinalizer
 	SynthesisAgent    agent.BatchAgent
-	Logger            *slog.Logger
+	// ForcedProposerID overrides only the MR3 proposer in controlled experiments.
+	// Empty preserves normal committee leader selection.
+	ForcedProposerID string
+	// ApprovalGracePeriod keeps collecting valid MR3 approval votes after
+	// approval quorum is reached. Zero preserves immediate certification.
+	ApprovalGracePeriod time.Duration
+	// SelfInbox receives the grace-expiry event. Required when the grace period
+	// is non-zero.
+	SelfInbox chan data.RoundEvent
+	Logger    *slog.Logger
 }
 
 // NewMiniRoundThreeHandler creates a new mini-round three handler.
 func NewMiniRoundThreeHandler(args MiniRoundThreeHandlerArgs) *miniRoundThreeHandler {
 	return &miniRoundThreeHandler{
-		myID:              args.MyID,
-		roundState:        args.RoundState,
-		broadcaster:       args.Broadcaster,
-		signer:            args.Signer,
-		validatorRegistry: args.ValidatorRegistry,
-		blockchainState:   args.BlockchainState,
-		blockFinalizer:    args.BlockFinalizer,
-		synthesisAgent:    args.SynthesisAgent,
-		logger:            args.Logger,
+		myID:                 args.MyID,
+		roundState:           args.RoundState,
+		broadcaster:          args.Broadcaster,
+		signer:               args.Signer,
+		validatorRegistry:    args.ValidatorRegistry,
+		blockchainState:      args.BlockchainState,
+		blockFinalizer:       args.BlockFinalizer,
+		synthesisAgent:       args.SynthesisAgent,
+		forcedProposerID:     args.ForcedProposerID,
+		approvalGracePeriod:  args.ApprovalGracePeriod,
+		selfInbox:            args.SelfInbox,
+		approvalGraceStarted: make(map[data.RoundKey]time.Time),
+		logger:               args.Logger,
 	}
 }
 
@@ -89,7 +107,7 @@ func (handler *miniRoundThreeHandler) HandleConsensusSelection(key data.RoundKey
 		handler.logger.Info("miniround3.HandleConsensusSelection selected consensus group", "roundKey", key, "consensusGroup", consensusGroup)
 	}
 
-	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	leaderID, err := handler.mr3ProposerID()
 	if err != nil {
 		handler.logger.Error("miniround3.HandleConsensusSelection failed to read leader", "roundKey", key, "error", err)
 		return "", err
@@ -97,6 +115,19 @@ func (handler *miniRoundThreeHandler) HandleConsensusSelection(key data.RoundKey
 
 	handler.logger.Info("miniround3.HandleConsensusSelection selected leader", "roundKey", key, "leaderID", leaderID)
 	return leaderID, nil
+}
+
+// mr3ProposerID returns the experiment override when configured, otherwise the
+// normally selected committee leader. The override is valid only for an MR3
+// committee member and does not mutate the registry or affect MR1/MR2.
+func (handler *miniRoundThreeHandler) mr3ProposerID() (string, error) {
+	if handler.forcedProposerID == "" {
+		return handler.validatorRegistry.LeaderOfConsensusGroup()
+	}
+	if !handler.validatorRegistry.IsValidatorInConsensusGroup(handler.forcedProposerID) {
+		return "", fmt.Errorf("miniround3: forced proposer %q is not in consensus group", handler.forcedProposerID)
+	}
+	return handler.forcedProposerID, nil
 }
 
 // HandleSynthesis is called by the round orchestrator only on the leader.
@@ -213,7 +244,7 @@ func (handler *miniRoundThreeHandler) HandleProposedSynthesis(key data.RoundKey,
 		return ErrSynthesisProposalRoundKeyMismatch
 	}
 
-	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	leaderID, err := handler.mr3ProposerID()
 	if err != nil {
 		return err
 	}
@@ -343,7 +374,7 @@ func (handler *miniRoundThreeHandler) evaluateAndVote(
 	vote.VoteHash = voteHash
 	vote.Signature = signature
 
-	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	leaderID, err := handler.mr3ProposerID()
 	if err != nil {
 		return err
 	}
@@ -478,7 +509,7 @@ func (handler *miniRoundThreeHandler) HandleSynthesisVote(key data.RoundKey, vot
 		return ErrNilSynthesisVote
 	}
 
-	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	leaderID, err := handler.mr3ProposerID()
 	if err != nil {
 		return err
 	}
@@ -554,7 +585,74 @@ func (handler *miniRoundThreeHandler) buildAndBroadcastAtQuorum(key data.RoundKe
 		return nil
 	}
 
-	handler.logger.Info("miniround3.buildAndBroadcastAtQuorum quorum reached", "roundKey", key, "numVotes", len(votes), "quorum", quorum)
+	// The proposer does not vote, so committeeSize-1 is the maximum complete
+	// approval set. Wait for the bounded grace period after first quorum unless
+	// every eligible evaluator has already approved.
+	maxApprovers := committeeSize - 1
+	if handler.approvalGracePeriod > 0 && uint64(len(votes)) < maxApprovers {
+		if _, started := handler.approvalGraceStarted[key]; !started {
+			startedAt := time.Now()
+			handler.approvalGraceStarted[key] = startedAt
+			handler.logger.Info("miniround3 approval quorum reached, starting grace period",
+				"roundKey", key,
+				"numVotes", len(votes),
+				"quorum", quorum,
+				"gracePeriod", handler.approvalGracePeriod,
+			)
+			time.AfterFunc(handler.approvalGracePeriod, func() {
+				if handler.selfInbox != nil {
+					handler.selfInbox <- data.RoundEvent{
+						Type:     data.SynthesisApprovalGracePeriodElapsedEvent,
+						RoundKey: key,
+					}
+				}
+			})
+		}
+		return nil
+	}
+
+	return handler.buildAndBroadcastSynthesisCertificate(key, proposal, votes)
+}
+
+// HandleSynthesisApprovalGracePeriodElapsed certifies the approval votes
+// collected by the proposer when the bounded post-quorum window expires.
+func (handler *miniRoundThreeHandler) HandleSynthesisApprovalGracePeriodElapsed(key data.RoundKey) error {
+	if handler.roundState.IsSynthesisCertificateSet(key) {
+		return nil
+	}
+	proposerID, err := handler.mr3ProposerID()
+	if err != nil {
+		return err
+	}
+	if handler.myID != proposerID {
+		return ErrOnlyLeaderCanCollectVotes
+	}
+	proposal, err := handler.roundState.GetProposedSynthesis(key)
+	if err != nil {
+		return err
+	}
+	votes, err := handler.roundState.GetSynthesisVotes(key)
+	if err != nil {
+		return err
+	}
+	committeeSize, err := handler.validatorRegistry.ConsensusGroupSize()
+	if err != nil {
+		return err
+	}
+	quorum := (2 * committeeSize) / 3
+	if uint64(len(votes)) < quorum {
+		return nil
+	}
+	handler.logger.Info("miniround3 approval grace period elapsed",
+		"roundKey", key,
+		"numVotes", len(votes),
+		"graceElapsed", time.Since(handler.approvalGraceStarted[key]),
+	)
+	return handler.buildAndBroadcastSynthesisCertificate(key, proposal, votes)
+}
+
+func (handler *miniRoundThreeHandler) buildAndBroadcastSynthesisCertificate(key data.RoundKey, proposal *data.ProposedSynthesisMessage, votes []*data.SynthesisVote) error {
+	handler.logger.Info("miniround3.buildAndBroadcastAtQuorum certifying approvals", "roundKey", key, "numVotes", len(votes))
 
 	signers := make([]string, len(votes))
 	voteHashes := make([][]byte, len(votes))
@@ -576,11 +674,11 @@ func (handler *miniRoundThreeHandler) buildAndBroadcastAtQuorum(key data.RoundKe
 		Signatures:         signatures,
 	}
 
-	if err = handler.roundState.SetSynthesisCertificate(key, aggregated); err != nil {
+	if err := handler.roundState.SetSynthesisCertificate(key, aggregated); err != nil {
 		return err
 	}
 
-	if err = handler.finalizeBlockMRThree(key, proposal, signers); err != nil {
+	if err := handler.finalizeBlockMRThree(key, proposal, signers); err != nil {
 		return err
 	}
 
@@ -603,7 +701,7 @@ func (handler *miniRoundThreeHandler) HandleAggregatedSynthesisVotes(key data.Ro
 		return ErrAggregatedSynthesisVotesRoundKeyMismatch
 	}
 
-	leaderID, err := handler.validatorRegistry.LeaderOfConsensusGroup()
+	leaderID, err := handler.mr3ProposerID()
 	if err != nil {
 		return err
 	}

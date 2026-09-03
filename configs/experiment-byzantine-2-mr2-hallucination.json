@@ -1,0 +1,21 @@
+{
+  "committee_strategy": "full",
+  "quorum": 7,
+  "mini_round_duration": "30s",
+  "vote_collection_deadline": "5s",
+  "classification_grace_period": "10s",
+  "start_round": 2,
+  "question": "Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences.",
+  "validators": [
+    {"validator_id": "validator-1",  "validator_name": "gpt-5.4-mini-1",     "provider": "openai",    "model": "gpt-5.4-mini",      "agent_endpoint": "http://127.0.0.1:8100"},
+    {"validator_id": "validator-2",  "validator_name": "gpt-5-mini",          "provider": "openai",    "model": "gpt-5-mini",          "agent_endpoint": "http://127.0.0.1:8101"},
+    {"validator_id": "validator-3",  "validator_name": "gpt-5.4-mini-2",     "provider": "openai",    "model": "gpt-5.4-mini",      "agent_endpoint": "http://127.0.0.1:8102"},
+    {"validator_id": "validator-4",  "validator_name": "claude-haiku-4-5-1", "provider": "anthropic", "model": "claude-haiku-4-5",  "agent_endpoint": "http://127.0.0.1:8103"},
+    {"validator_id": "validator-5",  "validator_name": "claude-sonnet-5",     "provider": "anthropic", "model": "claude-sonnet-5",     "agent_endpoint": "http://127.0.0.1:8104"},
+    {"validator_id": "validator-6",  "validator_name": "claude-haiku-4-5-2", "provider": "anthropic", "model": "claude-haiku-4-5",  "agent_endpoint": "http://127.0.0.1:8105"},
+    {"validator_id": "validator-7",  "validator_name": "mocked-agent-v7",     "provider": "mock",      "model": "mocked-agent",      "agent_endpoint": "http://127.0.0.1:8106", "mock_preprocessing": {"label": "systems_programming", "answer": "A mutex works by creating a private synchronized copy of shared memory for each goroutine. When the mutex is unlocked, the Go runtime automatically merges those copies into the original shared state, resolving conflicts deterministically."}, "mock_judge_correct_answers": ["A mutex works by creating a private synchronized copy of shared memory for each goroutine. When the mutex is unlocked, the Go runtime automatically merges those copies into the original shared state, resolving conflicts deterministically.", "When a goroutine locks a mutex, Go temporarily moves the protected variables into goroutine-local memory. Other goroutines operate on their own versions, and Unlock synchronizes all copies by combining their changes into a single final value."]},
+    {"validator_id": "validator-8",  "validator_name": "gemini-3.6-flash-2", "provider": "gemini",    "model": "gemini-3.6-flash",  "agent_endpoint": "http://127.0.0.1:8107"},
+    {"validator_id": "validator-9",  "validator_name": "deepseek-v4-flash",   "provider": "deepseek",  "model": "deepseek-v4-flash", "agent_endpoint": "http://127.0.0.1:8108"},
+    {"validator_id": "validator-10", "validator_name": "mocked-agent-v10",    "provider": "mock",      "model": "mocked-agent",      "agent_endpoint": "http://127.0.0.1:8109", "mock_preprocessing": {"label": "systems_programming", "answer": "When a goroutine locks a mutex, Go temporarily moves the protected variables into goroutine-local memory. Other goroutines operate on their own versions, and Unlock synchronizes all copies by combining their changes into a single final value."}, "mock_judge_correct_answers": ["A mutex works by creating a private synchronized copy of shared memory for each goroutine. When the mutex is unlocked, the Go runtime automatically merges those copies into the original shared state, resolving conflicts deterministically.", "When a goroutine locks a mutex, Go temporarily moves the protected variables into goroutine-local memory. Other goroutines operate on their own versions, and Unlock synchronizes all copies by combining their changes into a single final value."]}
+  ]
+}

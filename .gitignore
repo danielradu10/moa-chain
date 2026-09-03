@@ -35,18 +35,24 @@ __pycache__/
 # Local service process files
 .agent.pid
 .ollama.pid
+.experiment-agents.pid
+
+# Local multi-agent cluster logs and PID files (any subdir, any name)
+logs/
 
 # Generated integration-test validator logs
 integrationtests/logs/
 integrationtests/testData/**/results/*.jsonl
 integrationtests/testData/miniround2/scenarios/*/result.json
 
-# Distributed test results — ignore raw logs and JSON summaries, keep analysis docs
+# Distributed test results — ignore raw logs, JSON, and JSONL run data, keep analysis docs (README.md)
 testresults/*.json
 testresults/*.log
 testresults/agent-logs/
 experiment-results/
 benchmark_results/
+agent-python/testresults/agent-qualification/*.json
+agent-python/testresults/real-agents/*/
 
 # Cluster infrastructure — contains internal IPs in machine table
 DISTRIBUTED_TESTING.md

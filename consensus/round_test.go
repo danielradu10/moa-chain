@@ -584,6 +584,36 @@ func TestRoundHandler_MiniRoundTwoToMiniRoundThreeTransition(t *testing.T) {
 	})
 }
 
+func TestRoundHandler_ClassificationGraceExpiryAdvancesLeaderOnce(t *testing.T) {
+	t.Parallel()
+
+	mr2RoundKey := createMiniRoundTwoRoundKey()
+	mr3 := &testscommon.MiniRoundThreeHandlerStub{
+		HandleConsensusSelectionLeader: "validator-2",
+	}
+	mr2 := &testscommon.MiniRoundTwoHandlerStub{}
+	handler := NewRoundHandler(RoundHandlerArgs{
+		SelfID:                "validator-1",
+		CurrentStep:           data.StepCollectClassificationVotes,
+		CurrentRoundKey:       mr2RoundKey,
+		MiniRoundOneHandler:   &testscommon.MiniRoundOneHandlerStub{},
+		MiniRoundTwoHandler:   mr2,
+		MiniRoundThreeHandler: mr3,
+		BlockFinalizer:        blockFinalizer.NewFinalizeBlockComponent(),
+	})
+	require.NoError(t, handler.blockFinalizer.FinalizeBlockMRTwo(mr2RoundKey, &data.BlockOnChain{}))
+
+	require.NoError(t, handler.HandleClassificationGracePeriodElapsed(mr2RoundKey))
+	require.True(t, mr2.HandleClassificationGracePeriodElapsedCalled)
+	require.Equal(t, createMiniRoundThreeRoundKey(), handler.currentRoundKey)
+	require.Equal(t, data.StepAwaitProposedSynthesis, handler.currentStep)
+	require.True(t, mr3.HandleConsensusSelectionCalled)
+
+	mr2.HandleClassificationGracePeriodElapsedCalled = false
+	require.NoError(t, handler.HandleClassificationGracePeriodElapsed(mr2RoundKey))
+	require.False(t, mr2.HandleClassificationGracePeriodElapsedCalled)
+}
+
 func TestRoundHandler_HandleProposedSynthesis(t *testing.T) {
 	t.Parallel()
 
@@ -785,6 +815,23 @@ func TestRoundHandler_HandleSynthesisVote(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, mr3.HandleSynthesisVoteCalled)
 	})
+}
+
+func TestRoundHandler_SynthesisGraceExpiryAdvancesLeaderOnce(t *testing.T) {
+	t.Parallel()
+
+	roundKey := createMiniRoundThreeRoundKey()
+	mr3 := &testscommon.MiniRoundThreeHandlerStub{}
+	handler := createTestRoundHandlerMR3("validator-1", data.StepCollectSynthesisVotes, roundKey, mr3)
+	require.NoError(t, handler.blockFinalizer.FinalizeBlockMRThree(roundKey, &data.BlockOnChain{}))
+
+	require.NoError(t, handler.HandleSynthesisApprovalGracePeriodElapsed(roundKey))
+	require.True(t, mr3.HandleSynthesisApprovalGracePeriodElapsedCalled)
+	require.Equal(t, data.StepFinished, handler.currentStep)
+
+	mr3.HandleSynthesisApprovalGracePeriodElapsedCalled = false
+	require.NoError(t, handler.HandleSynthesisApprovalGracePeriodElapsed(roundKey))
+	require.False(t, mr3.HandleSynthesisApprovalGracePeriodElapsedCalled)
 }
 
 func TestRoundHandler_HandleAggregatedSynthesisVotes(t *testing.T) {

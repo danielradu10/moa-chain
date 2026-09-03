@@ -22,6 +22,10 @@ type MiniRoundThreeHandlerStub struct {
 	HandleSynthesisVoteMsg    *data.SynthesisVote
 	HandleSynthesisVoteErr    error
 
+	HandleSynthesisApprovalGracePeriodElapsedCalled bool
+	HandleSynthesisApprovalGracePeriodElapsedKey    data.RoundKey
+	HandleSynthesisApprovalGracePeriodElapsedErr    error
+
 	HandleAggregatedSynthesisVotesCalled bool
 	HandleAggregatedSynthesisVotesKey    data.RoundKey
 	HandleAggregatedSynthesisVotesMsg    *data.AggregatedSynthesisVotes
@@ -52,6 +56,12 @@ func (stub *MiniRoundThreeHandlerStub) HandleSynthesisVote(key data.RoundKey, vo
 	stub.HandleSynthesisVoteKey = key
 	stub.HandleSynthesisVoteMsg = vote
 	return stub.HandleSynthesisVoteErr
+}
+
+func (stub *MiniRoundThreeHandlerStub) HandleSynthesisApprovalGracePeriodElapsed(key data.RoundKey) error {
+	stub.HandleSynthesisApprovalGracePeriodElapsedCalled = true
+	stub.HandleSynthesisApprovalGracePeriodElapsedKey = key
+	return stub.HandleSynthesisApprovalGracePeriodElapsedErr
 }
 
 func (stub *MiniRoundThreeHandlerStub) HandleAggregatedSynthesisVotes(key data.RoundKey, msg *data.AggregatedSynthesisVotes) error {

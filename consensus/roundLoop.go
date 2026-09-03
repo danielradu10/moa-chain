@@ -71,6 +71,9 @@ func (rl *RoundLoop) Run() {
 		case data.ClassificationGracePeriodElapsedEvent:
 			err = rl.handler.HandleClassificationGracePeriodElapsed(event.RoundKey)
 
+		case data.SynthesisApprovalGracePeriodElapsedEvent:
+			err = rl.handler.HandleSynthesisApprovalGracePeriodElapsed(event.RoundKey)
+
 		case data.StopEvent:
 			rl.logger.Info("consensus.RoundLoop.Run received stop event")
 			return
