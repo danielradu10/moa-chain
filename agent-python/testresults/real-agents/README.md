@@ -61,8 +61,6 @@ The verdict is based on the tracked transaction reaching a finalized `SYNTHESIZE
 
 ### Run 1 — `f592c3435a9164a5f3a16489b6edd4ef`
 
-Run directory: [`20260830T185012Z/`](20260830T185012Z/)
-
 Question: **Why is a mutex needed when multiple goroutines access shared mutable state?**
 
 Transaction: `1f89f32f09bc59c477f00fa81744cf2878a36ef3cd9f89b74ec487caaf40f7a0`
@@ -115,11 +113,11 @@ All validators selected `systems_programming`. Only the two Gemini instances add
 
 The following answers are reproduced verbatim from each model's recorded `operation: "answer"` response. Each heading also links to the authoritative trace containing timestamps, latency and token usage.
 
-###### v1 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T185012Z/agents/gpt-5.4-mini-1.jsonl))
+###### v1 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent concurrent access from corrupting shared mutable state. Without synchronization, two or more goroutines can read and write the same data at the same time, causing race conditions, lost updates, inconsistent views, or even crashes. A mutex ensures only one goroutine at a time can enter the critical section that reads or modifies the shared data, making the operation atomic from the perspective of other goroutines and keeping the state consistent.
 
-###### v2 — OpenAI / `gpt-5-mini` ([raw trace](20260830T185012Z/agents/gpt-5-mini.jsonl))
+###### v2 — OpenAI / `gpt-5-mini`
 
     Because when multiple goroutines access the same mutable data concurrently you must prevent races and ensure correct ordering and visibility of updates. A mutex (mutual exclusion lock) provides those guarantees: it serializes access so only one goroutine can mutate or inspect the protected state at a time and it establishes the synchronization (happens-before) relationships required by the Go memory model so changes become visible to other goroutines.
     
@@ -162,11 +160,11 @@ The following answers are reproduced verbatim from each model's recorded `operat
     
     Summary: a mutex is required when multiple goroutines access shared mutable state to prevent data races, ensure atomicity, and provide the memory visibility and ordering guarantees needed to preserve correctness and invariants. Choose between Mutex, RWMutex, atomic operations, or channels depending on the access pattern and complexity of the state being protected.
 
-###### v3 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T185012Z/agents/gpt-5.4-mini-2.jsonl))
+###### v3 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent concurrent goroutines from reading and writing shared mutable state at the same time, which can cause race conditions, lost updates, corrupted data, and inconsistent program behavior. It provides mutual exclusion so only one goroutine can access the critical section at a time, ensuring the state stays consistent and operations are atomic from the program’s perspective. In Go specifically, a mutex also establishes the necessary memory synchronization so changes made by one goroutine are safely visible to others after the lock is released.
 
-###### v4 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T185012Z/agents/claude-haiku-4-5-1.jsonl))
+###### v4 — Anthropic / `claude-haiku-4-5`
 
     A mutex (mutual exclusion lock) is needed when multiple goroutines access shared mutable state to prevent race conditions and ensure data consistency. Without a mutex, concurrent goroutines may read and write to the same memory location simultaneously, causing unpredictable behavior and corrupted data. Here's why it's essential:
     
@@ -192,7 +190,7 @@ The following answers are reproduced verbatim from each model's recorded `operat
     
     Without the mutex, concurrent calls to increment() would produce non-deterministic results. The mutex enforces serialization of access, guaranteeing correctness.
 
-###### v5 — Anthropic / `claude-sonnet-5` ([raw trace](20260830T185012Z/agents/claude-sonnet-5.jsonl))
+###### v5 — Anthropic / `claude-sonnet-5`
 
     A mutex (mutual exclusion lock) is needed whenever multiple goroutines can concurrently read and write the same mutable state because Go's memory model and modern CPU/compiler behavior do not guarantee safe or predictable results for unsynchronized concurrent access. Specifically:
     
@@ -215,7 +213,7 @@ The following answers are reproduced verbatim from each model's recorded `operat
     
     In short, without a mutex protecting shared mutable state, Go provides no ordering, visibility, or atomicity guarantees for concurrent access, leading to data races, corrupted data structures, lost updates, and non-deterministic bugs that are extremely hard to reproduce and debug. `sync.Mutex` (or `sync.RWMutex`, atomic operations, or channels for CSP-style synchronization) enforces mutual exclusion and establishes the happens-before ordering required for correct concurrent programs — this is especially critical in consensus protocol implementations like MoA Chain, where node state (e.g., block height, validator sets, mempool, peer connections) is frequently accessed by networking, consensus, and RPC goroutines simultaneously, and any inconsistency could lead to consensus failures, forks, or corrupted chain state.
 
-###### v6 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T185012Z/agents/claude-haiku-4-5-2.jsonl))
+###### v6 — Anthropic / `claude-haiku-4-5`
 
     A mutex is needed when multiple goroutines access shared mutable state to prevent race conditions and ensure data consistency. Here's why:
     
@@ -246,7 +244,7 @@ The following answers are reproduced verbatim from each model's recorded `operat
     
     Without a mutex, shared mutable state leads to unpredictable behavior, data corruption, and hard-to-debug concurrent bugs.
 
-###### v7 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T185012Z/agents/gemini-3.6-flash-1.jsonl))
+###### v7 — Gemini / `gemini-3.6-flash`
 
     A mutex (mutual exclusion lock) is required when multiple goroutines access shared mutable state to prevent data races, race conditions, and memory corruption. Here are the core reasons why a mutex is necessary:
     
@@ -264,7 +262,7 @@ The following answers are reproduced verbatim from each model's recorded `operat
     
     By locking a mutex (`sync.Mutex.Lock()`) before entering a critical section and unlocking it (`sync.Mutex.Unlock()`) afterwards, you ensure that only one goroutine can read or modify the shared state at any given time, guaranteeing data integrity and proper memory synchronization.
 
-###### v8 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T185012Z/agents/gemini-3.6-flash-2.jsonl))
+###### v8 — Gemini / `gemini-3.6-flash`
 
     A mutex (mutual exclusion lock) is required when multiple goroutines access shared mutable state to prevent data races, race conditions, and memory corruption. Specifically, a mutex is needed for the following reasons:
     
@@ -276,11 +274,11 @@ The following answers are reproduced verbatim from each model's recorded `operat
     
     4. Preserving Complex Invariants: Complex data structures (like maps, trees, or structs with multiple fields) often require updating several variables together to remain valid. Acquiring a mutex before reading or writing ensures that concurrent goroutines only observe complete, consistent states rather than transient, corrupted intermediate states.
 
-###### v9 — DeepSeek / `deepseek-v4-flash` ([raw trace](20260830T185012Z/agents/deepseek-v4-flash.jsonl))
+###### v9 — DeepSeek / `deepseek-v4-flash`
 
     A mutex is needed when multiple goroutines access shared mutable state because concurrent reads and writes to the same memory location can cause a data race, leading to undefined behavior, corrupted data, and crashes. Without synchronization, goroutines may read or write memory simultaneously, interleave operations in unpredictable ways, or see stale/inconsistent values due to CPU caching and memory reordering. The Go memory model specifies that a write must be synchronized with a read via a synchronization primitive (like a mutex) to guarantee visibility and ordering. A mutex ensures mutual exclusion—only one goroutine can execute the critical section at a time—thereby serializing access, preventing concurrent conflicts, and establishing the necessary happens-before relationships so that writes by one goroutine are visible to subsequent reads by another. This prevents data races, which Go detects via the race detector and which are considered programming errors.
 
-###### v10 — DeepSeek / `deepseek-v4-pro` ([raw trace](20260830T185012Z/agents/deepseek-v4-pro.jsonl))
+###### v10 — DeepSeek / `deepseek-v4-pro`
 
     A mutex is needed to prevent data races and ensure data consistency when multiple goroutines access shared mutable state concurrently. Without synchronization, goroutines may read and write the same memory simultaneously, leading to torn writes, lost updates, or corrupted state due to non-atomic operations and instruction reordering. A mutex provides mutual exclusion: only one goroutine can hold the lock at a time, so critical sections execute atomically relative to each other. This guarantees that shared variables are updated safely and that memory visibility is established (via happens-before edges), avoiding undefined behavior and preserving program correctness.
 
@@ -351,9 +349,9 @@ The synthesis was accepted cleanly: every recorded model evaluation approved it,
 
 > A mutex is needed to protect shared mutable state from concurrent access by multiple goroutines. Without synchronization, two goroutines can read and write the same data at the same time, which can cause data races, lost updates, inconsistent or stale reads, corrupted state, and even crashes or runtime panics in cases like concurrent map access. A mutex provides mutual exclusion so only one goroutine can enter the critical section at a time, making the protected operations atomic relative to other goroutines. It also establishes the necessary happens-before relationship in Go’s memory model, so writes made by one goroutine become visible to others after the lock is released. In short, mutexes are used to ensure correctness, consistency, atomicity, and proper memory visibility when shared state is accessed concurrently.
 
-- Final canonical synthesis and status: [`round-0000-0003.json`](20260830T185012Z/rounds/round-0000-0003.json), under `mr3.final_answers[0]`.
-- Original proposer response and synthesis token/latency data: [`gpt-5.4-mini-1.jsonl`](20260830T185012Z/agents/gpt-5.4-mini-1.jsonl), in the `operation: "synthesize"` record.
-- Complete validator evaluation decisions: the nine non-proposer traces in [`agents/`](20260830T185012Z/agents/), each in its `operation: "evaluate_synthesis"` record. All nine recorded decisions were `approved: true`; only the six approvals received before finalization appear in the canonical `synthesis_approvers` list.
+- Final canonical synthesis and status: `round-0000-0003.json`, under `mr3.final_answers[0]`.
+- Original proposer response and synthesis token/latency data: `gpt-5.4-mini-1.jsonl`, in the `operation: "synthesize"` record.
+- Complete validator evaluation decisions: the nine non-proposer traces in `agents/`, each in its `operation: "evaluate_synthesis"` record. All nine recorded decisions were `approved: true`; only the six approvals received before finalization appear in the canonical `synthesis_approvers` list.
 
 #### F. Latency analysis
 
@@ -400,8 +398,6 @@ No paid-call trace reports `success=false`; there were no recorded timeouts, mal
 The full transaction lifecycle succeeded. MR1 finalized with a clear 10/10 `systems_programming` canonical label; MR2 finalized with seven unanimous judges classifying all 10 candidates `CORRECT`; MR3 finalized a synthesis approved by quorum; and the tracked transaction reached `SYNTHESIZED`, consistent with expected successful mempool removal. Quorum was comfortable semantically, though provider tails meant MR2 did not wait for v7, v8 or v10 and MR3 did not wait for v2, v5 or v10. Watch Gemini preprocessing latency, `deepseek-v4-pro` MR2 tail latency, transient provider health errors, and recorder-level quorum timing in the next run.
 
 ### Run 2 — `a4875749b8b374417753d73e553a4f66`
-
-Run directory: [`20260830T192650Z/`](20260830T192650Z/)
 
 Question: **Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences.**
 
@@ -453,43 +449,43 @@ All validators included `systems_programming`; only v7 added `back_end_with_apis
 
 The following are the exact recorded answer texts, printed verbatim.
 
-###### v1 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T192650Z/agents/gpt-5.4-mini-1.jsonl))
+###### v1 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent concurrent goroutines from reading and writing shared mutable state at the same time, which can cause data races and inconsistent results. It ensures only one goroutine at a time can access the protected section of code. This makes updates atomic from the program’s point of view and preserves correctness. Without it, the program may behave unpredictably or even crash.
 
-###### v2 — OpenAI / `gpt-5-mini` ([raw trace](20260830T192650Z/agents/gpt-5-mini.jsonl))
+###### v2 — OpenAI / `gpt-5-mini`
 
     A mutex is needed to enforce mutual exclusion so only one goroutine can access or modify shared mutable state at a time, preventing race conditions and data corruption. It makes compound operations atomic and preserves invariants that would be violated by concurrent interleaving. It also provides the necessary synchronization so writes by one goroutine become visible to others, avoiding subtle memory-visibility bugs.
 
-###### v3 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T192650Z/agents/gpt-5.4-mini-2.jsonl))
+###### v3 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent concurrent goroutines from reading and writing shared mutable state at the same time. Without it, you can get race conditions, where the final result depends on timing and becomes unpredictable. A mutex provides mutual exclusion, ensuring only one goroutine accesses the critical section at once. This keeps the data consistent and makes the program safe and deterministic.
 
-###### v4 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T192650Z/agents/claude-haiku-4-5-1.jsonl))
+###### v4 — Anthropic / `claude-haiku-4-5`
 
     A mutex (mutual exclusion lock) is needed to prevent race conditions when multiple goroutines access shared mutable state simultaneously. Without synchronization, concurrent reads and writes can interleave unpredictably, causing data corruption, lost updates, or inconsistent state. A mutex ensures that only one goroutine can access the protected resource at a time, enforcing atomic operations. This guarantees data consistency and predictable behavior in concurrent programs. Without mutexes, the order of operations becomes non-deterministic, making bugs difficult to reproduce and debug.
 
-###### v5 — Anthropic / `claude-sonnet-5` ([raw trace](20260830T192650Z/agents/claude-sonnet-5.jsonl))
+###### v5 — Anthropic / `claude-sonnet-5`
 
     A mutex is needed because Go's memory model does not guarantee that concurrent reads and writes to shared mutable state by multiple goroutines are safe without explicit synchronization. Without a mutex, concurrent access can cause data races, where the outcome depends on unpredictable goroutine scheduling, leading to corrupted data, inconsistent state, or crashes. A mutex (mutual exclusion lock) ensures that only one goroutine can access the critical section of code (e.g., reading or writing a shared variable) at any given time, serializing access. This prevents race conditions and ensures atomicity of compound operations like read-modify-write. Using tools like `sync.Mutex` or `sync.RWMutex` also provides memory synchronization guarantees, ensuring that changes made by one goroutine are visible to others once the lock is released and reacquired.
 
-###### v6 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T192650Z/agents/claude-haiku-4-5-2.jsonl))
+###### v6 — Anthropic / `claude-haiku-4-5`
 
     A mutex is needed to prevent race conditions when multiple goroutines access shared mutable state simultaneously. Without synchronization, goroutines may read, modify, and write data concurrently, causing data corruption and unpredictable behavior. A mutex ensures that only one goroutine can access the protected resource at a time by enforcing mutual exclusion. This serializes access to the critical section, maintaining data consistency and invariants. Without a mutex, concurrent modifications can lead to lost updates, deadlocks, or inconsistent state that is extremely difficult to debug.
 
-###### v7 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T192650Z/agents/gemini-3.6-flash-1.jsonl))
+###### v7 — Gemini / `gemini-3.6-flash`
 
     A mutex (mutual exclusion lock) is required to prevent data races when multiple goroutines concurrently read and write shared memory locations. Without synchronization, concurrent accesses can lead to race conditions, memory corruption, and unpredictable state transitions. Additionally, a mutex acts as a memory barrier, ensuring that memory writes made by one goroutine are correctly visible to other goroutines across modern multi-core CPU caches. By enforcing mutual exclusion, a mutex guarantees that critical sections accessing shared mutable state execute atomically.
 
-###### v8 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T192650Z/agents/gemini-3.6-flash-2.jsonl))
+###### v8 — Gemini / `gemini-3.6-flash`
 
     A mutex (mutual exclusion) is required to prevent data races and memory corruption when multiple goroutines read and write shared mutable state concurrently. In Go, concurrent unsynchronized access to the same memory location where at least one access is a write results in undefined behavior. A mutex ensures that only one goroutine can enter the critical section at any given time, providing atomicity and memory visibility guarantees across CPU cores. Without a mutex, state can become inconsistent or corrupted due to non-deterministic execution and hardware caching issues.
 
-###### v9 — DeepSeek / `deepseek-v4-flash` ([raw trace](20260830T192650Z/agents/deepseek-v4-flash.jsonl))
+###### v9 — DeepSeek / `deepseek-v4-flash`
 
     A mutex is needed because Go's goroutines run concurrently and share memory; without synchronization, data races occur when multiple goroutines access the same memory location concurrently, with at least one writing. A mutex enforces mutual exclusion, ensuring only one goroutine enters the critical section at a time, preventing interleaved read-modify-write operations that can corrupt shared state. It guarantees atomicity and visibility of updates, so the final result is deterministic and consistent. Without this, access can be interleaved at any instruction boundary, leading to stale reads, lost updates, and undefined behavior. Thus, a mutex is the fundamental mechanism to safely coordinate access to shared mutable state in concurrent Go programs.
 
-###### v10 — DeepSeek / `deepseek-v4-pro` ([raw trace](20260830T192650Z/agents/deepseek-v4-pro.jsonl))
+###### v10 — DeepSeek / `deepseek-v4-pro`
 
     A mutex is needed to prevent data races and ensure mutual exclusion when multiple goroutines access shared mutable state concurrently. Without synchronization, concurrent reads and writes can cause corrupted state, lost updates, or torn reads/writes. A mutex allows only one goroutine at a time to enter a critical section, serializing access to the shared data. This establishes a happens-before relationship and makes state updates atomic with respect to other goroutines. It is essential for correctness in concurrent Go programs that share mutable data.
 
@@ -556,8 +552,6 @@ There was complete category consistency and no semantic judge outlier. Slow tail
 
 The synthesis contains three sentences and complies with the prompt. It was accepted cleanly, with no rejection or suspicious synthesis behavior, and finalized with status `SYNTHESIZED`.
 
-Complete synthesis artifacts: [round 3](20260830T192650Z/rounds/round-0000-0003.json), [proposer trace](20260830T192650Z/agents/gpt-5.4-mini-1.jsonl), and all [evaluator traces](20260830T192650Z/agents/).
-
 #### F. Latency analysis
 
 MR2 judge latency is each validator's slowest of 10 concurrent candidate calls. MR3 is synthesis for v1 and evaluation for v2–v10.
@@ -599,10 +593,7 @@ No agent trace recorded a failed call, timeout, malformed response, normalizatio
 
 The full lifecycle succeeded. MR1 finalized with 10/10 support for `systems_programming`; MR2 finalized with seven unanimous judges and all ten answers `CORRECT`; MR3 finalized a three-sentence synthesis with quorum approval; and the transaction reached `SYNTHESIZED`. Quorum was semantically comfortable and did not wait for the slowest Gemini calls. In the next run, watch whether Gemini remains the recurring latency tail, whether the SDK warning persists, and whether recorder instrumentation is improved enough to measure actual first-vote and time-to-Q events.
 
-
 ### Run 3 — `986af2e569df1a8b17104e87034137dc`
-
-Run directory: [`20260830T195226Z/`](20260830T195226Z/)
 
 Question: **Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences.**
 
@@ -654,43 +645,43 @@ For the first time in these runs, label output was completely identical: all ten
 
 The following are the exact recorded answer texts, printed verbatim.
 
-###### v1 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T195226Z/agents/gpt-5.4-mini-1.jsonl))
+###### v1 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent concurrent goroutines from reading and writing shared mutable state at the same time. Without it, you can get race conditions, lost updates, and corrupted data because operations are not automatically atomic. The mutex ensures only one goroutine at a time enters the critical section that accesses the shared state. This makes the behavior deterministic and keeps the data consistent.
 
-###### v2 — OpenAI / `gpt-5-mini` ([raw trace](20260830T195226Z/agents/gpt-5-mini.jsonl))
+###### v2 — OpenAI / `gpt-5-mini`
 
     A mutex serializes access to shared mutable state so only one goroutine can read or modify it at a time, preventing race conditions and data corruption. Without a mutex, concurrent reads/writes can interleave and produce inconsistent or unexpected values because operations are not atomic and memory visibility isn't guaranteed. Using a mutex enforces mutual exclusion and memory synchronization, ensuring correctness and predictable behavior.
 
-###### v3 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T195226Z/agents/gpt-5.4-mini-2.jsonl))
+###### v3 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent concurrent goroutines from reading and writing shared mutable state at the same time. Without it, operations can interleave unpredictably, causing data races, lost updates, and corrupted state. The mutex ensures only one goroutine enters the critical section at a time, making access safe and deterministic. It also helps preserve invariants that would otherwise be violated by partial updates.
 
-###### v4 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T195226Z/agents/claude-haiku-4-5-1.jsonl))
+###### v4 — Anthropic / `claude-haiku-4-5`
 
     A mutex is needed to prevent race conditions when multiple goroutines access shared mutable state simultaneously. Without synchronization, concurrent reads and writes can interleave unpredictably, leading to data corruption, lost updates, or inconsistent state. A mutex ensures that only one goroutine can access the protected critical section at a time, enforcing mutual exclusion. This serializes access to shared data, making concurrent operations appear atomic and maintaining data integrity. Without a mutex, behavior becomes non-deterministic and bugs become difficult to reproduce and debug.
 
-###### v5 — Anthropic / `claude-sonnet-5` ([raw trace](20260830T195226Z/agents/claude-sonnet-5.jsonl))
+###### v5 — Anthropic / `claude-sonnet-5`
 
     A mutex is needed because concurrent access to shared mutable state by multiple goroutines can cause data races, where reads and writes interleave unpredictably, leading to corrupted or inconsistent data. Without synchronization, the Go memory model gives no guarantee about the visibility or ordering of writes made by one goroutine to another, so a goroutine might see a partially updated value or an outdated one. A mutex enforces mutual exclusion, ensuring only one goroutine can execute the critical section (read/modify/write) at a time, which prevents race conditions and keeps invariants consistent. It also establishes a happens-before relationship: unlocking a mutex in one goroutine synchronizes with a subsequent lock in another, guaranteeing memory visibility of prior writes. In short, mutexes protect correctness and predictability of shared state under concurrency, at the cost of some serialization/performance overhead.
 
-###### v6 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T195226Z/agents/claude-haiku-4-5-2.jsonl))
+###### v6 — Anthropic / `claude-haiku-4-5`
 
     A mutex is needed because concurrent access to shared mutable state can cause race conditions where multiple goroutines read and write to the same memory location simultaneously, leading to unpredictable and corrupted results. Without synchronization, the order of operations becomes non-deterministic, and interleaved reads and writes may violate invariants or produce incorrect data. A mutex ensures mutual exclusion—only one goroutine can access the protected state at a time, making modifications atomic and predictable. This prevents data corruption and ensures that all changes are visible to other goroutines in a consistent manner. Without mutexes, debugging concurrent bugs becomes extremely difficult because they may occur rarely and non-reproducibly.
 
-###### v7 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T195226Z/agents/gemini-3.6-flash-1.jsonl))
+###### v7 — Gemini / `gemini-3.6-flash`
 
     When multiple goroutines read and write shared mutable state concurrently without synchronization, a data race occurs, leading to undefined behavior and memory corruption. A mutex provides mutual exclusion by ensuring that only one goroutine can access the shared state at any given time. Additionally, locking and unlocking a mutex creates memory synchronization barriers, guaranteeing that updates made by one goroutine are immediately visible to others. Without a mutex, CPU optimizations and instruction reordering can cause stale or partially written state to be observed. Thus, mutexes maintain state invariants and prevent subtle concurrency bugs.
 
-###### v8 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T195226Z/agents/gemini-3.6-flash-2.jsonl))
+###### v8 — Gemini / `gemini-3.6-flash`
 
     A mutex (mutual exclusion lock) is needed to prevent data races when multiple goroutines concurrently read and write to shared memory without synchronization. Without a mutex, concurrent unsynchronized access can lead to data corruption, subtle state bugs, and unpredictable runtime panics. Mutexes enforce mutual exclusion, ensuring that only one goroutine can access the critical section at a time. Additionally, they establish memory barriers that guarantee visibility and ordering of state changes across different CPU cores.
 
-###### v9 — DeepSeek / `deepseek-v4-flash` ([raw trace](20260830T195226Z/agents/deepseek-v4-flash.jsonl))
+###### v9 — DeepSeek / `deepseek-v4-flash`
 
     When multiple goroutines access shared mutable state concurrently, their operations can interleave at any instruction boundary, causing data races. A data race is undefined behavior: reads may observe stale or partially written values, and concurrent writes can corrupt the state. A mutex (sync.Mutex) provides mutual exclusion, ensuring that only one goroutine enters the critical section at a time, serializing access to the shared data. It also establishes a happens-before edge, so memory writes by one goroutine are guaranteed visible to the next goroutine that acquires the mutex. This prevents race conditions, making the program's behavior deterministic and safe.
 
-###### v10 — DeepSeek / `deepseek-v4-pro` ([raw trace](20260830T195226Z/agents/deepseek-v4-pro.jsonl))
+###### v10 — DeepSeek / `deepseek-v4-pro`
 
     A mutex is needed to prevent data races when multiple goroutines read and write shared mutable state concurrently. Without synchronization, unsynchronized concurrent access can cause torn writes, lost updates, or corrupted invariants, and the Go race detector may report undefined behavior. A mutex ensures only one goroutine enters the critical section at a time, making the shared state access mutually exclusive. This preserves consistency and memory visibility across goroutines. In Go, you typically use sync.Mutex with Lock/Unlock around the shared state.
 
@@ -747,8 +738,6 @@ V4's Anthropic evaluation initially received HTTP 503, then the SDK retried afte
 
 The four-sentence synthesis complied with the prompt, was accepted cleanly and finalized as `SYNTHESIZED`.
 
-Complete artifacts: [round 3](20260830T195226Z/rounds/round-0000-0003.json), [proposer trace](20260830T195226Z/agents/gpt-5.4-mini-1.jsonl), and [evaluator traces](20260830T195226Z/agents/).
-
 #### F. Latency analysis
 
 | Validator / model | Label | Answer | MR2 judge batch tail | MR3 synthesis/evaluation | Total recorded tokens |
@@ -787,10 +776,7 @@ No preprocessing or MR3 trace failed. There were no timeouts, malformed response
 
 The full lifecycle succeeded despite two provider failures. MR1 finalized unanimously; MR2 finalized from seven complete, unanimous judge batches while both Gemini batches were incomplete; MR3 finalized a compliant four-sentence synthesis with quorum approval; and the transaction reached `SYNTHESIZED`. This run provides useful evidence that quorum tolerates two simultaneous judge-provider failures. Watch Gemini 503 recurrence, Anthropic 503 retries, and whether the same seven-validator MR2 quorum composition continues in later runs.
 
-
 ### Run 4 — `f57d391f451ab9ff286fb3cb289021b6`
-
-Run directory: [`20260830T200226Z/`](20260830T200226Z/)
 
 Question: **Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences.**
 
@@ -838,43 +824,43 @@ V3 was fastest at 1.321 s; v7 was slowest at 24.171 s. All answers complied with
 
 Exact recorded texts:
 
-###### v1 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T200226Z/agents/gpt-5.4-mini-1.jsonl))
+###### v1 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent concurrent goroutines from reading and writing shared mutable state at the same time. Without it, you can get race conditions, lost updates, corrupted data, or inconsistent results because operations are not atomic. The mutex ensures only one goroutine enters the critical section at a time, preserving correctness. It also establishes the necessary memory synchronization so updates are seen consistently by other goroutines.
 
-###### v2 — OpenAI / `gpt-5-mini` ([raw trace](20260830T200226Z/agents/gpt-5-mini.jsonl))
+###### v2 — OpenAI / `gpt-5-mini`
 
     A mutex is needed so only one goroutine at a time can access or modify shared mutable state, preventing concurrent writes and interleaved reads that cause race conditions. Without mutual exclusion you can corrupt invariants, get inconsistent or unexpected values, and trigger undefined behavior. In Go, a mutex also provides the necessary memory synchronization (happens-before) so changes made by one goroutine become visible to others.
 
-###### v3 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T200226Z/agents/gpt-5.4-mini-2.jsonl))
+###### v3 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent data races when multiple goroutines read and write the same mutable state at the same time. Without it, concurrent access can interleave unpredictably, causing lost updates, corrupted data, or crashes. A mutex ensures only one goroutine at a time enters the critical section that modifies the shared state. This makes the program’s behavior deterministic and safe.
 
-###### v4 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T200226Z/agents/claude-haiku-4-5-1.jsonl))
+###### v4 — Anthropic / `claude-haiku-4-5`
 
     A mutex (mutual exclusion lock) is needed to prevent race conditions when multiple goroutines access shared mutable state. Without synchronization, goroutines can interleave their operations, causing data corruption or inconsistent state. A mutex ensures that only one goroutine can access the protected data at a time, guaranteeing atomicity of critical sections. This prevents lost updates, dirty reads, and other concurrency issues. By enforcing sequential access to shared resources, mutexes maintain data integrity and correctness in concurrent programs.
 
-###### v5 — Anthropic / `claude-sonnet-5` ([raw trace](20260830T200226Z/agents/claude-sonnet-5.jsonl))
+###### v5 — Anthropic / `claude-sonnet-5`
 
     A mutex is needed because when multiple goroutines read and write the same variable or data structure concurrently without synchronization, their operations can interleave unpredictably, causing race conditions. Without mutual exclusion, a goroutine might read a value while another is mid-write, producing corrupted or inconsistent data—especially for compound operations like read-modify-write that aren't atomic. Go's memory model doesn't guarantee that writes by one goroutine are visible to another goroutine unless proper synchronization primitives are used, so even 'correct-looking' access can behave unexpectedly across CPU cores. A mutex (sync.Mutex) ensures that only one goroutine can enter the critical section at a time, serializing access and providing the happens-before guarantees needed for safe visibility of changes. This prevents race conditions, detected by tools like Go's race detector, and ensures data integrity and predictable program behavior.
 
-###### v6 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T200226Z/agents/claude-haiku-4-5-2.jsonl))
+###### v6 — Anthropic / `claude-haiku-4-5`
 
     A mutex (mutual exclusion lock) is needed to prevent race conditions when multiple goroutines access shared mutable state. Without synchronization, concurrent goroutines may read and write to the same memory location simultaneously, leading to unpredictable and corrupted data. A mutex ensures that only one goroutine can access the protected resource at a time, enforcing atomic operations. This serialization prevents data races and maintains data consistency and correctness. By acquiring the mutex before accessing shared state and releasing it afterward, goroutines coordinate safely in a concurrent environment.
 
-###### v7 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T200226Z/agents/gemini-3.6-flash-1.jsonl))
+###### v7 — Gemini / `gemini-3.6-flash`
 
     A mutex is needed to prevent data races and undefined behavior when multiple goroutines read and write to the same memory location concurrently. It enforces mutual exclusion by ensuring that only one goroutine can execute a critical section of code at a time. Without a mutex, unsynchronized concurrent writes can corrupt memory or result in inconsistent states. Furthermore, a mutex establishes memory synchronization barriers, guaranteeing that updates made by one goroutine are correctly visible to other goroutines. Overall, it protects data integrity and guarantees thread safety in concurrent Go programs.
 
-###### v8 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T200226Z/agents/gemini-3.6-flash-2.jsonl))
+###### v8 — Gemini / `gemini-3.6-flash`
 
     A mutex is required to prevent data races and race conditions when multiple goroutines read and write shared mutable memory concurrently. Without synchronization, concurrent unsynchronized accesses can lead to unpredictable behavior, corrupt state, or application crashes due to non-atomic memory operations. A mutex enforces mutual exclusion, ensuring that only one goroutine can enter a critical section at any given time. Additionally, it establishes memory barriers that guarantee changes made by one goroutine are visibly synchronized and consistent across CPU caches for other goroutines.
 
-###### v9 — DeepSeek / `deepseek-v4-flash` ([raw trace](20260830T200226Z/agents/deepseek-v4-flash.jsonl))
+###### v9 — DeepSeek / `deepseek-v4-flash`
 
     A mutex is needed because multiple goroutines can access shared mutable state concurrently, leading to data races where operations interleave unpredictably. Without synchronization, reads and writes may be reordered or partially applied, causing corrupted or inconsistent data. A mutex ensures mutual exclusion, allowing only one goroutine to enter the critical section at a time. This serializes access, guaranteeing that each goroutine sees a consistent state and preventing race conditions. It also provides the necessary memory barriers so that writes by one goroutine are visible to others.
 
-###### v10 — DeepSeek / `deepseek-v4-pro` ([raw trace](20260830T200226Z/agents/deepseek-v4-pro.jsonl))
+###### v10 — DeepSeek / `deepseek-v4-pro`
 
     A mutex is needed to prevent data races by ensuring mutual exclusion over shared mutable state. When multiple goroutines access and modify the same data concurrently without synchronization, operations can interleave and produce corrupted or inconsistent results. Locking a mutex around the critical section allows only one goroutine to execute it at a time, making the access atomic. It also establishes the necessary happens-before edges so changes are visible to other goroutines. Without a mutex, lost updates and undefined behavior can occur.
 
@@ -924,8 +910,6 @@ First vote and per-vote arrivals are **not recorded**. Available time-to-Q/final
 
 The four-sentence synthesis complied and finalized as `SYNTHESIZED`.
 
-Artifacts: [round 3](20260830T200226Z/rounds/round-0000-0003.json), [proposer](20260830T200226Z/agents/gpt-5.4-mini-1.jsonl), [evaluators](20260830T200226Z/agents/).
-
 #### F. Latency analysis
 
 | Validator / model | Label | Answer | MR2 tail | MR3 | Total tokens |
@@ -960,10 +944,7 @@ No API failure, timeout, malformed response, normalization error, failed trace, 
 
 The full lifecycle succeeded cleanly: MR1 finalized with a clear 10/10 canonical label, MR2 finalized seven unanimous complete judge batches, MR3 finalized a compliant four-sentence synthesis, and the transaction reached `SYNTHESIZED`. The run recovered from Run 3's API failures but repeated strong Gemini latency and the same seven-member MR2 certificate. Continue watching Gemini tail behavior and quorum-composition concentration.
 
-
 ### Run 5 — `d80b9ab1b6604085bc04ffb779e314e1`
-
-Run directory: [`20260830T201147Z/`](20260830T201147Z/)
 
 Question: **Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences.**
 
@@ -1013,43 +994,43 @@ Total recorded usage was 16,678 tokens: 9,350 label and 7,328 answer tokens. The
 
 All ten answer texts were recorded despite the label failure:
 
-###### v1 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T201147Z/agents/gpt-5.4-mini-1.jsonl))
+###### v1 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent data races when multiple goroutines read and write the same mutable state concurrently. Without it, interleaving operations can corrupt the data or produce inconsistent results. The mutex ensures only one goroutine at a time can access the critical section, making updates atomic from the program’s perspective. This provides correctness and predictable behavior.
 
-###### v2 — OpenAI / `gpt-5-mini` ([raw trace](20260830T201147Z/agents/gpt-5-mini.jsonl))
+###### v2 — OpenAI / `gpt-5-mini`
 
     A mutex is needed to serialize access to shared mutable state so only one goroutine at a time can read or modify it, preventing data races and corrupted or inconsistent values. Without a mutex, concurrent reads/writes can interleave unpredictably due to compiler/CPU reordering and the Go memory model, producing undefined behavior. A mutex also provides the necessary memory synchronization (acquire/release) so changes made by one goroutine become visible to others.
 
-###### v3 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T201147Z/agents/gpt-5.4-mini-2.jsonl))
+###### v3 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent race conditions when multiple goroutines read and write the same mutable state concurrently. Without synchronization, updates can interleave unpredictably, causing lost writes, inconsistent reads, or corrupted data. A mutex ensures only one goroutine can access the critical section at a time, preserving correctness. It also provides the necessary happens-before ordering so changes become visible safely to other goroutines.
 
-###### v4 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T201147Z/agents/claude-haiku-4-5-1.jsonl))
+###### v4 — Anthropic / `claude-haiku-4-5`
 
     A mutex is needed to prevent race conditions when multiple goroutines access shared mutable state concurrently. Without synchronization, goroutines may read and write to the same variable simultaneously, causing data corruption and unpredictable behavior. A mutex ensures that only one goroutine can access the critical section at a time, enforcing mutual exclusion. This guarantees that reads and writes to shared state are atomic and ordered, maintaining data consistency. Without mutexes, concurrent programs can produce non-deterministic results that are difficult to debug.
 
-###### v5 — Anthropic / `claude-sonnet-5` ([raw trace](20260830T201147Z/agents/claude-sonnet-5.jsonl))
+###### v5 — Anthropic / `claude-sonnet-5`
 
     A mutex is needed because Go's memory model does not guarantee that concurrent reads and writes to shared mutable state from multiple goroutines are safe without explicit synchronization, leading to data races. Without a mutex, simultaneous reads/writes can produce undefined behavior, corrupted data, or inconsistent state due to interleaved CPU instructions and compiler/hardware reordering. A mutex enforces mutual exclusion, ensuring only one goroutine can access the critical section (the shared state) at a time, preventing race conditions. It also establishes memory synchronization points (happens-before relationships), guaranteeing that writes made by one goroutine are visible to others after the lock is released and reacquired. Without this, tools like Go's race detector would flag the code, and results would be nondeterministic and unreliable in production.
 
-###### v6 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T201147Z/agents/claude-haiku-4-5-2.jsonl))
+###### v6 — Anthropic / `claude-haiku-4-5`
 
     A mutex (mutual exclusion lock) is needed to prevent race conditions when multiple goroutines access shared mutable state simultaneously. Without synchronization, goroutines may read and write to the same memory location at overlapping times, causing data corruption, lost updates, or inconsistent state. A mutex ensures that only one goroutine can access the protected resource at a time, enforcing atomic operations and maintaining data integrity. This serialization of access prevents interleaving of reads and writes that could violate program correctness. In Go, sync.Mutex provides this protection through Lock() and Unlock() calls.
 
-###### v7 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T201147Z/agents/gemini-3.6-flash-1.jsonl))
+###### v7 — Gemini / `gemini-3.6-flash`
 
     A mutex (mutual exclusion lock) is needed to prevent data races and memory corruption when multiple goroutines concurrently access shared mutable state. Without proper synchronization, concurrent reads and writes can lead to race conditions, lost updates, or inconsistent state readings. A mutex ensures that only one goroutine can enter a critical section and access the shared memory at any given time. Furthermore, it establishes necessary memory barriers to guarantee memory visibility across CPU caches. This maintains data integrity and deterministic program execution in concurrent Go applications.
 
-###### v8 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T201147Z/agents/gemini-3.6-flash-2.jsonl))
+###### v8 — Gemini / `gemini-3.6-flash`
 
     When multiple goroutines concurrently access and modify shared mutable state without synchronization, a data race occurs. This can lead to unpredictable behavior, memory corruption, and subtle bugs because memory operations are not atomic and CPU caches may be unsynchronized. A mutex (mutual exclusion lock) guarantees that only one goroutine can execute the critical section at a time. By serializing access, it ensures atomicity and proper memory visibility across CPU cores. Consequently, a mutex prevents data races and maintains program correctness.
 
-###### v9 — DeepSeek / `deepseek-v4-flash` ([raw trace](20260830T201147Z/agents/deepseek-v4-flash.jsonl))
+###### v9 — DeepSeek / `deepseek-v4-flash`
 
     A mutex is required because Go's memory model does not guarantee sequential consistency for unsynchronized concurrent accesses. Without synchronization, goroutines may read stale or partially updated values due to caching, reordering, and interleaving, leading to data races. This can produce unpredictable results, data corruption, or crashes. A mutex ensures mutual exclusion so operations on the shared state are atomic from the perspective of concurrent goroutines, and it establishes the necessary happens-before edges for reliable visibility of changes. In short, using a mutex makes concurrent access safe and correct.
 
-###### v10 — DeepSeek / `deepseek-v4-pro` ([raw trace](20260830T201147Z/agents/deepseek-v4-pro.jsonl))
+###### v10 — DeepSeek / `deepseek-v4-pro`
 
     A mutex is needed to prevent data races when multiple goroutines read and write shared mutable state concurrently. Without synchronization, unsynchronized concurrent access can cause torn reads/writes, lost updates, and undefined behavior. A mutex ensures only one goroutine enters the critical section at a time, making operations on the shared state atomic with respect to other goroutines. This establishes a happens-before relationship, so changes made under the lock are visible to subsequent lock holders. In Go, you typically use sync.Mutex with Lock/Unlock, often paired with defer Unlock to avoid deadlocks.
 
@@ -1107,10 +1088,7 @@ The artifacts strongly associate the unrecovered label failure with the stuck li
 
 The full lifecycle did not succeed. The tracked transaction reached neither MR1, MR2 nor MR3 and was not finalized or correctly removed for success. One Gemini label call failed; all answers and nine other labels succeeded, but the run remained blocked after empty round 2 until manual interruption. Before another paid run, the next priority should be deterministic handling of preprocessing failures: retry, quorum-tolerant preprocessing, or explicit transaction failure/removal, plus a terminal timeline/summary event and node-log capture.
 
-
 ### Run 6 — `68b5c852eac158bf2c23b4fef4e28333`
-
-Run directory: [`20260830T210156Z/`](20260830T210156Z/)
 
 Question: **Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences.**
 
@@ -1159,43 +1137,43 @@ The mock was necessarily fastest. Among real agents, v4 had the fastest label an
 
 ##### Complete preprocessing answers
 
-###### v1 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T210156Z/agents/gpt-5.4-mini-1.jsonl))
+###### v1 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent data races when multiple goroutines read and write the same mutable state concurrently. It ensures only one goroutine can access the critical section at a time, so updates are atomic and the state stays consistent. Without synchronization, concurrent accesses can interleave unpredictably and produce corrupted or incorrect results. A mutex also helps make the program’s behavior deterministic and safe under the Go race detector.
 
-###### v2 — OpenAI / `gpt-5-mini` ([raw trace](20260830T210156Z/agents/gpt-5-mini.jsonl))
+###### v2 — OpenAI / `gpt-5-mini`
 
     A mutex is needed to serialize access to shared mutable state so only one goroutine can read or modify it at a time, preventing concurrent races that can corrupt data or violate invariants. Without a mutex, interleaved reads/writes can produce inconsistent or unpredictable results and data races at the memory level. A mutex provides atomicity and a happens-before relationship that ensures updates are visible and correct across goroutines.
 
-###### v3 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T210156Z/agents/gpt-5.4-mini-2.jsonl))
+###### v3 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent race conditions when multiple goroutines read and write the same mutable data at the same time. It ensures only one goroutine can access the critical section at once, so updates are atomic and state stays consistent. Without it, concurrent accesses can interleave unpredictably and produce corrupted or incorrect results. It also provides the synchronization needed for memory visibility between goroutines.
 
-###### v4 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T210156Z/agents/claude-haiku-4-5-1.jsonl))
+###### v4 — Anthropic / `claude-haiku-4-5`
 
     A mutex (mutual exclusion lock) is needed because multiple goroutines accessing shared mutable state simultaneously can cause data races, where interleaved operations produce unpredictable and corrupted results. Without synchronization, one goroutine might read a value while another is writing it, leading to inconsistent or lost updates. A mutex ensures that only one goroutine can access the protected resource at a time, making operations atomic and predictable. This enforces a critical section where state modifications happen in isolation, preventing race conditions. Without a mutex, concurrent access to shared state is unsafe and leads to hard-to-debug bugs.
 
-###### v5 — Anthropic / `claude-sonnet-5` ([raw trace](20260830T210156Z/agents/claude-sonnet-5.jsonl))
+###### v5 — Anthropic / `claude-sonnet-5`
 
     A mutex is needed because concurrent goroutines reading and writing the same memory without synchronization can produce a data race, where the outcome depends on unpredictable interleaving of operations. Without mutual exclusion, one goroutine might read a value while another is mid-write, causing torn or inconsistent reads, lost updates, or corrupted state (e.g., in a map or slice). Go's memory model does not guarantee visibility of writes across goroutines unless proper synchronization primitives are used, so changes made by one goroutine may not be seen correctly by another. A mutex (sync.Mutex) ensures that only one goroutine can access the critical section at a time, providing both mutual exclusion and a synchronization point that guarantees visibility of prior writes. This prevents race conditions, undefined behavior, and crashes (Go's race detector will flag unsynchronized access), ensuring the shared state remains consistent and correct.
 
-###### v6 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T210156Z/agents/claude-haiku-4-5-2.jsonl))
+###### v6 — Anthropic / `claude-haiku-4-5`
 
     A mutex prevents race conditions by ensuring only one goroutine can access shared mutable state at a time. Without synchronization, concurrent reads and writes can interleave unpredictably, causing data corruption or inconsistent state. When multiple goroutines modify the same data simultaneously, the final result depends on their scheduling order, making behavior non-deterministic. A mutex enforces mutual exclusion, allowing atomic operations that guarantee consistency. This is essential for thread-safe access to shared resources and preventing deadlocks or data loss.
 
-###### v7 — local mock / `mocked-agent` ([raw trace](20260830T210156Z/agents/mocked-agent.jsonl))
+###### v7 — local mock / `mocked-agent`
 
     A mutex is mainly used to make goroutines execute faster by allowing several goroutines to modify the same shared memory simultaneously. It improves concurrency by removing serialization and lets writes happen in parallel without synchronization.
 
-###### v8 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T210156Z/agents/gemini-3.6-flash-2.jsonl))
+###### v8 — Gemini / `gemini-3.6-flash`
 
     A mutex (mutual exclusion lock) is needed to prevent data races when multiple goroutines concurrently access and modify shared memory. Without synchronization, concurrent reads and writes to shared mutable state lead to race conditions and undefined behavior. A mutex ensures that only one goroutine can execute a critical section of code at any given time. Additionally, it guarantees memory visibility, ensuring changes made by one goroutine are correctly observed by others. Using a mutex maintains data integrity and program consistency in concurrent environments.
 
-###### v9 — DeepSeek / `deepseek-v4-flash` ([raw trace](20260830T210156Z/agents/deepseek-v4-flash.jsonl))
+###### v9 — DeepSeek / `deepseek-v4-flash`
 
     A mutex is needed to enforce mutual exclusion, ensuring that only one goroutine can access shared mutable state at a time. Without it, concurrent reads and writes can interleave, causing data races where the outcome depends on unpredictable scheduling. This leads to corrupted data, inconsistent invariants, and undefined behavior in Go. By guarding critical sections with a mutex, operations become atomic relative to other goroutines, guaranteeing that each goroutine sees a consistent view of the state. Thus, mutexes are essential for correctness when multiple goroutines share mutable variables.
 
-###### v10 — DeepSeek / `deepseek-v4-pro` ([raw trace](20260830T210156Z/agents/deepseek-v4-pro.jsonl))
+###### v10 — DeepSeek / `deepseek-v4-pro`
 
     A mutex is needed to prevent data races when multiple goroutines read and write shared mutable state concurrently. Without synchronization, interleaved operations can corrupt data or produce nondeterministic results. A mutex ensures mutual exclusion, so only one goroutine can access the critical section at a time. This serializes access, making updates atomic and preserving consistency. In Go, `sync.Mutex` provides Lock and Unlock methods to guard such shared state.
 
@@ -1270,10 +1248,7 @@ There were no API failures, timeouts reported as failed calls, malformed respons
 
 The full lifecycle and all three mini-rounds finalized, and the transaction was removed through finalization, but the experiment failed its Byzantine-resilience objective. MR1 was unanimous. MR2 correctly rejected the mocked answer by 6–1, yet also rejected every honest answer 6–1 because the certificate contained only six honest judges. MR3 consequently finalized `SKIPPED` with no synthesis. The next run should specifically watch certificate composition and should not be repeated unchanged until the relationship between vote quorum and per-candidate acceptance threshold is addressed or intentionally characterized further.
 
-
 ### Run 7 — `d9fc5e135589447bd8e53a9b3b0db218`
-
-Run directory: [`20260830T211630Z/`](20260830T211630Z/)
 
 Question: **Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences.**
 
@@ -1320,43 +1295,43 @@ All ten labels agreed. The mock was fastest as designed. Among real agents v1 wa
 
 ##### Complete preprocessing answers
 
-###### v1 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T211630Z/agents/gpt-5.4-mini-1.jsonl))
+###### v1 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent data races when multiple goroutines read and write the same mutable state concurrently. Without synchronization, their operations can interleave unpredictably, causing corrupted or inconsistent data. A mutex ensures only one goroutine accesses the critical section at a time. This makes updates atomic from the perspective of other goroutines and preserves correctness.
 
-###### v2 — OpenAI / `gpt-5-mini` ([raw trace](20260830T211630Z/agents/gpt-5-mini.jsonl))
+###### v2 — OpenAI / `gpt-5-mini`
 
     A mutex is needed to ensure mutual exclusion so only one goroutine at a time can read or modify shared mutable state, preventing data races and corrupted or inconsistent state. Without a mutex, concurrent reads/writes can interleave unpredictably and violate invariants because operations that must be atomic may be interrupted. A mutex also provides memory-visibility (happens-before) guarantees so changes made by one goroutine are reliably observed by others.
 
-###### v3 — OpenAI / `gpt-5.4-mini` ([raw trace](20260830T211630Z/agents/gpt-5.4-mini-2.jsonl))
+###### v3 — OpenAI / `gpt-5.4-mini`
 
     A mutex is needed to prevent data races when multiple goroutines read and write the same mutable state concurrently. Without synchronization, their operations can interleave unpredictably, causing lost updates, corrupted data, or crashes. A mutex ensures only one goroutine at a time enters the critical section that accesses the shared state. This makes the behavior deterministic and safe.
 
-###### v4 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T211630Z/agents/claude-haiku-4-5-1.jsonl))
+###### v4 — Anthropic / `claude-haiku-4-5`
 
     A mutex is needed to prevent race conditions when multiple goroutines access shared mutable state simultaneously. Without synchronization, concurrent read-write or write-write operations can interleave unpredictably, causing data corruption or inconsistent state. The mutex ensures that only one goroutine can access the critical section at a time, providing mutual exclusion. This enforces atomic operations on the shared resource, preventing torn writes and ensuring all goroutines see consistent updates. Without a mutex, the program's behavior becomes non-deterministic and difficult to debug.
 
-###### v5 — Anthropic / `claude-sonnet-5` ([raw trace](20260830T211630Z/agents/claude-sonnet-5.jsonl))
+###### v5 — Anthropic / `claude-sonnet-5`
 
     A mutex is needed because without synchronization, concurrent goroutines reading and writing the same memory can produce data races—undefined behavior where the outcome depends on unpredictable goroutine scheduling. Go's memory model does not guarantee that writes made by one goroutine are visible to another without explicit synchronization, so unsynchronized access can lead to stale or corrupted reads. A mutex enforces mutual exclusion, ensuring only one goroutine can enter the critical section and modify shared state at a time, preventing race conditions like lost updates or torn reads/writes on multi-word data structures. It also establishes a happens-before relationship, guaranteeing that changes made under the lock are properly synchronized and visible to subsequent lock holders. Without a mutex (or another synchronization primitive), the Go race detector will typically flag such access, and the program's behavior becomes non-deterministic and unsafe.
 
-###### v6 — Anthropic / `claude-haiku-4-5` ([raw trace](20260830T211630Z/agents/claude-haiku-4-5-2.jsonl))
+###### v6 — Anthropic / `claude-haiku-4-5`
 
     A mutex (mutual exclusion lock) is needed to prevent race conditions when multiple goroutines access shared mutable state. Without synchronization, concurrent goroutines may read, modify, and write the same variable simultaneously, leading to unpredictable and corrupted results. A mutex ensures that only one goroutine can access the protected data at a time, enforcing exclusive access. This serializes operations on shared state, making the behavior deterministic and preventing data corruption. Without a mutex, the interleaving of concurrent operations becomes impossible to predict or control.
 
-###### v7 — local mock / `mocked-agent` ([raw trace](20260830T211630Z/agents/mocked-agent.jsonl))
+###### v7 — local mock / `mocked-agent`
 
     A mutex is mainly used to make goroutines execute faster by allowing several goroutines to modify the same shared memory simultaneously. It improves concurrency by removing serialization and lets writes happen in parallel without synchronization.
 
-###### v8 — Gemini / `gemini-3.6-flash` ([raw trace](20260830T211630Z/agents/gemini-3.6-flash-2.jsonl))
+###### v8 — Gemini / `gemini-3.6-flash`
 
     When multiple goroutines concurrently access and modify shared mutable state without synchronization, a data race occurs. Data races lead to undefined behavior, memory corruption, and race conditions due to non-atomic memory operations and CPU cache inconsistency. A mutex (mutual exclusion lock) prevents these issues by ensuring that only one goroutine can access the critical section at a time. It also enforces memory barrier synchronization so that writes by one goroutine are visible to others. Consequently, a mutex guarantees thread safety and data integrity across concurrent execution paths.
 
-###### v9 — DeepSeek / `deepseek-v4-flash` ([raw trace](20260830T211630Z/agents/deepseek-v4-flash.jsonl))
+###### v9 — DeepSeek / `deepseek-v4-flash`
 
     Without a mutex, goroutines can interleave at arbitrary points, causing data races on shared mutable state. A mutex enforces mutual exclusion so only one goroutine enters the critical section at a time. This prevents torn reads/writes and undefined behavior that can corrupt data. Additionally, a mutex provides the necessary memory synchronization so changes are visible to other goroutines. The Go race detector can identify such races, but only proper synchronization like a mutex makes the program correct.
 
-###### v10 — DeepSeek / `deepseek-v4-pro` ([raw trace](20260830T211630Z/agents/deepseek-v4-pro.jsonl))
+###### v10 — DeepSeek / `deepseek-v4-pro`
 
     A mutex ensures that only one goroutine can access the shared mutable state at a time, preventing data races where concurrent reads and writes produce undefined behavior. Without it, multiple goroutines could interleave operations, corrupting data or causing lost updates. By locking around critical sections, the mutex establishes a happens-before relationship, making changes visible to other goroutines. This synchronization preserves consistency and correctness. In Go, sync.Mutex is commonly used to protect shared variables.
 
@@ -1433,10 +1408,7 @@ There were no external provider/API failures, timeouts, malformed responses or p
 
 The full transaction lifecycle succeeded. MR1 finalized unanimously, MR2 finalized with nine votes and cleanly separated all nine honest answers from the Byzantine answer, and MR3 synthesized exclusively from the correct cluster. The transaction finalized and was removed with status `SYNTHESIZED`; quorum was comfortable at MR2 (nine votes) and sufficient at MR3. V8 Gemini remains the main latency concern. Before the next run, the mock's MR3 evaluation behavior and trace flags should be made explicit, and exact grace/Q timing should be recorded.
 
-
 ### Run 8 — `7b4724f8158f3fed322e9a70b344434c`
-
-Run directory: [`20260830T213427Z/`](20260830T213427Z/)
 
 Question: **Why is a mutex needed when multiple goroutines access shared mutable state? Answer briefly, in at most 5 sentences.**  Validator-7 was the fully local `mocked-agent` (`provider=mock`, `model=mocked-agent`) and returned the configured hallucinated answer verbatim. Verdict: **PASS WITH WARNINGS**. The transaction reached `SYNTHESIZED`; warnings concern one Gemini 503/missed judge and missing exact protocol vote timing.
 
@@ -1456,7 +1428,7 @@ Preprocessing was asynchronous and overlapped the empty round. Exact global prep
 
 #### B. Agent preprocessing
 
-All ten labels were `systems_programming`; all calls succeeded. v7 was mocked (zero tokens/provider calls). The complete answer text is preserved below and in the linked raw traces.
+All ten labels were `systems_programming`; all calls succeeded. v7 was mocked (zero tokens/provider calls). The complete answer text is preserved below and in the raw traces.
 
 | Validator / model | Label | Label ms | Answer ms | Tokens (label+answer) | Result |
 |---|---|---:|---:|---:|---|
@@ -1540,7 +1512,7 @@ The full lifecycle succeeded: MR1 finalized unanimously, MR2 finalized with hone
 
 ### Run 9 — `1c932eae27c02e2010a633a53fc30844`
 
-Run directory: [`20260830T214623Z/`](20260830T214623Z/). This is the controlled MALICIOUS scenario: validator-7 is local `mocked-agent` (`mock/mock`), with no external calls. Verdict: **PASS WITH WARNINGS** because the transaction finalized `SYNTHESIZED`; one Gemini judge call failed and exact vote timing is not instrumented.
+This is the controlled MALICIOUS scenario: validator-7 is local `mocked-agent` (`mock/mock`), with no external calls. Verdict: **PASS WITH WARNINGS** because the transaction finalized `SYNTHESIZED`; one Gemini judge call failed and exact vote timing is not instrumented.
 
 #### A. Transaction lifecycle
 
@@ -1618,7 +1590,7 @@ The full lifecycle succeeded. MR1 finalized, MR2 excluded the malicious mocked a
 
 ### Run 10 — `70e3e7192aa09c151e7c6b840dbeaa46`
 
-Run directory: [`20260831T124518Z/`](20260831T124518Z/). This is the first two-Byzantine WRONG run, with validators 7 and 10 replaced by distinct fully local mock services. Verdict: **PASS WITH EXPERIMENT-DEVIATION WARNING**. The existing protocol finalized the transaction as `SYNTHESIZED` under two adversarial WRONG votes per honest candidate, but the mock implementation did not produce the requested colluding Byzantine vector: each mock approved only the answer equal to its own configured answer and classified the other mock's distinct answer as `WRONG`.
+This is the first two-Byzantine WRONG run, with validators 7 and 10 replaced by distinct fully local mock services. Verdict: **PASS WITH EXPERIMENT-DEVIATION WARNING**. The existing protocol finalized the transaction as `SYNTHESIZED` under two adversarial WRONG votes per honest candidate, but the mock implementation did not produce the requested colluding Byzantine vector: each mock approved only the answer equal to its own configured answer and classified the other mock's distinct answer as `WRONG`.
 
 #### A. Lifecycle and certificate composition
 
@@ -1677,7 +1649,7 @@ Both mocked validators returned `approved=false` deterministically. Across each 
 
 ### Run 11 — `699947662de20e52cba2d5897374a5c7`
 
-Run directory: [`20260831T141004Z/`](20260831T141004Z/). This reruns the two-Byzantine WRONG scenario after correcting the mock matching set so v7 and v10 mutually approve both configured Byzantine answers. Verdict: **PASS WITH WARNINGS**. The intended colluding vector was recorded exactly, both wrong candidates remained below threshold, MR3 used only honest inputs, and the final status was `SYNTHESIZED`. A v8 Gemini judge call failed with HTTP 504 and kept v8 outside the certificate.
+This reruns the two-Byzantine WRONG scenario after correcting the mock matching set so v7 and v10 mutually approve both configured Byzantine answers. Verdict: **PASS WITH WARNINGS**. The intended colluding vector was recorded exactly, both wrong candidates remained below threshold, MR3 used only honest inputs, and the final status was `SYNTHESIZED`. A v8 Gemini judge call failed with HTTP 504 and kept v8 outside the certificate.
 
 #### A. Lifecycle and certificate composition
 
@@ -1725,9 +1697,9 @@ Both mocked validators deterministically returned `approved=false`. Each mock ha
 
 ### Run 12 — `0911a934dc170f56a13edb3ec967093c`
 
-Run directory: [`20260831T151650Z/`](20260831T151650Z/). This is the successful two-Byzantine HALLUCINATION experiment using the corrected Run 11 collusion behavior. Verdict: **PASS WITH WARNINGS**. All seven honest certificate judges independently classified both hallucinated answers as `HALLUCINATION`; both candidates were excluded, all eight honest candidates reached the unchanged threshold, and MR3 finalized `SYNTHESIZED` despite both Byzantine rejections.
+This is the successful two-Byzantine HALLUCINATION experiment using the corrected Run 11 collusion behavior. Verdict: **PASS WITH WARNINGS**. All seven honest certificate judges independently classified both hallucinated answers as `HALLUCINATION`; both candidates were excluded, all eight honest candidates reached the unchanged threshold, and MR3 finalized `SYNTHESIZED` despite both Byzantine rejections.
 
-Two preceding attempts are not counted as separate completed experimental runs. [`20260831T145530Z/`](20260831T145530Z/) was interrupted after submission/preprocessing and has no round or summary. [`20260831T145753Z/`](20260831T145753Z/) recorded a v8 Gemini label HTTP 504, selected the transaction only in round 5, finalized MR1 with nine votes, then stalled before any judge request and timed out after 606.354 s. That attempt is a preprocessing-failure/liveness observation, not evidence about the HALLUCINATION vector.
+Two preceding attempts are not counted as separate completed experimental runs. The first was interrupted after submission/preprocessing and has no round or summary. The second recorded a v8 Gemini label HTTP 504, selected the transaction only in round 5, finalized MR1 with nine votes, then stalled before any judge request and timed out after 606.354 s. That attempt is a preprocessing-failure/liveness observation, not evidence about the HALLUCINATION vector.
 
 #### A. Lifecycle and certificate composition
 
@@ -1767,7 +1739,7 @@ There was no semantic split among certificate judges. Every honest judge recorde
 
 #### C. MR3 inputs, rejections and final answer
 
-The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v2, v3, v4, v5, v6, v8 and v9. The verbatim strings are preserved in [`gpt-5.4-mini-1.jsonl`](20260831T151650Z/agents/gpt-5.4-mini-1.jsonl) and match the eight honest candidate answers in the round-3 artifact. Neither hallucinated answer appears in the request. MR3 synthesized only honest inputs and produced:
+The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v2, v3, v4, v5, v6, v8 and v9. The verbatim strings are preserved in `gpt-5.4-mini-1.jsonl` and match the eight honest candidate answers in the round-3 artifact. Neither hallucinated answer appears in the request. MR3 synthesized only honest inputs and produced:
 
 > A mutex is needed to prevent data races when multiple goroutines access shared mutable state concurrently. Without synchronization, reads and writes can interleave, causing inconsistent, corrupted, or unpredictable results. A mutex provides mutual exclusion so only one goroutine enters the critical section at a time, making updates safe and orderly. It also ensures writes are properly visible to other goroutines, which helps preserve correctness and invariants.
 
@@ -1775,9 +1747,9 @@ Both mocked validators returned `approved=false`. Each has 13 records—label, a
 
 ### Run 13 — `470109bcd97a44384e45c4403c0d95ac`
 
-Run directory: [`20260831T154435Z/`](20260831T154435Z/). This is the two-Byzantine MALICIOUS experiment after remapping both Gemini slots, v7/v8, to local mocks and restoring v10 as real `deepseek-v4-pro`. Verdict: **PASS WITH WARNINGS**. The run collected all ten MR2 votes, excluded both malicious answers despite their mutual Byzantine approvals, synthesized only honest answers, tolerated both Byzantine MR3 rejections, and finalized `SYNTHESIZED`. The warning is semantic rather than operational: honest judges split between `WRONG` and `MALICIOUS`.
+This is the two-Byzantine MALICIOUS experiment after remapping both Gemini slots, v7/v8, to local mocks and restoring v10 as real `deepseek-v4-pro`. Verdict: **PASS WITH WARNINGS**. The run collected all ten MR2 votes, excluded both malicious answers despite their mutual Byzantine approvals, synthesized only honest answers, tolerated both Byzantine MR3 rejections, and finalized `SYNTHESIZED`. The warning is semantic rather than operational: honest judges split between `WRONG` and `MALICIOUS`.
 
-The preceding stopped attempt [`20260831T153154Z/`](20260831T153154Z/) used the earlier v7/v10-mock mapping. V8's Gemini label call failed with HTTP 504, round 5 MR1 finalized with nine votes, and the MR2 leader then waited indefinitely at 9/10 execution results with no certificate. It is retained as a preprocessing-failure/liveness observation and excluded from completed-run aggregates.
+The preceding stopped attempt used the earlier v7/v10-mock mapping. V8's Gemini label call failed with HTTP 504, round 5 MR1 finalized with nine votes, and the MR2 leader then waited indefinitely at 9/10 execution results with no certificate. It is retained as a preprocessing-failure/liveness observation and excluded from completed-run aggregates.
 
 #### A. Lifecycle and certificate composition
 
@@ -1832,7 +1804,7 @@ The semantic label was not stable, although rejection was unanimous. V7 split ev
 
 #### D. MR3 inputs, rejections and final answer
 
-The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v10, v2, v3, v4, v5, v6 and v9. The verbatim strings are preserved in [`gpt-5.4-mini-1.jsonl`](20260831T154435Z/agents/gpt-5.4-mini-1.jsonl) and match the eight honest candidate answers in the round-3 artifact. Neither malicious answer appears, so synthesis used only honest inputs and produced:
+The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v10, v2, v3, v4, v5, v6 and v9. The verbatim strings are preserved in `gpt-5.4-mini-1.jsonl` and match the eight honest candidate answers in the round-3 artifact. Neither malicious answer appears, so synthesis used only honest inputs and produced:
 
 > A mutex is needed to prevent race conditions when multiple goroutines access the same shared mutable state concurrently. Without synchronization, reads and writes can interleave unpredictably, causing data corruption, lost updates, and inconsistent results. A mutex provides mutual exclusion so only one goroutine can enter the critical section at a time, making updates atomic from the program’s perspective. This helps preserve data consistency and makes behavior deterministic and safe.
 
@@ -1840,7 +1812,7 @@ Both mocked validators returned `approved=false`. Each has 13 records—label, a
 
 ### Run 14 — `0bd95ac40cc91321b7c0f2cb3aabb1b9`
 
-Run directory: [`20260831T183756Z/`](20260831T183756Z/). This is the three-Byzantine WRONG fault-boundary experiment with mocked v4/v7/v8 and seven real validators. Verdict: **PASS AT FAULT BOUNDARY**. The run obtained the complete ten-vote MR2 certificate required for the ideal `f=3` result: all seven honest candidates reached the threshold exactly, all three colluding wrong candidates remained below it, and MR3 finalized despite all three Byzantine rejections. This successful sample does not remove the structural liveness boundary: any unavailable, late or dissenting honest vote would have left affected honest candidates below 7 `CORRECT`.
+This is the three-Byzantine WRONG fault-boundary experiment with mocked v4/v7/v8 and seven real validators. Verdict: **PASS AT FAULT BOUNDARY**. The run obtained the complete ten-vote MR2 certificate required for the ideal `f=3` result: all seven honest candidates reached the threshold exactly, all three colluding wrong candidates remained below it, and MR3 finalized despite all three Byzantine rejections. This successful sample does not remove the structural liveness boundary: any unavailable, late or dissenting honest vote would have left affected honest candidates below 7 `CORRECT`.
 
 #### A. Lifecycle, MR1 and certificate composition
 
@@ -1890,8 +1862,6 @@ The v1 synthesis request contains exactly seven `correct_answers`, from v1, v10,
 V4, v7 and v8 each returned `approved=false`. Each mocked trace contains 13 successful records—one label, one answer, ten judgments and one synthesis evaluation—and every record has `mocked=true`, `provider_called=false` and zero input/output/total tokens. The six recorded honest approvers were v10, v2, v3, v5, v6 and v9; with honest proposer v1, the final quorum was seven. The transaction finalized as `SYNTHESIZED`.
 
 ### Run 15 — `473b86704afba432e95363809850f246`
-
-Run directory: [`20260831T193145Z/`](20260831T193145Z/)
 
 Transaction: `31977a0e888c4b8bc37761c8c6fdf51d402015d1dd8178ae70841e91ff50b822`
 
@@ -1984,177 +1954,3 @@ Run 9 records the completed results for this configuration.
 - API latency and protocol time-to-quorum are different measures. Protocol durations may include scheduled mini-round intervals.
 - “Not recorded” means the artifact schema does not support the claim; it must not be reconstructed from assumptions about implementation timing.
 
-## 6. Raw-data traceability
-
-### Run 1
-
-- Manifest/config snapshot: [`20260830T185012Z/manifest.json`](20260830T185012Z/manifest.json)
-- Timeline: [`20260830T185012Z/timeline.jsonl`](20260830T185012Z/timeline.jsonl)
-- Per-agent traces: [`20260830T185012Z/agents/`](20260830T185012Z/agents/)
-- Empty round 2: [`20260830T185012Z/rounds/round-0000-0002.json`](20260830T185012Z/rounds/round-0000-0002.json)
-- Selected/finalized round 3: [`20260830T185012Z/rounds/round-0000-0003.json`](20260830T185012Z/rounds/round-0000-0003.json)
-- Summary: [`20260830T185012Z/summary.json`](20260830T185012Z/summary.json)
-- Agent/server logs, used only for failure context: [`20260830T185012Z/logs/`](20260830T185012Z/logs/)
-
-### Run 2
-
-- Manifest/config snapshot: [`20260830T192650Z/manifest.json`](20260830T192650Z/manifest.json)
-- Timeline: [`20260830T192650Z/timeline.jsonl`](20260830T192650Z/timeline.jsonl)
-- Per-agent traces: [`20260830T192650Z/agents/`](20260830T192650Z/agents/)
-- Empty round 2: [`20260830T192650Z/rounds/round-0000-0002.json`](20260830T192650Z/rounds/round-0000-0002.json)
-- Selected/finalized round 3: [`20260830T192650Z/rounds/round-0000-0003.json`](20260830T192650Z/rounds/round-0000-0003.json)
-- Summary: [`20260830T192650Z/summary.json`](20260830T192650Z/summary.json)
-- Agent/server logs, used only for failure context: [`20260830T192650Z/logs/`](20260830T192650Z/logs/)
-
-### Run 3
-
-- Manifest/config snapshot: [`20260830T195226Z/manifest.json`](20260830T195226Z/manifest.json)
-- Timeline: [`20260830T195226Z/timeline.jsonl`](20260830T195226Z/timeline.jsonl)
-- Per-agent traces: [`20260830T195226Z/agents/`](20260830T195226Z/agents/)
-- Empty round 2: [`20260830T195226Z/rounds/round-0000-0002.json`](20260830T195226Z/rounds/round-0000-0002.json)
-- Selected/finalized round 3: [`20260830T195226Z/rounds/round-0000-0003.json`](20260830T195226Z/rounds/round-0000-0003.json)
-- Summary: [`20260830T195226Z/summary.json`](20260830T195226Z/summary.json)
-- Agent/server logs, used for the Gemini and Anthropic HTTP 503 analysis: [`20260830T195226Z/logs/`](20260830T195226Z/logs/)
-
-### Run 4
-
-- Manifest/config snapshot: [`20260830T200226Z/manifest.json`](20260830T200226Z/manifest.json)
-- Timeline: [`20260830T200226Z/timeline.jsonl`](20260830T200226Z/timeline.jsonl)
-- Per-agent traces: [`20260830T200226Z/agents/`](20260830T200226Z/agents/)
-- Empty round 2: [`20260830T200226Z/rounds/round-0000-0002.json`](20260830T200226Z/rounds/round-0000-0002.json)
-- Selected/finalized round 3: [`20260830T200226Z/rounds/round-0000-0003.json`](20260830T200226Z/rounds/round-0000-0003.json)
-- Summary: [`20260830T200226Z/summary.json`](20260830T200226Z/summary.json)
-- Agent/server logs: [`20260830T200226Z/logs/`](20260830T200226Z/logs/)
-
-### Run 5
-
-- Manifest/config snapshot: [`20260830T201147Z/manifest.json`](20260830T201147Z/manifest.json)
-- Timeline through the last recorded empty-round event: [`20260830T201147Z/timeline.jsonl`](20260830T201147Z/timeline.jsonl)
-- Per-agent preprocessing traces: [`20260830T201147Z/agents/`](20260830T201147Z/agents/)
-- Empty round 2: [`20260830T201147Z/rounds/round-0000-0002.json`](20260830T201147Z/rounds/round-0000-0002.json)
-- Round 3: **not recorded**
-- Summary: **not recorded**
-- Agent/server logs, including v7 Gemini HTTP 503: [`20260830T201147Z/logs/`](20260830T201147Z/logs/)
-
-### Run 6
-
-- Manifest/config snapshot: [`20260830T210156Z/manifest.json`](20260830T210156Z/manifest.json)
-- Timeline: [`20260830T210156Z/timeline.jsonl`](20260830T210156Z/timeline.jsonl)
-- Per-agent traces, including zero-token mocked label/answer/judge calls: [`20260830T210156Z/agents/`](20260830T210156Z/agents/)
-- Mocked-agent trace: [`20260830T210156Z/agents/mocked-agent.jsonl`](20260830T210156Z/agents/mocked-agent.jsonl)
-- Empty round 2: [`20260830T210156Z/rounds/round-0000-0002.json`](20260830T210156Z/rounds/round-0000-0002.json)
-- Selected/finalized round 3, including MR2 candidate totals and MR3 `SKIPPED` result: [`20260830T210156Z/rounds/round-0000-0003.json`](20260830T210156Z/rounds/round-0000-0003.json)
-- Summary: [`20260830T210156Z/summary.json`](20260830T210156Z/summary.json)
-- Agent/server logs: [`20260830T210156Z/logs/`](20260830T210156Z/logs/)
-
-### Run 7
-
-- Manifest/config snapshot, including `classification_grace_period: 10s`: [`20260830T211630Z/manifest.json`](20260830T211630Z/manifest.json)
-- Timeline: [`20260830T211630Z/timeline.jsonl`](20260830T211630Z/timeline.jsonl)
-- Per-agent traces: [`20260830T211630Z/agents/`](20260830T211630Z/agents/)
-- Mocked label/answer/judge and local MR3 failure trace: [`20260830T211630Z/agents/mocked-agent.jsonl`](20260830T211630Z/agents/mocked-agent.jsonl)
-- V1 synthesis trace with all nine correct inputs and complete synthesis: [`20260830T211630Z/agents/gpt-5.4-mini-1.jsonl`](20260830T211630Z/agents/gpt-5.4-mini-1.jsonl)
-- Empty round 2: [`20260830T211630Z/rounds/round-0000-0002.json`](20260830T211630Z/rounds/round-0000-0002.json)
-- Selected/finalized round 3: [`20260830T211630Z/rounds/round-0000-0003.json`](20260830T211630Z/rounds/round-0000-0003.json)
-- Summary: [`20260830T211630Z/summary.json`](20260830T211630Z/summary.json)
-- Agent/server logs: [`20260830T211630Z/logs/`](20260830T211630Z/logs/)
-
-### Run 8
-
-- Manifest/config snapshot, including `classification_grace_period: 10s` and the hallucinated mocked answer: [`20260830T213427Z/manifest.json`](20260830T213427Z/manifest.json)
-- Timeline: [`20260830T213427Z/timeline.jsonl`](20260830T213427Z/timeline.jsonl)
-- Per-agent traces: [`20260830T213427Z/agents/`](20260830T213427Z/agents/)
-- Mocked preprocessing, MR2 Byzantine vector and deterministic MR3 rejection: [`20260830T213427Z/agents/mocked-agent.jsonl`](20260830T213427Z/agents/mocked-agent.jsonl)
-- Selected round 3 with MR2 classification totals, MR3 correct cluster and final synthesis: [`20260830T213427Z/rounds/round-0000-0003.json`](20260830T213427Z/rounds/round-0000-0003.json)
-- Empty round 2: [`20260830T213427Z/rounds/round-0000-0002.json`](20260830T213427Z/rounds/round-0000-0002.json)
-- Summary: [`20260830T213427Z/summary.json`](20260830T213427Z/summary.json)
-- Agent/server logs, including Gemini HTTP 503 context: [`20260830T213427Z/logs/`](20260830T213427Z/logs/)
-
-### Run 9
-
-- Manifest/config snapshot with malicious mocked answer and grace settings: [`20260830T214623Z/manifest.json`](20260830T214623Z/manifest.json)
-- Timeline: [`20260830T214623Z/timeline.jsonl`](20260830T214623Z/timeline.jsonl)
-- Per-agent traces: [`20260830T214623Z/agents/`](20260830T214623Z/agents/)
-- Mocked preprocessing, MR2 vector and deterministic MR3 rejection: [`20260830T214623Z/agents/mocked-agent.jsonl`](20260830T214623Z/agents/mocked-agent.jsonl)
-- Empty round 2 and selected round 3 artifacts: [`20260830T214623Z/rounds/`](20260830T214623Z/rounds/)
-- Summary: [`20260830T214623Z/summary.json`](20260830T214623Z/summary.json)
-- Agent/server logs, including Gemini 503 context: [`20260830T214623Z/logs/`](20260830T214623Z/logs/)
-
-### Run 10
-
-- Manifest/config snapshot with two local mocked validators and unchanged quorum/grace settings: [`20260831T124518Z/manifest.json`](20260831T124518Z/manifest.json)
-- Timeline: [`20260831T124518Z/timeline.jsonl`](20260831T124518Z/timeline.jsonl)
-- Per-agent traces: [`20260831T124518Z/agents/`](20260831T124518Z/agents/)
-- V7 mocked preprocessing, MR2 vector and deterministic MR3 rejection: [`20260831T124518Z/agents/mocked-agent-v7.jsonl`](20260831T124518Z/agents/mocked-agent-v7.jsonl)
-- V10 mocked preprocessing, MR2 vector and deterministic MR3 rejection: [`20260831T124518Z/agents/mocked-agent-v10.jsonl`](20260831T124518Z/agents/mocked-agent-v10.jsonl)
-- V1 synthesis trace containing the exact eight honest `correct_answers`: [`20260831T124518Z/agents/gpt-5.4-mini-1.jsonl`](20260831T124518Z/agents/gpt-5.4-mini-1.jsonl)
-- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T124518Z/rounds/`](20260831T124518Z/rounds/)
-- Summary: [`20260831T124518Z/summary.json`](20260831T124518Z/summary.json)
-- Agent/server logs, including the late v8 Gemini judge calls: [`20260831T124518Z/logs/`](20260831T124518Z/logs/)
-
-### Run 11
-
-- Manifest/config snapshot containing both shared `mock_judge_correct_answers` sets: [`20260831T141004Z/manifest.json`](20260831T141004Z/manifest.json)
-- Timeline: [`20260831T141004Z/timeline.jsonl`](20260831T141004Z/timeline.jsonl)
-- Per-agent traces: [`20260831T141004Z/agents/`](20260831T141004Z/agents/)
-- V7 corrected colluding vector and deterministic MR3 rejection: [`20260831T141004Z/agents/mocked-agent-v7.jsonl`](20260831T141004Z/agents/mocked-agent-v7.jsonl)
-- V10 corrected colluding vector and deterministic MR3 rejection: [`20260831T141004Z/agents/mocked-agent-v10.jsonl`](20260831T141004Z/agents/mocked-agent-v10.jsonl)
-- V1 synthesis trace containing the exact eight honest `correct_answers`: [`20260831T141004Z/agents/gpt-5.4-mini-1.jsonl`](20260831T141004Z/agents/gpt-5.4-mini-1.jsonl)
-- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T141004Z/rounds/`](20260831T141004Z/rounds/)
-- Summary: [`20260831T141004Z/summary.json`](20260831T141004Z/summary.json)
-- Agent/server logs, including v8's Gemini HTTP 504: [`20260831T141004Z/logs/`](20260831T141004Z/logs/)
-
-### Run 12
-
-- Manifest/config snapshot for the two-Byzantine HALLUCINATION scenario: [`20260831T151650Z/manifest.json`](20260831T151650Z/manifest.json)
-- Timeline: [`20260831T151650Z/timeline.jsonl`](20260831T151650Z/timeline.jsonl)
-- Per-agent traces: [`20260831T151650Z/agents/`](20260831T151650Z/agents/)
-- V7 colluding HALLUCINATION vector and deterministic MR3 rejection: [`20260831T151650Z/agents/mocked-agent-v7.jsonl`](20260831T151650Z/agents/mocked-agent-v7.jsonl)
-- V10 colluding HALLUCINATION vector and deterministic MR3 rejection: [`20260831T151650Z/agents/mocked-agent-v10.jsonl`](20260831T151650Z/agents/mocked-agent-v10.jsonl)
-- V1 synthesis trace containing the exact eight honest `correct_answers`: [`20260831T151650Z/agents/gpt-5.4-mini-1.jsonl`](20260831T151650Z/agents/gpt-5.4-mini-1.jsonl)
-- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T151650Z/rounds/`](20260831T151650Z/rounds/)
-- Summary: [`20260831T151650Z/summary.json`](20260831T151650Z/summary.json)
-- Agent/server logs, including six v8 Gemini HTTP 504 judge failures: [`20260831T151650Z/logs/`](20260831T151650Z/logs/)
-- Interrupted preliminary attempt with no summary: [`20260831T145530Z/`](20260831T145530Z/)
-- Timed-out preliminary attempt with v8 label 504 and post-MR1 stall: [`20260831T145753Z/`](20260831T145753Z/)
-
-### Run 13
-
-- Manifest/config snapshot showing mocked v7/v8 and restored real DeepSeek v10: [`20260831T154435Z/manifest.json`](20260831T154435Z/manifest.json)
-- Timeline: [`20260831T154435Z/timeline.jsonl`](20260831T154435Z/timeline.jsonl)
-- Per-agent traces: [`20260831T154435Z/agents/`](20260831T154435Z/agents/)
-- V7 colluding MALICIOUS vector and deterministic MR3 rejection: [`20260831T154435Z/agents/mocked-agent-v7.jsonl`](20260831T154435Z/agents/mocked-agent-v7.jsonl)
-- V8 colluding MALICIOUS vector and deterministic MR3 rejection: [`20260831T154435Z/agents/mocked-agent-v8.jsonl`](20260831T154435Z/agents/mocked-agent-v8.jsonl)
-- Restored DeepSeek v4 Pro preprocessing, judging and MR3 trace: [`20260831T154435Z/agents/deepseek-v4-pro.jsonl`](20260831T154435Z/agents/deepseek-v4-pro.jsonl)
-- V1 synthesis trace containing the exact eight honest `correct_answers`: [`20260831T154435Z/agents/gpt-5.4-mini-1.jsonl`](20260831T154435Z/agents/gpt-5.4-mini-1.jsonl)
-- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T154435Z/rounds/`](20260831T154435Z/rounds/)
-- Summary: [`20260831T154435Z/summary.json`](20260831T154435Z/summary.json)
-- Agent/server logs; no failed calls recorded: [`20260831T154435Z/logs/`](20260831T154435Z/logs/)
-- Stopped preliminary attempt using real Gemini v8, whose label 504 caused a 9/10 MR2 liveness stall: [`20260831T153154Z/`](20260831T153154Z/)
-
-### Run 14
-
-- Manifest/config snapshot for the three-Byzantine WRONG boundary scenario: [`20260831T183756Z/manifest.json`](20260831T183756Z/manifest.json)
-- Timeline: [`20260831T183756Z/timeline.jsonl`](20260831T183756Z/timeline.jsonl)
-- Per-agent traces: [`20260831T183756Z/agents/`](20260831T183756Z/agents/)
-- V4 three-way collusion vector and deterministic MR3 rejection: [`20260831T183756Z/agents/mocked-agent-v4.jsonl`](20260831T183756Z/agents/mocked-agent-v4.jsonl)
-- V7 three-way collusion vector and deterministic MR3 rejection: [`20260831T183756Z/agents/mocked-agent-v7.jsonl`](20260831T183756Z/agents/mocked-agent-v7.jsonl)
-- V8 three-way collusion vector and deterministic MR3 rejection: [`20260831T183756Z/agents/mocked-agent-v8.jsonl`](20260831T183756Z/agents/mocked-agent-v8.jsonl)
-- V1 synthesis trace containing exactly the seven honest `correct_answers`: [`20260831T183756Z/agents/gpt-5.4-mini-1.jsonl`](20260831T183756Z/agents/gpt-5.4-mini-1.jsonl)
-- Empty round 2 and selected/finalized round 3 artifacts: [`20260831T183756Z/rounds/`](20260831T183756Z/rounds/)
-- Summary: [`20260831T183756Z/summary.json`](20260831T183756Z/summary.json)
-- Agent/server logs; no failed calls recorded: [`20260831T183756Z/logs/`](20260831T183756Z/logs/)
-
-### Run 15
-
-- Manifest/config snapshot with forced v10 proposer and real-provider Byzantine synthesis flag: [`20260831T193145Z/manifest.json`](20260831T193145Z/manifest.json)
-- Timeline through round-3 MR2 finalization: [`20260831T193145Z/timeline.jsonl`](20260831T193145Z/timeline.jsonl)
-- Per-agent traces containing all preprocessing, MR2 and recorded MR3 calls: [`20260831T193145Z/agents/`](20260831T193145Z/agents/)
-- V10 trace containing the exact ten-answer cluster, adversarial prompt, raw synthesis, latency and token usage: [`20260831T193145Z/agents/deepseek-v4-pro.jsonl`](20260831T193145Z/agents/deepseek-v4-pro.jsonl)
-- Empty round 2 and round 3 through MR2 finalization: [`20260831T193145Z/rounds/`](20260831T193145Z/rounds/)
-- Agent/server logs, including Gemini MR2 HTTP 504 context: [`20260831T193145Z/logs/`](20260831T193145Z/logs/)
-- Round-3 MR3 finalization artifact: **not recorded; run manually interrupted**
-- Derived MR3 attack report: **not recorded; run manually interrupted before runner cleanup**
-- Summary/terminal transaction status: **not recorded; run manually interrupted**
-
-The JSON/JSONL files above are authoritative. Exact preprocessing answers and, when produced, final synthesis texts are embedded in each run analysis; the raw files remain authoritative for request context, parsed response structure, timestamps, token usage and errors.
