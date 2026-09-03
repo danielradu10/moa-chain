@@ -349,9 +349,9 @@ The synthesis was accepted cleanly: every recorded model evaluation approved it,
 
 > A mutex is needed to protect shared mutable state from concurrent access by multiple goroutines. Without synchronization, two goroutines can read and write the same data at the same time, which can cause data races, lost updates, inconsistent or stale reads, corrupted state, and even crashes or runtime panics in cases like concurrent map access. A mutex provides mutual exclusion so only one goroutine can enter the critical section at a time, making the protected operations atomic relative to other goroutines. It also establishes the necessary happens-before relationship in Go’s memory model, so writes made by one goroutine become visible to others after the lock is released. In short, mutexes are used to ensure correctness, consistency, atomicity, and proper memory visibility when shared state is accessed concurrently.
 
-- Final canonical synthesis and status: `round-0000-0003.json`, under `mr3.final_answers[0]`.
-- Original proposer response and synthesis token/latency data: `gpt-5.4-mini-1.jsonl`, in the `operation: "synthesize"` record.
-- Complete validator evaluation decisions: the nine non-proposer traces in `agents/`, each in its `operation: "evaluate_synthesis"` record. All nine recorded decisions were `approved: true`; only the six approvals received before finalization appear in the canonical `synthesis_approvers` list.
+- Final canonical synthesis and status: recorded under `mr3.final_answers[0]`.
+- Original proposer response and synthesis token/latency data: recorded in the `operation: "synthesize"` record.
+- Complete validator evaluation decisions: recorded across the nine non-proposer traces, each in its `operation: "evaluate_synthesis"` record. All nine recorded decisions were `approved: true`; only the six approvals received before finalization appear in the canonical `synthesis_approvers` list.
 
 #### F. Latency analysis
 
@@ -1739,7 +1739,7 @@ There was no semantic split among certificate judges. Every honest judge recorde
 
 #### C. MR3 inputs, rejections and final answer
 
-The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v2, v3, v4, v5, v6, v8 and v9. The verbatim strings are preserved in `gpt-5.4-mini-1.jsonl` and match the eight honest candidate answers in the round-3 artifact. Neither hallucinated answer appears in the request. MR3 synthesized only honest inputs and produced:
+The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v2, v3, v4, v5, v6, v8 and v9. The verbatim strings are preserved in the proposer's trace and match the eight honest candidate answers in the round-3 artifact. Neither hallucinated answer appears in the request. MR3 synthesized only honest inputs and produced:
 
 > A mutex is needed to prevent data races when multiple goroutines access shared mutable state concurrently. Without synchronization, reads and writes can interleave, causing inconsistent, corrupted, or unpredictable results. A mutex provides mutual exclusion so only one goroutine enters the critical section at a time, making updates safe and orderly. It also ensures writes are properly visible to other goroutines, which helps preserve correctness and invariants.
 
@@ -1804,7 +1804,7 @@ The semantic label was not stable, although rejection was unanimous. V7 split ev
 
 #### D. MR3 inputs, rejections and final answer
 
-The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v10, v2, v3, v4, v5, v6 and v9. The verbatim strings are preserved in `gpt-5.4-mini-1.jsonl` and match the eight honest candidate answers in the round-3 artifact. Neither malicious answer appears, so synthesis used only honest inputs and produced:
+The v1 synthesis request contains exactly eight `correct_answers`, in producer order v1, v10, v2, v3, v4, v5, v6 and v9. The verbatim strings are preserved in the proposer's trace and match the eight honest candidate answers in the round-3 artifact. Neither malicious answer appears, so synthesis used only honest inputs and produced:
 
 > A mutex is needed to prevent race conditions when multiple goroutines access the same shared mutable state concurrently. Without synchronization, reads and writes can interleave unpredictably, causing data corruption, lost updates, and inconsistent results. A mutex provides mutual exclusion so only one goroutine can enter the critical section at a time, making updates atomic from the program’s perspective. This helps preserve data consistency and makes behavior deterministic and safe.
 
