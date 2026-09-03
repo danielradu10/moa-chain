@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect x="0" y="0" width="1200" height="700" fill="#fcfcfb"/>
+
+  <!-- Title -->
+  <text x="20" y="34" font-size="22" font-weight="700" fill="#0b0b0b">Validator scoring &amp; expert routing</text>
+  <text x="20" y="58" font-size="14" fill="#52514e">How MR1's semantic agreement determines the domain-aware committee selected in MR2</text>
+
+  <!-- MR1 box -->
+  <rect x="20" y="90" width="560" height="400" rx="6" fill="#ffffff" stroke="#c3c2b7" stroke-width="1"/>
+  <rect x="20" y="90" width="560" height="44" rx="6" fill="#2a78d6"/>
+  <rect x="20" y="118" width="560" height="16" fill="#2a78d6"/>
+  <text x="44" y="118" font-size="16" font-weight="700" fill="#ffffff">MR1 — global-score committee selection</text>
+
+  <text x="44" y="176" font-size="20" fill="#0b0b0b">S₁(v) = G(v)</text>
+  <text x="44" y="198" font-size="13" fill="#52514e">First-mini-round score is simply the validator's global reliability score.</text>
+
+  <text x="44" y="248" font-size="20" fill="#0b0b0b">W(v) = ⌊α · S₁(v)⌋</text>
+  <text x="44" y="270" font-size="13" fill="#52514e">Selection weight scales with score. The first validator drawn becomes leader;</text>
+  <text x="44" y="288" font-size="13" fill="#52514e">the rest form the committee. A weight that floors to zero is not eligible.</text>
+
+  <text x="44" y="338" font-size="15" font-weight="700" fill="#0b0b0b">MR1 certificate</text>
+  <text x="44" y="360" font-size="13" fill="#52514e">A subdomain is retained only if supported by at least</text>
+  <text x="44" y="380" font-size="13" fill="#52514e">Q = ⌊2G/3⌋ + 1 of the G committee votes — producing a</text>
+  <text x="44" y="400" font-size="13" fill="#52514e">quorum-backed subdomain-frequency map, freq(d) for d ∈ D.</text>
+
+  <text x="44" y="450" font-size="13" fill="#898781">G = committee size · Q = quorum · α = scaling factor</text>
+
+  <!-- Connector -->
+  <line x1="580" y1="290" x2="616" y2="290" stroke="#898781" stroke-width="2"/>
+  <polygon points="616,283 630,290 616,297" fill="#898781"/>
+  <text x="600" y="270" font-size="12" fill="#52514e" text-anchor="middle">freq(d)</text>
+
+  <!-- MR2 box -->
+  <rect x="620" y="90" width="560" height="400" rx="6" fill="#ffffff" stroke="#c3c2b7" stroke-width="1"/>
+  <rect x="620" y="90" width="560" height="44" rx="6" fill="#eb6834"/>
+  <rect x="620" y="118" width="560" height="16" fill="#eb6834"/>
+  <text x="644" y="118" font-size="16" font-weight="700" fill="#ffffff">MR2 — domain-weighted committee selection</text>
+
+  <text x="644" y="176" font-size="18" fill="#0b0b0b">w_d = freq(d) / Σ_(d′∈D) freq(d′)</text>
+  <text x="644" y="198" font-size="13" fill="#52514e">Each subdomain's weight is its share of the selected batch's label frequency.</text>
+
+  <text x="644" y="248" font-size="18" fill="#0b0b0b">S₂(v) = Σ_(d∈D) w_d · DScore(v, d)</text>
+  <text x="644" y="270" font-size="13" fill="#52514e">Validators specialized in the subdomains actually present in this batch</text>
+  <text x="644" y="288" font-size="13" fill="#52514e">score higher for this round than generalists.</text>
+
+  <text x="644" y="338" font-size="15" font-weight="700" fill="#0b0b0b">Same weighted-selection mechanism</text>
+  <text x="644" y="360" font-size="13" fill="#52514e">W(v) = ⌊α · S₂(v)⌋ reuses MR1's deterministic weighted-draw</text>
+  <text x="644" y="380" font-size="13" fill="#52514e">procedure, evaluated with the domain-aware score instead of</text>
+  <text x="644" y="400" font-size="13" fill="#52514e">the global score — so expert routing follows semantic evidence,</text>
+  <text x="644" y="420" font-size="13" fill="#52514e">not a leader's unilateral choice.</text>
+
+  <text x="644" y="450" font-size="13" fill="#898781">DScore(v,d) = validator v's domain-specific score for subdomain d</text>
+
+  <!-- Adversarial selection risk panel -->
+  <rect x="20" y="510" width="1160" height="170" rx="6" fill="#f5f4f1" stroke="#e1e0d9" stroke-width="1"/>
+  <text x="44" y="538" font-size="15" font-weight="700" fill="#0b0b0b">Adversarial selection risk (equal-weight baseline)</text>
+  <text x="44" y="570" font-size="16" fill="#0b0b0b">P(X ≥ q) = Σ (k = q → min(M,c)) [ C(M,k) · C(N−M, c−k) / C(N,c) ],   q = 2⌊(c−1)/3⌋ + 1</text>
+  <text x="44" y="600" font-size="13" fill="#52514e">Probability that a committee of size c, drawn from N validators containing M malicious ones, selects a malicious semantic quorum.</text>
+  <text x="44" y="620" font-size="13" fill="#52514e">Over R independent rounds the cumulative probability is 1 − (1 − P(X ≥ q))ᴿ: small committees carry non-negligible cumulative risk,</text>
+  <text x="44" y="640" font-size="13" fill="#52514e">while larger committees reduce it significantly. This is not just a block-validation concern — the selected group also contributes the</text>
+  <text x="44" y="660" font-size="13" fill="#52514e">signed semantic evidence (labels in MR1, classifications in MR2) that routes and judges the next mini-round.</text>
+</svg>
